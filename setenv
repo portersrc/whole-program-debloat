@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# LLVM 11.0.0
+# branch llvmorg-11.0.0-gt
+export LLVM_BIN=/home/rudy/wo/llvm/llvm-project/build/bin
+export PATH=$PATH:$LLVM_BIN 
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/rudy/wo/whole-program-debloat/build/debloat_prof
