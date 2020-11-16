@@ -17,15 +17,21 @@ import sys
 # will probably be done eventually.
 #
 
+BASE_PATH=''
+if len(sys.argv) == 2:
+    BASE_PATH = sys.argv[1] + '/'
+if len(sys.argv) > 2:
+    print('Unexpected command-line args. FIXME usage (pass input path or nothing (to use curdir)')
 
 
+TRAIN_BASENAME = 'train-debprof.out'
+TEST_BASENAME  = 'test-debprof.out'
+TRAIN_DEBPROF_INPUT_FILENAME  = BASE_PATH + TRAIN_BASENAME
+TEST_DEBPROF_INPUT_FILENAME   = BASE_PATH + TEST_BASENAME
+TRAIN_DEBPROF_OUTPUT_FILENAME = BASE_PATH + 'final-' + TRAIN_BASENAME
+TEST_DEBPROF_OUTPUT_FILENAME  = BASE_PATH + 'final-' + TEST_BASENAME
 
-TRAIN_DEBPROF_INPUT_FILENAME  = 'train-debprof.out'
-TEST_DEBPROF_INPUT_FILENAME   = 'test-debprof.out'
-TRAIN_DEBPROF_OUTPUT_FILENAME = 'final-' + TRAIN_DEBPROF_INPUT_FILENAME
-TEST_DEBPROF_OUTPUT_FILENAME  = 'final-' + TEST_DEBPROF_INPUT_FILENAME
-
-FUNC_SET_IDS_FILENAME = 'debprof-func-set-ids-to-funcs.out'
+FUNC_SET_IDS_FILENAME = BASE_PATH + 'debprof-func-set-ids-to-funcs.out'
 
 DEBPROF_COLUMN_HEADERS = ''
 
