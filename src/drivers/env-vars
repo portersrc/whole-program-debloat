@@ -1,0 +1,50 @@
+#!/bin/bash
+
+CURDIR=`pwd`
+BASE_PATH=/home/rudy/wo/spec/spec2006/benchspec/CPU2006
+
+ALL_PASS_STATS=${CURDIR}/all_pass_stats.txt
+
+PARSE_DEBPROF_PY=/home/rudy/wo/whole-program-debloat/src/learning/parse_debprof_out.py
+
+LEARN_DT_PY=/home/rudy/wo/whole-program-debloat/src/learning/learn_dt.py
+
+BMARKS=(
+	bzip
+	gcc
+	mcf
+	milc
+	namd
+	gobmk
+	soplex
+	povray
+	hmmer
+	sjeng
+	libquantum
+	h264ref
+	lbm
+	omnetpp
+	astar
+	sphinx
+)
+
+declare -A BMARK_TO_FOLDER=(
+	[bzip]=401.bzip2/build/build_base_amd64-m64-gcc43-nn.0000
+	[gcc]=403.gcc/build/build_base_amd64-m64-gcc43-nn.0000
+	[mcf]=429.mcf/build/build_base_amd64-m64-gcc43-nn.0001
+	[milc]=433.milc/build/build_base_amd64-m64-gcc43-nn.0000
+	[namd]=444.namd/build/build_base_amd64-m64-gcc43-nn.0000
+	[gobmk]=445.gobmk/build/build_base_amd64-m64-gcc43-nn.0001
+	[soplex]=450.soplex/build/build_base_amd64-m64-gcc43-nn.0001
+	[povray]=453.povray/build/build_base_amd64-m64-gcc43-nn.0001
+	[hmmer]=456.hmmer/build/build_base_amd64-m64-gcc43-nn.0000
+	[sjeng]=458.sjeng/build/build_base_amd64-m64-gcc43-nn.0000
+	[libquantum]=462.libquantum/build/build_base_amd64-m64-gcc43-nn.0000
+	[h264ref]=464.h264ref/build/build_base_amd64-m64-gcc43-nn.0000
+	[lbm]=470.lbm/build/build_base_amd64-m64-gcc43-nn.0000
+	[omnetpp]=471.omnetpp/build/build_base_amd64-m64-gcc43-nn.0000
+	[astar]=473.astar/build/build_base_amd64-m64-gcc43-nn.0000
+	[sphinx]=482.sphinx3/build/build_base_amd64-m64-gcc43-nn.0000
+)
+
+
