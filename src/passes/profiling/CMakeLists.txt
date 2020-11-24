@@ -1,6 +1,7 @@
 add_library(DebloatProfile MODULE
     DebloatProfile.cpp
     util.cpp
+    backslice.cpp
 )
 
 # Use C++11 to compile your pass (i.e., supply -std=c++11).

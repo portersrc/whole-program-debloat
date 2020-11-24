@@ -4,7 +4,7 @@
 #include <llvm/Demangle/Demangle.h>
 #include <llvm/IR/Module.h>
 
-using namespace llvm;
+#include "DebloatProfile.hpp"
 
 std::string getDemangledName(const Function &F);
 
