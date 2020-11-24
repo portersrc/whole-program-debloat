@@ -203,7 +203,7 @@ bool DebloatProfile::can_ignore_called_func(Function *called_func, CallInst *cal
 bool DebloatProfile::runOnFunction(Function &F)
 {
     unsigned int num_args;
-    bool cannot_instrument;
+    bool can_instrument;
     string func_name;
     CallInst *call_inst;
 
@@ -262,7 +262,7 @@ bool DebloatProfile::runOnFunction(Function &F)
                   << "num_args:" << num_args << "\n");
 
                 set<Value*> func_arguments_set;
-                cannot_instrument = false;
+                can_instrument = true;
 
                 for(unsigned int i = 0 ; i < num_args; i++){
                     Value *argV = call_inst->getArgOperand(i);
@@ -272,7 +272,7 @@ bool DebloatProfile::runOnFunction(Function &F)
                     LLVM_DEBUG(dbgs() << "argument:: " << i << " = " << *argV
                                << " of type::" << rso.str() << "\n");
                     if(dyn_cast<InvokeInst>(argV)){
-                        cannot_instrument = true;
+                        can_instrument = false;
                         LLVM_DEBUG(dbgs() << "IS invoke instr should ignore: "
                                    << *argV);
                         break;
@@ -280,7 +280,7 @@ bool DebloatProfile::runOnFunction(Function &F)
                     if(Instruction *argI = dyn_cast<Instruction>(argV)){
                         if(auto *c = dyn_cast<CallInst>(argI)){
                             if(c->getDereferenceableBytes(0)){
-                                cannot_instrument = true;
+                                can_instrument = false;
                                 LLVM_DEBUG(dbgs()
                                            << "IS invoke instr should ignore: "
                                            << *argV);
@@ -320,16 +320,12 @@ bool DebloatProfile::runOnFunction(Function &F)
                         }
                     }
                 }
-                if(cannot_instrument){
-                    continue;
+                if(can_instrument){
+                    instrument_callsite(call_inst,
+                                        call_inst_to_id[call_inst],
+                                        func_name_to_id[called_func_name],
+                                        func_arguments_set);
                 }
-
-
-                instrument_callsite(call_inst,
-                                    call_inst_to_id[call_inst],
-                                    func_name_to_id[called_func_name],
-                                    func_arguments_set);
-
             }
         }
     }
