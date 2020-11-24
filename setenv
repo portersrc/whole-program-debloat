@@ -1,7 +1,13 @@
 #!/bin/bash
 
 # LLVM 11.0.0
-# branch llvmorg-11.0.0-gt
-export LLVM_BIN=/home/rudy/wo/llvm/llvm-project/build/bin
-export PATH=$PATH:$LLVM_BIN 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/rudy/wo/whole-program-debloat/build/debloat_prof
+export LLVM_DIR=/home/rudy/wo/llvm/llvm-project
+export LLVM_BIN=$LLVM_DIR/build/bin
+
+export PROJ_DIR=/home/rudy/wo/whole-program-debloat
+export PROJ_DEBPROF_LIB=$PROJ_DIR/build/debloat_prof
+export PROJ_PASS_PROFILING=$PROJ_DIR/build/passes/profiling
+
+export PATH=$PATH:$LLVM_BIN
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PROJ_DEBPROF_LIB:$PROJ_PASS_PROFILING
+export LIBRARY_PATH=$LIBRARY_PATH:$PROJ_DEBPROF_LIB
