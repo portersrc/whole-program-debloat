@@ -1,13 +1,12 @@
 #include "backslice.hpp"
 
-void backslice(Instruction *I, std::map<Instruction *, uint64_t> &jump_phi_nodes)
+void backslice(Instruction *I, set<Instruction *> &jump_phi_nodes)
 {
     LLVM_DEBUG(dbgs() << "hit 0\n");
 
     Instruction *I2, *I3;
 
-    // FIXME: jump_phi_nodes needs proper initialization, etc.
-    if(!jump_phi_nodes[I]){
+    if(jump_phi_nodes.count(I) == 0){
         LoadInst *LI = dyn_cast<LoadInst>(I);
         CallInst *CI = dyn_cast<CallInst>(I);
         SelectInst *SI = dyn_cast<SelectInst>(I);
@@ -49,7 +48,7 @@ void backslice(Instruction *I, std::map<Instruction *, uint64_t> &jump_phi_nodes
             * If instruction is a Phi function, we backslice for each operand in the Phi
             * function.
             **************************************************************************/
-            jump_phi_nodes[I] = 1;
+            jump_phi_nodes.insert(I);
             I3 = I;
             while(isa<PHINode>(I3)){
                 I3 = I3->getNextNode();

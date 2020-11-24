@@ -50,7 +50,7 @@ namespace {
         unsigned int func_count;
         dp_stats_t stats;
         set<Loop *> instrumented_loops;
-        std::map<Instruction *, uint64_t> jump_phi_nodes;
+        set<Instruction *> jump_phi_nodes;
         Type *int32Ty;
 
         bool call_inst_is_in_loop(Instruction *call_inst);

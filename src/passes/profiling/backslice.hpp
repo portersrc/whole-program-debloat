@@ -4,8 +4,7 @@
 #include "DebloatProfile.hpp"
 
 
-void backslice(Instruction *I,
-                   std::map<Instruction *, uint64_t> &jump_phi_nodes);
+void backslice(Instruction *I, set<Instruction *> &jump_phi_nodes);
 
 
 #endif
