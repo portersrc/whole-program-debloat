@@ -119,6 +119,10 @@ namespace {
                                      unsigned int callsite_id,
                                      unsigned int called_func_id,
                                      set<Value *> func_arguments_set);
+        void create_the_call(Instruction *insBef,
+                             unsigned int callsite_id,
+                             unsigned int called_func_id,
+                             set<Value *> func_arguments_set);
     };
 }
 
@@ -129,7 +133,6 @@ bool DebloatProfile::doInitialization(Module &M)
     func_count = 0;
 
     int32Ty = IntegerType::getInt32Ty(M.getContext());
-
 
     init_debprof_print_func(M);
     stats.max_num_args = 0;
@@ -351,11 +354,9 @@ void DebloatProfile::instrument_callsite(Instruction *call_inst,
     IRBuilder<> builder(call_inst);
     std::vector<Value *> ArgsV;
 
-
     LLVM_DEBUG(dbgs() << "function::" << *debprof_print_args_func);
     LLVM_DEBUG(dbgs() << "Instrumented for callins::" << call_inst
                << " callsite::"  << callsite_id << "\n");
-
 
 
     // We have to instrument a call to debprof_print_args. To do that, we need
@@ -542,6 +543,86 @@ void DebloatProfile::backslice(Instruction *I)
     }
 }
 
+void DebloatProfile::create_the_call(Instruction *insBef,
+                                     unsigned int callsite_id,
+                                     unsigned int called_func_id,
+                                     set<Value *> func_arguments_set)
+{
+
+    // FIXME for now, instrument just the callsite_id and the
+    // called_func_id
+    IRBuilder<> builder(insBef);
+    std::vector<Value *> ArgsV;
+
+
+    ArgsV.push_back(llvm::ConstantInt::get(int32Ty, 0, false));
+
+    // The next two arguments are always the callsite_id, followd by the
+    // called_func_id.
+    ArgsV.push_back(llvm::ConstantInt::get(int32Ty, callsite_id, false));
+    ArgsV.push_back(llvm::ConstantInt::get(int32Ty, called_func_id, false));
+
+    // Now push the args that were passed at the callsite
+    for(Value *funcArg : func_arguments_set){
+        LLVM_DEBUG(dbgs() << "checking funcArg\n");
+        Value *castedArg = nullptr;
+        if(funcArg != NULL){
+            if (funcArg->getType()->isFloatTy() || funcArg->getType()->isDoubleTy()){
+                LLVM_DEBUG(dbgs() << "float or double\n");
+                castedArg = builder.CreateFPToSI(funcArg, int32Ty);
+            }else if(funcArg->getType()->isIntegerTy()){
+                LLVM_DEBUG(dbgs() << "integer\n");
+                castedArg = builder.CreateIntCast(funcArg, int32Ty, true);
+            }else if(funcArg->getType()->isPointerTy()){
+                LLVM_DEBUG(dbgs() << "pointer\n");
+                castedArg = builder.CreatePtrToInt(funcArg, int32Ty);
+            }
+
+            if(castedArg == nullptr){
+                continue;
+            }
+
+            Instruction *backslice_me = dyn_cast<Instruction>(castedArg);
+            if(backslice_me){
+                backslice(backslice_me);
+                // works, but it dumps the ptr, not the pointed-to value
+                //ArgsV.push_back(backslice_me->getOperand(0));
+
+                // fails at runtime
+                //ArgsV.push_back(builder.CreateIntCast(backslice_me->getOperand(0), int32Ty, true));
+                // not sure what this is even doing. behaves like the naive ptr case
+                //ArgsV.push_back(builder.CreatePtrToInt(backslice_me->getOperand(0), int32Ty));
+
+                ArgsV.push_back(builder.CreateLoad(int32Ty, backslice_me->getOperand(0)));
+
+                LLVM_DEBUG(dbgs() << "pushing::" << *backslice_me->getOperand(0) << "\n");
+                LLVM_DEBUG(dbgs() << "was type:" << *backslice_me->getOperand(0)->getType() << "\n");
+                //LLVM_DEBUG(dbgs() << "was type:" << *(*backslice_me->getOperand(0)).getType() << "\n");
+            }else{
+                ArgsV.push_back(castedArg);
+                LLVM_DEBUG(dbgs() << "pushing::" << *castedArg << "\n");
+            }
+        }
+    }
+    // The size of ArgsV is equal to the final number of args we're passing
+    // to debprof_print_args. Subtract 1 to get the number of variadic args,
+    // and update argument 0 accordingly.
+    unsigned int num_variadic_args = ArgsV.size() - 1;
+    ArgsV[0] = llvm::ConstantInt::get(int32Ty, num_variadic_args, false);
+
+    // Track the max number of args that debprof_print_args is going to write
+    // to file.
+    if(num_variadic_args > stats.max_num_args){
+        stats.max_num_args = num_variadic_args;
+    }
+
+    // Create the call to debprof_print_args
+    Value *callinstr = builder.CreateCall(debprof_print_args_func, ArgsV);
+    LLVM_DEBUG(dbgs() << "callinstr::" << *callinstr << "\n");
+
+}
+
+
 void DebloatProfile::instrument_outside_loop_avail_args(Instruction *call_inst,
                                                         unsigned int callsite_id,
                                                         unsigned int called_func_id,
@@ -558,95 +639,13 @@ void DebloatProfile::instrument_outside_loop_avail_args(Instruction *call_inst,
         if(instrumented_loops.count(L) == 0){
             instrumented_loops.insert(L);
             insBef = preHeaderBB->getTerminator();
-
-            // FIXME for now, instrument just the callsite_id and the
-            // called_func_id
-            IRBuilder<> builder(insBef);
-            std::vector<Value *> ArgsV;
-
-
-
-            ArgsV.push_back(llvm::ConstantInt::get(int32Ty, 0, false));
-
-            // The next two arguments are always the callsite_id, followd by the
-            // called_func_id.
-            ArgsV.push_back(llvm::ConstantInt::get(int32Ty, callsite_id, false));
-            ArgsV.push_back(llvm::ConstantInt::get(int32Ty, called_func_id, false));
-
-            // Now push the args that were passed at the callsite
-            for(Value *funcArg : func_arguments_set){
-                LLVM_DEBUG(dbgs() << "checking funcArg\n");
-                Value *castedArg = nullptr;
-                if(funcArg != NULL){
-                    if (funcArg->getType()->isFloatTy() || funcArg->getType()->isDoubleTy()){
-                        LLVM_DEBUG(dbgs() << "float or double\n");
-                        castedArg = builder.CreateFPToSI(funcArg, int32Ty);
-                    }else if(funcArg->getType()->isIntegerTy()){
-                        LLVM_DEBUG(dbgs() << "integer\n");
-                        castedArg = builder.CreateIntCast(funcArg, int32Ty, true);
-                    }else if(funcArg->getType()->isPointerTy()){
-                        LLVM_DEBUG(dbgs() << "pointer\n");
-                        castedArg = builder.CreatePtrToInt(funcArg, int32Ty);
-                    }
-
-                    if(castedArg == nullptr){
-                        continue;
-                    }
-
-                    Instruction *backslice_me = dyn_cast<Instruction>(castedArg);
-                    if(backslice_me){
-                        backslice(backslice_me);
-                        // works, but it dumps the ptr, not the pointed-to value
-                        //ArgsV.push_back(backslice_me->getOperand(0));
-
-                        // fails at runtime
-                        //ArgsV.push_back(builder.CreateIntCast(backslice_me->getOperand(0), int32Ty, true));
-                        // not sure what this is even doing. behaves like the naive ptr case
-                        //ArgsV.push_back(builder.CreatePtrToInt(backslice_me->getOperand(0), int32Ty));
-
-                        ArgsV.push_back(builder.CreateLoad(int32Ty, backslice_me->getOperand(0)));
-
-                        LLVM_DEBUG(dbgs() << "pushing::" << *backslice_me->getOperand(0) << "\n");
-                        LLVM_DEBUG(dbgs() << "was type:" << *backslice_me->getOperand(0)->getType() << "\n");
-                        //LLVM_DEBUG(dbgs() << "was type:" << *(*backslice_me->getOperand(0)).getType() << "\n");
-                    }else{
-                        ArgsV.push_back(castedArg);
-                        LLVM_DEBUG(dbgs() << "pushing::" << *castedArg << "\n");
-                    }
-                }
-            }
-            // The size of ArgsV is equal to the final number of args we're passing
-            // to debprof_print_args. Subtract 1 to get the number of variadic args,
-            // and update argument 0 accordingly.
-            unsigned int num_variadic_args = ArgsV.size() - 1;
-            ArgsV[0] = llvm::ConstantInt::get(int32Ty, num_variadic_args, false);
-
-            // Track the max number of args that debprof_print_args is going to write
-            // to file.
-            if(num_variadic_args > stats.max_num_args){
-                stats.max_num_args = num_variadic_args;
-            }
-
-            // Create the call to debprof_print_args
-            Value *callinstr = builder.CreateCall(debprof_print_args_func, ArgsV);
-            LLVM_DEBUG(dbgs() << "callinstr::" << *callinstr << "\n");
-
-
-
-
-
-
-
-
-
-
+            create_the_call(insBef, callsite_id, called_func_id, func_arguments_set);
         }
     }else{
         // FIXME see LLVM doxygen on getLoopPreheader. The fix is to walk
         // incoming edges to the first BB of the loop
         stats.num_loops_no_preheader++;
     }
-
 }
 
 
