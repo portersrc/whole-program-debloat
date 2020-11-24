@@ -1,6 +1,6 @@
 add_library(DebloatProfile MODULE
-    # List your source files here.
     DebloatProfile.cpp
+    util.cpp
 )
 
 # Use C++11 to compile your pass (i.e., supply -std=c++11).

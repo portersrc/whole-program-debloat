@@ -31,6 +31,7 @@
 #include <sstream>
 #include "llvm-c/Core.h"
 #include <unordered_set>
+#include "util.h"
 
 
 using namespace llvm;
@@ -41,17 +42,6 @@ using namespace std;
 const int LOOP_BASIC = 0;
 
 
-// TODO move these to a util function when we leave the llvm tree
-std::string getDemangledName(const Function &F) {
-  ItaniumPartialDemangler IPD;
-  std::string name = F.getName().str();
-  if (IPD.partialDemangle(name.c_str())) return name;
-  if (IPD.isFunction())
-    return IPD.getFunctionBaseName(nullptr, nullptr);
-  else return IPD.finishDemangle(nullptr, nullptr);
-}
-
-std::string getDemangledName(const Function *F) { return getDemangledName(*F); }
 
 
 typedef struct{
@@ -207,12 +197,12 @@ bool DebloatProfile::runOnFunction(Function &F)
     string func_name;
     CallInst *call_inst;
 
-    //func_name = getDemangledName(F);
-    //if(func_name == "main"){
-    //    LLVM_DEBUG(dbgs() << "FOUND MAIN\n");
-    //}else{
-    //    LLVM_DEBUG(dbgs() << "NOT MAIN: " << func_name << "\n");
-    //}
+    func_name = getDemangledName(F);
+    if(func_name == "main"){
+        LLVM_DEBUG(dbgs() << "FOUND MAIN\n");
+    }else{
+        LLVM_DEBUG(dbgs() << "NOT MAIN: " << func_name << "\n");
+    }
     LI  = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
     for(Function::iterator it_bb = F.begin();
