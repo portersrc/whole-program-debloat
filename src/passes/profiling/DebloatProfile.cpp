@@ -38,7 +38,7 @@ using namespace std;
 
 #define DEBUG_TYPE "DebloatProfile"
 
-//#define LOOP_BASIC
+const int LOOP_BASIC = 0;
 
 
 // TODO move these to a util function when we leave the llvm tree
@@ -96,7 +96,7 @@ namespace {
         std::map<Instruction*, uint64_t> jumpphinodes;
         Type *int32Ty;
 
-        bool call_inst_is_in_loop(CallInst *call_inst);
+        bool call_inst_is_in_loop(Instruction *call_inst);
         bool can_ignore_called_func(Function *, CallInst *);
         void init_debprof_print_func(Module &);
         void dump_stats(void);
@@ -115,14 +115,11 @@ namespace {
                                                 unsigned int callsite_id,
                                                 unsigned int called_func_id,
                                                 set<Value *> func_arguments_set);
-        void instrument_outside_loop(Instruction *call_inst,
-                                     unsigned int callsite_id,
-                                     unsigned int called_func_id,
-                                     set<Value *> func_arguments_set);
-        void create_the_call(Instruction *insBef,
+        void create_the_call(Instruction *inst_before,
                              unsigned int callsite_id,
                              unsigned int called_func_id,
-                             set<Value *> func_arguments_set);
+                             set<Value *> func_arguments_set,
+                             bool do_backslice);
     };
 }
 
@@ -160,7 +157,7 @@ void DebloatProfile::dump_stats(void)
 }
 
 
-bool DebloatProfile::call_inst_is_in_loop(CallInst *call_inst)
+bool DebloatProfile::call_inst_is_in_loop(Instruction *call_inst)
 {
     if(LI && LI->getLoopFor(call_inst->getParent())) {
         LLVM_DEBUG(dbgs() << "i see this call_inst inside a loop\n");
@@ -328,18 +325,11 @@ bool DebloatProfile::runOnFunction(Function &F)
                 }
 
 
+                instrument_callsite(call_inst,
+                                    call_inst_to_id[call_inst],
+                                    func_name_to_id[called_func_name],
+                                    func_arguments_set);
 
-                if(!call_inst_is_in_loop(call_inst)){
-                    instrument_callsite(call_inst,
-                                        call_inst_to_id[call_inst],
-                                        func_name_to_id[called_func_name],
-                                        func_arguments_set);
-                }else{
-                    instrument_outside_loop(call_inst,
-                                            call_inst_to_id[call_inst],
-                                            func_name_to_id[called_func_name],
-                                            func_arguments_set);
-                }
             }
         }
     }
@@ -351,87 +341,31 @@ void DebloatProfile::instrument_callsite(Instruction *call_inst,
                                         unsigned int called_func_id,
                                         set<Value *> func_arguments_set)
 {
-    IRBuilder<> builder(call_inst);
-    std::vector<Value *> ArgsV;
 
-    LLVM_DEBUG(dbgs() << "function::" << *debprof_print_args_func);
-    LLVM_DEBUG(dbgs() << "Instrumented for callins::" << call_inst
-               << " callsite::"  << callsite_id << "\n");
-
-
-    // We have to instrument a call to debprof_print_args. To do that, we need
-    // to build a list of arguments to pass to it. The first argument
-    // to debprof_print_args is the number of variadic args to follow.
-    // But we can't just use func_arguments_set.size() to help us here,
-    // because we might ignore some arguments. So, push a 0 into the list
-    // as a placeholder. We'll update it after we finish adding the other
-    // arguments.
-    ArgsV.push_back(llvm::ConstantInt::get(int32Ty, 0, false));
-
-    // The next two arguments are always the callsite_id, followd by the
-    // called_func_id.
-    ArgsV.push_back(llvm::ConstantInt::get(int32Ty, callsite_id, false));
-    ArgsV.push_back(llvm::ConstantInt::get(int32Ty, called_func_id, false));
-
-    // Now push the args that were passed at the callsite
-    for(Value *funcArg : func_arguments_set){
-        LLVM_DEBUG(dbgs() << "checking funcArg\n");
-        Value *castedArg = nullptr;
-        if(funcArg != NULL){
-            if (funcArg->getType()->isFloatTy() || funcArg->getType()->isDoubleTy()){
-                LLVM_DEBUG(dbgs() << "float or double\n");
-                castedArg = builder.CreateFPToSI(funcArg, int32Ty);
-            }else if(funcArg->getType()->isIntegerTy()){
-                LLVM_DEBUG(dbgs() << "integer\n");
-                castedArg = builder.CreateIntCast(funcArg, int32Ty, true);
-            }else if(funcArg->getType()->isPointerTy()){
-                LLVM_DEBUG(dbgs() << "pointer\n");
-                castedArg = builder.CreatePtrToInt(funcArg, int32Ty);
-            }
-
-            if(castedArg == nullptr){
-                continue;
-            }
-            ArgsV.push_back(castedArg);
-            LLVM_DEBUG(dbgs() << "pushing::" << *castedArg << "\n");
+    if(!call_inst_is_in_loop(call_inst)){
+        create_the_call(call_inst,
+                        callsite_id,
+                        called_func_id,
+                        func_arguments_set,
+                        false);
+    }else{
+        if(LOOP_BASIC){
+            instrument_outside_loop_basic(call_inst,
+                                          callsite_id,
+                                          called_func_id,
+                                          func_arguments_set);
+        }else{
+            instrument_outside_loop_avail_args(call_inst,
+                                               callsite_id,
+                                               called_func_id,
+                                               func_arguments_set);
         }
     }
-    // The size of ArgsV is equal to the final number of args we're passing
-    // to debprof_print_args. Subtract 1 to get the number of variadic args,
-    // and update argument 0 accordingly.
-    unsigned int num_variadic_args = ArgsV.size() - 1;
-    ArgsV[0] = llvm::ConstantInt::get(int32Ty, num_variadic_args, false);
-
-    // Track the max number of args that debprof_print_args is going to write
-    // to file.
-    if(num_variadic_args > stats.max_num_args){
-        stats.max_num_args = num_variadic_args;
-    }
-
-    // Create the call to debprof_print_args
-    Value *callinstr = builder.CreateCall(debprof_print_args_func, ArgsV);
-    LLVM_DEBUG(dbgs() << "callinstr::" << *callinstr << "\n");
-
 }
 
 
-void DebloatProfile::instrument_outside_loop(Instruction *call_inst,
-                                             unsigned int callsite_id,
-                                             unsigned int called_func_id,
-                                             set<Value *> func_arguments_set)
-{
-#ifdef LOOP_BASIC
-    instrument_outside_loop_basic(call_inst,
-                                  callsite_id,
-                                  called_func_id,
-                                  func_arguments_set);
-#else
-    instrument_outside_loop_avail_args(call_inst,
-                                       callsite_id,
-                                       called_func_id,
-                                       func_arguments_set);
-#endif
-}
+
+
 
 
 /**********************************************
@@ -543,24 +477,36 @@ void DebloatProfile::backslice(Instruction *I)
     }
 }
 
-void DebloatProfile::create_the_call(Instruction *insBef,
+
+void DebloatProfile::create_the_call(Instruction *inst_before,
                                      unsigned int callsite_id,
                                      unsigned int called_func_id,
-                                     set<Value *> func_arguments_set)
+                                     set<Value *> func_arguments_set,
+                                     bool do_backslice)
 {
 
-    // FIXME for now, instrument just the callsite_id and the
-    // called_func_id
-    IRBuilder<> builder(insBef);
+    IRBuilder<> builder(inst_before);
     std::vector<Value *> ArgsV;
 
 
+    LLVM_DEBUG(dbgs() << "Instrumented for callins::" << inst_before
+               << " callsite::"  << callsite_id << "\n");
+
+
+    // We have to instrument a call to debprof_print_args. To do that, we need
+    // to build a list of arguments to pass to it. The first argument
+    // to debprof_print_args is the number of variadic args to follow.
+    // But we can't just use func_arguments_set.size() to help us here,
+    // because we might ignore some arguments. So, push a 0 into the list
+    // as a placeholder. We'll update it after we finish adding the other
+    // arguments.
     ArgsV.push_back(llvm::ConstantInt::get(int32Ty, 0, false));
 
-    // The next two arguments are always the callsite_id, followd by the
+    // The next two arguments are always the callsite_id, followed by the
     // called_func_id.
     ArgsV.push_back(llvm::ConstantInt::get(int32Ty, callsite_id, false));
     ArgsV.push_back(llvm::ConstantInt::get(int32Ty, called_func_id, false));
+
 
     // Now push the args that were passed at the callsite
     for(Value *funcArg : func_arguments_set){
@@ -581,9 +527,8 @@ void DebloatProfile::create_the_call(Instruction *insBef,
             if(castedArg == nullptr){
                 continue;
             }
-
             Instruction *backslice_me = dyn_cast<Instruction>(castedArg);
-            if(backslice_me){
+            if(do_backslice && backslice_me){
                 backslice(backslice_me);
                 // works, but it dumps the ptr, not the pointed-to value
                 //ArgsV.push_back(backslice_me->getOperand(0));
@@ -620,6 +565,7 @@ void DebloatProfile::create_the_call(Instruction *insBef,
     Value *callinstr = builder.CreateCall(debprof_print_args_func, ArgsV);
     LLVM_DEBUG(dbgs() << "callinstr::" << *callinstr << "\n");
 
+
 }
 
 
@@ -629,7 +575,7 @@ void DebloatProfile::instrument_outside_loop_avail_args(Instruction *call_inst,
                                                         set<Value *> func_arguments_set)
 {
     Loop *L;
-    Instruction *insBef;
+    Instruction *inst_before;
     BasicBlock *preHeaderBB;
 
     L = LI->getLoopFor(call_inst->getParent());
@@ -638,8 +584,8 @@ void DebloatProfile::instrument_outside_loop_avail_args(Instruction *call_inst,
         // if we have not yet instrumented this loop...
         if(instrumented_loops.count(L) == 0){
             instrumented_loops.insert(L);
-            insBef = preHeaderBB->getTerminator();
-            create_the_call(insBef, callsite_id, called_func_id, func_arguments_set);
+            inst_before = preHeaderBB->getTerminator();
+            create_the_call(inst_before, callsite_id, called_func_id, func_arguments_set, true);
         }
     }else{
         // FIXME see LLVM doxygen on getLoopPreheader. The fix is to walk
@@ -655,7 +601,7 @@ void DebloatProfile::instrument_outside_loop_basic(Instruction *call_inst,
                                                    set<Value *> func_arguments_set)
 {
     Loop *L;
-    Instruction *insBef;
+    Instruction *inst_before;
     BasicBlock *preHeaderBB;
 
     L = LI->getLoopFor(call_inst->getParent());
@@ -663,11 +609,11 @@ void DebloatProfile::instrument_outside_loop_basic(Instruction *call_inst,
     if(preHeaderBB){
         if(instrumented_loops.count(L) == 0){
             instrumented_loops.insert(L);
-            insBef = preHeaderBB->getTerminator();
+            inst_before = preHeaderBB->getTerminator();
 
             // FIXME for now, instrument just the callsite_id and the
             // called_func_id
-            IRBuilder<> builder(insBef);
+            IRBuilder<> builder(inst_before);
             std::vector<Value *> ArgsV;
             ArgsV.push_back(llvm::ConstantInt::get(int32Ty, 2, false));
             ArgsV.push_back(llvm::ConstantInt::get(int32Ty, callsite_id, false));
