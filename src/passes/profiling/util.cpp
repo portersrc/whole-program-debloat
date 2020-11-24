@@ -1,6 +1,5 @@
 #include "util.h"
 
-// TODO move these to a util function when we leave the llvm tree
 std::string getDemangledName(const Function &F)
 {
     ItaniumPartialDemangler IPD;
