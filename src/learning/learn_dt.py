@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 import sys
 import pandas
 import argparse
@@ -52,7 +53,7 @@ def test_dt(dt, test_x, test_y):
                                 class_names=listClassNames)
      
 
-def train_and_test(training_dataset, test_dataset, split_frac):
+def train_and_test(training_dataset, test_dataset):
     # slice the 1st column to the last one (our features), over all rows
     train_x = training_dataset.values[:,1:]
     # slice the 0th column (we want to predict) over all rows
@@ -82,12 +83,6 @@ if __name__ == '__main__' :
                         required=False,
                         help='Output Data File in CSV Format',
                         default=None)
-    parser.add_argument('-split_frac',
-                        dest='split_frac',
-                        type=float,
-                        required=False,
-                        help='Split of Test and Train',
-                        default=1.0)
     parser.add_argument('-save_plots',
                         dest='save_plots',
                         type=str,
@@ -114,7 +109,6 @@ if __name__ == '__main__' :
     else: 
         test_csvFileName = args.test_csv_file_name
 
-    split_frac = args.split_frac
     save_plots = args.save_plots
     do_scaling = args.do_scaling
     max_tree_depth = args.max_tree_depth
@@ -123,4 +117,4 @@ if __name__ == '__main__' :
     test_dataframe_fromcsv= read_csv_get_dataframe(test_csvFileName)
 
     training_dataset, test_dataset = dataframe_fromcsv, test_dataframe_fromcsv
-    train_and_test(training_dataset, test_dataset, split_frac)
+    train_and_test(training_dataset, test_dataset)
