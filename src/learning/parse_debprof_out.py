@@ -204,9 +204,9 @@ post_process(TRAIN_DEBPROF_INPUT_FILENAME, fp_train_out)
 post_process(TEST_DEBPROF_INPUT_FILENAME, fp_test_out)
 
 
-fp_func_set_ids.write('predicted_func_set_id: called_func_id1,called_func_id2,...\n')
+fp_func_set_ids.write('predicted_func_set_id called_func_id1,called_func_id2,...\n')
 for called_funcs in called_funcs_to_id:
-    fp_func_set_ids.write('{}: {}\n'.format(called_funcs_to_id[called_funcs],
+    fp_func_set_ids.write('{} {}\n'.format(called_funcs_to_id[called_funcs],
                                             called_funcs))
                                             
     
