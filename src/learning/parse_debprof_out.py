@@ -204,10 +204,14 @@ post_process(TRAIN_DEBPROF_INPUT_FILENAME, fp_train_out)
 post_process(TEST_DEBPROF_INPUT_FILENAME, fp_test_out)
 
 
+# Write the func set IDs and their corresponding functions to file.
+# We sort by func-set-id (so we read it directly in order into a buffer later
+# and use the index for the ID.
+# Even though the func set ID should be equivalent to the index in this loop,
+# we write it to file in case of sanity check later.
 fp_func_set_ids.write('predicted_func_set_id called_func_id1,called_func_id2,...\n')
-for called_funcs in called_funcs_to_id:
-    fp_func_set_ids.write('{} {}\n'.format(called_funcs_to_id[called_funcs],
-                                            called_funcs))
+for called_funcs, func_set_id in sorted(called_funcs_to_id.items(), key=lambda x: x[1]):
+    fp_func_set_ids.write('{} {}\n'.format(func_set_id, called_funcs))
                                             
     
 fp_train_out.close()
