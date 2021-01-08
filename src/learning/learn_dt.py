@@ -11,6 +11,7 @@ from sklearn.metrics import auc
 import matplotlib.pyplot as plt
 from sklearn.externals import joblib
 
+import DecisionTreeToCpp as to_cpp
 
 
 
@@ -51,6 +52,9 @@ def test_dt(dt, test_x, test_y):
                                 out_file=f,
                                 feature_names=list(training_dataset)[1:],
                                 class_names=listClassNames)
+    print(to_cpp.get_code(dt))
+    to_cpp.save_code(dt)
+
      
 
 def train_and_test(training_dataset, test_dataset):
