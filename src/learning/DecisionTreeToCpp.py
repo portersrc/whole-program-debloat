@@ -20,7 +20,7 @@ def get_code(tree, function_name="debrt_decision_tree"):
     def recurse(left, right, threshold, features, node, tabs):
         code = ''
         if threshold[node] != -2:
-            code += '%sif (feature_vector.at(%s) <= %s) {\n' % (tabs * '\t', features[node], round(threshold[node], 2))
+            code += '%sif (feature_vector[%s] <= %s) {\n' % (tabs * '\t', features[node], int(threshold[node]))
             tabs += 1
 
             if left[node] != -1:
@@ -39,7 +39,7 @@ def get_code(tree, function_name="debrt_decision_tree"):
 
         return code
 
-    code = "inline int %s(const std::vector<double> & feature_vector) \n{\n%s}" \
+    code = "inline\nint %s(const int *feature_vector)\n{\n%s}" \
            % (function_name, recurse(left, right, threshold, features, 0, 1))
     return code
 
@@ -55,7 +55,7 @@ Simply include this file to your project and use it
 
 """
 
-    code = '%s#include <vector>\n\n%s' % (preamble, get_code(tree, function_name))
+    code = '%s\n\n%s' % (preamble, get_code(tree, function_name))
 
     with open(function_name + '.h', "w") as f:
         f.write(code)
