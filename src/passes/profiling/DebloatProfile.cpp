@@ -57,6 +57,7 @@ namespace {
         bool can_ignore_called_func(Function *, CallInst *);
         void init_debprof_print_func(Module &);
         void dump_stats(void);
+        void dump_func_name_to_id(void);
 
         void instrument_callsite(Instruction *call_inst,
                                  unsigned int callsite_id,
@@ -97,6 +98,7 @@ bool DebloatProfile::doInitialization(Module &M)
 bool DebloatProfile::doFinalization(Module &M)
 {
     dump_stats();
+    dump_func_name_to_id();
     return false;
 }
 
@@ -108,6 +110,16 @@ void DebloatProfile::dump_stats(void)
     fprintf(fp, "num_calls_in_loops: %u\n", stats.num_calls_in_loops);
     fprintf(fp, "num_calls_not_in_loops: %u\n", stats.num_calls_not_in_loops);
     fprintf(fp, "num_loops_no_preheader: %u\n", stats.num_loops_no_preheader);
+    fclose(fp);
+}
+
+
+void DebloatProfile::dump_func_name_to_id(void)
+{
+    FILE *fp = fopen("debprof_func_name_to_id.txt", "w");
+    for(auto it = func_name_to_id.begin(); it != func_name_to_id.end(); it++){
+        fprintf(fp, "%s %u\n", it->first.c_str(), it->second);
+    }
     fclose(fp);
 }
 
