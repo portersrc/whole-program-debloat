@@ -1,13 +1,16 @@
 #!/bin/bash
 
-CURDIR=`pwd`
 BASE_PATH=/home/rudy/wo/spec/spec2006/benchspec/CPU2006
 
-ALL_PASS_STATS=${CURDIR}/all_pass_stats.txt
+PASS_STATS=pass_stats.txt
 
 PARSE_DEBPROF_PY=/home/rudy/wo/whole-program-debloat/src/learning/parse_debprof_out.py
 
 LEARN_DT_PY=/home/rudy/wo/whole-program-debloat/src/learning/learn_dt.py
+LEARN_LSTM_PY=/home/rudy/wo/whole-program-debloat/src/learning/learn_lstm.py
+
+LEARN_PY=${LEARN_DT_PY}
+#LEARN_PY=${LEARN_LSTM_PY}
 
 BMARKS=(
 	bzip
