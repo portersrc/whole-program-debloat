@@ -197,7 +197,7 @@ print('  {}'.format(TEST_DEBPROF_INPUT_FILENAME))
 print('max_final_columns = {}'.format(max_final_columns))
 print('PREDICTED_FUNCS_SET_SIZE = {}'.format(PREDICTED_FUNCS_SET_SIZE))
 print()
-print('Starting...')
+print('Sanitizing logs before training...')
 
 
 post_process(TRAIN_DEBPROF_INPUT_FILENAME, fp_train_out)
