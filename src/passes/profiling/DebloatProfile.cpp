@@ -6,7 +6,7 @@
 
 
 
-const int LOOP_BASIC = 0;
+const int LOOP_BASIC = 1;
 
 
 
@@ -396,6 +396,7 @@ void DebloatProfile::create_the_call(Instruction *inst_before,
     // to debprof_print_args. Subtract 1 to get the number of variadic args,
     // and update argument 0 accordingly.
     unsigned int num_variadic_args = ArgsV.size() - 1;
+    LLVM_DEBUG(dbgs() << "num_variadic_args::" << num_variadic_args << "\n");
     ArgsV[0] = llvm::ConstantInt::get(int32Ty, num_variadic_args, false);
 
     // Track the max number of args that debprof_print_args is going to write
@@ -405,6 +406,7 @@ void DebloatProfile::create_the_call(Instruction *inst_before,
     }
 
     // Create the call to debprof_print_args
+    LLVM_DEBUG(dbgs() << "invoking CreateCall\n");
     Value *callinstr = builder.CreateCall(debprof_print_args_func, ArgsV);
     LLVM_DEBUG(dbgs() << "callinstr::" << *callinstr << "\n");
 
