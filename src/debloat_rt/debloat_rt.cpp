@@ -146,8 +146,6 @@ void read_func_sets(void)
     ifstream ifs;
     vector<string> elems;
     int func_set_id;
-    vector<string> func_ids_str;
-    vector<int> func_ids;
 
     ifs.open("debprof-func-set-ids-to-funcs.out");
     if(!ifs.is_open()) {
@@ -160,6 +158,8 @@ void read_func_sets(void)
     i = 0;
     getline(ifs, line); // parse out the header
     while(getline(ifs, line)){
+        vector<string> func_ids_str;
+        vector<int> func_ids;
         elems = split(line, ' ');
         func_set_id = atoi(elems[0].c_str());
         assert(func_set_id == i);
