@@ -18,7 +18,7 @@ import DecisionTreeToCpp as to_cpp
 
 def read_csv_get_dataframe(csvFilename):
     print('Working with csv file: {}'.format(csvFilename))
-    csvData = pandas.read_csv(csvFilename)
+    csvData = pandas.read_csv(csvFilename, header=None, skiprows=1)
     return csvData
 
 
@@ -58,6 +58,7 @@ def test_dt(dt, test_x, test_y):
      
 
 def train_and_test(training_dataset, test_dataset):
+    #print(training_dataset)
     # slice the 1st column to the last one (our features), over all rows
     train_x = training_dataset.values[:,1:]
     # slice the 0th column (we want to predict) over all rows
@@ -117,8 +118,7 @@ if __name__ == '__main__' :
     do_scaling = args.do_scaling
     max_tree_depth = args.max_tree_depth
 
-    dataframe_fromcsv = read_csv_get_dataframe(csvFileName)
-    test_dataframe_fromcsv= read_csv_get_dataframe(test_csvFileName)
+    training_dataset = read_csv_get_dataframe(csvFileName)
+    test_dataset     = read_csv_get_dataframe(test_csvFileName)
 
-    training_dataset, test_dataset = dataframe_fromcsv, test_dataframe_fromcsv
     train_and_test(training_dataset, test_dataset)
