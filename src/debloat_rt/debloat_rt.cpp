@@ -36,6 +36,7 @@ FILE *fp_out;
 
 vector<set<int> > func_sets;
 set<int> *pred_set_p;
+int next_prediction_func_set_id;
 int num_mispredictions;
 int total_predictions;
 
@@ -85,7 +86,6 @@ int debrt_monitor(int argc, ...)
     va_list ap;
     int feature_buf[MAX_NUM_FEATURES];
     int function_were_about_to_call;
-    int next_prediction_func_set_id;
 
     // argc count includes itself, I think. So if argc is 5, it means we'll
     // need a feature buffer size of 4 or larger.
@@ -106,8 +106,8 @@ int debrt_monitor(int argc, ...)
 
     // gather features into a buffer
     va_start(ap, argc);
-    for(i = 1; i < argc; i++){
-        feature_buf[i-1] = va_arg(ap, int);
+    for(i = 0; i < argc; i++){
+        feature_buf[i] = va_arg(ap, int);
     }
     va_end(ap);
 
@@ -115,6 +115,9 @@ int debrt_monitor(int argc, ...)
     // Check if the function we're about to call (which is also in our feature
     // buffer) is in our predicted set
     function_were_about_to_call = feature_buf[CALLED_FUNC_ID_IDX];
+    //fprintf(fp_out, "%d,%d,%d\n", next_prediction_func_set_id,
+    //                           feature_buf[CALLSITE_ID_IDX],
+    //                           function_were_about_to_call);
     if(pred_set_p->find(function_were_about_to_call) == pred_set_p->end()){
         num_mispredictions++;
     }
@@ -205,6 +208,19 @@ void _debrt_destroy(void)
     int rc;
     fprintf(fp_out, "num_mispredictions: %d\n", num_mispredictions);
     fprintf(fp_out, "total_predictions:  %d\n", total_predictions);
+
+    //fprintf(fp_out, "\nfunc_sets:\n");
+    //int i;
+    //for(i = 0; i < func_sets.size(); i++){
+    //    fprintf(fp_out, "%d ", i);
+    //    for(set<int>::iterator it = func_sets[i].begin();
+    //        it != func_sets[i].end();
+    //        it++){
+    //          fprintf(fp_out, "%d,", *it);
+    //    }
+    //    fprintf(fp_out, "\n");
+    //}
+
     rc = fclose(fp_out);
     if(rc == EOF){
         e = errno;
