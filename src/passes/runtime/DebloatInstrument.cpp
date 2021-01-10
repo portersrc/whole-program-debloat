@@ -20,7 +20,29 @@ typedef struct{
 
 
 
+
+
+
+
+
 namespace {
+
+    template<typename Out>
+    void split(const string &s, char delim, Out result)
+    {
+        stringstream ss(s);
+        string item;
+        while(getline(ss, item, delim)){
+            *(result++) = item;
+        }
+    }
+
+    vector<string> split(const string &s, char delim)
+    {
+        vector<string> elems;
+        split(s, delim, back_inserter(elems));
+        return elems;
+    }
 
     struct DebloatInstrument : public FunctionPass {
 
@@ -57,6 +79,7 @@ namespace {
         bool can_ignore_called_func(Function *, CallInst *);
         void init_debrt_monitor_func(Module &);
         void dump_stats(void);
+        void read_func_name_to_id(void);
 
         void instrument_callsite(Instruction *call_inst,
                                  unsigned int callsite_id,
@@ -91,8 +114,31 @@ bool DebloatInstrument::doInitialization(Module &M)
     stats.num_calls_not_in_loops = 0;
     stats.num_calls_in_loops = 0;
     stats.num_loops_no_preheader = 0;
+
+    read_func_name_to_id();
+
     return false;
 }
+
+
+void DebloatInstrument::read_func_name_to_id(void)
+{
+    string line;
+    ifstream ifs;
+    vector<string> elems;
+
+    ifs.open("debprof_func_name_to_id.txt");
+    if(!ifs.is_open()) {
+        perror("Error opening func name to id ile");
+        exit(EXIT_FAILURE);
+    }
+
+    while(getline(ifs, line)){
+        elems = split(line, ' ');
+        func_name_to_id[elems[0]] = atoi(elems[1].c_str());
+    }
+}
+
 
 bool DebloatInstrument::doFinalization(Module &M)
 {
@@ -206,7 +252,8 @@ bool DebloatInstrument::runOnFunction(Function &F)
                 //LLVM_DEBUG(dbgs() <<"\ninstrument_profile call_inst_count:"<<call_inst_count);
                 //LLVM_DEBUG(dbgs() << " CallPredictionTrain: got call instr "<<*call_inst<<"\n");
                 if(func_name_to_id.find(called_func_name) == func_name_to_id.end()){
-                    func_name_to_id[called_func_name] = func_count++;
+                    assert(0); // this is instrumentation... func name should already exist.
+                    //func_name_to_id[called_func_name] = func_count++;
                 }
                 //LLVM_DEBUG(dbgs()<<"with arguments ::\n" );
 
