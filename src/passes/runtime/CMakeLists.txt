@@ -1,6 +1,7 @@
 add_library(DebloatInstrument MODULE
-    # List your source files here.
     DebloatInstrument.cpp
+    util.cpp
+    backslice.cpp
 )
 
 # Use C++11 to compile your pass (i.e., supply -std=c++11).
