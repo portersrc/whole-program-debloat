@@ -178,22 +178,23 @@ def post_process(input_filename, fp_out):
 
 def get_max_final_columns():
     a = count_max_columns(TRAIN_DEBPROF_INPUT_FILENAME)
-    b = count_max_columns(TEST_DEBPROF_INPUT_FILENAME)
+    #b = count_max_columns(TEST_DEBPROF_INPUT_FILENAME)
     # final-*-debprof.out will have a prefixed target value on each row,
     # so it will have 1 more column than the max of the train and test runs.
-    return max(a, b) + 1
+    #return max(a, b) + 1
+    return a + 1
 
 max_final_columns = get_max_final_columns()
 
 fp_train_out = open(TRAIN_DEBPROF_OUTPUT_FILENAME, 'w')
-fp_test_out  = open(TEST_DEBPROF_OUTPUT_FILENAME, 'w')
+#fp_test_out  = open(TEST_DEBPROF_OUTPUT_FILENAME, 'w')
 fp_func_set_ids = open(FUNC_SET_IDS_FILENAME, 'w')
 
 
 print()
 print('input logs:')
 print('  {}'.format(TRAIN_DEBPROF_INPUT_FILENAME))
-print('  {}'.format(TEST_DEBPROF_INPUT_FILENAME))
+#print('  {}'.format(TEST_DEBPROF_INPUT_FILENAME))
 print('max_final_columns = {}'.format(max_final_columns))
 print('PREDICTED_FUNCS_SET_SIZE = {}'.format(PREDICTED_FUNCS_SET_SIZE))
 print()
@@ -201,7 +202,7 @@ print('Sanitizing logs before training...')
 
 
 post_process(TRAIN_DEBPROF_INPUT_FILENAME, fp_train_out)
-post_process(TEST_DEBPROF_INPUT_FILENAME, fp_test_out)
+#post_process(TEST_DEBPROF_INPUT_FILENAME, fp_test_out)
 
 
 # Write the func set IDs and their corresponding functions to file.
@@ -215,13 +216,15 @@ for called_funcs, func_set_id in sorted(called_funcs_to_id.items(), key=lambda x
                                             
     
 fp_train_out.close()
-fp_test_out.close()
+#fp_test_out.close()
 fp_func_set_ids.close()
 
 print('...Done')
 print()
-print('See {} and {} for output log (prefixed predicted-func-set-id on each line, '
-      'and uniform column lengths over all rows)'.format(TRAIN_DEBPROF_OUTPUT_FILENAME, TEST_DEBPROF_OUTPUT_FILENAME))
+#print('See {} and {} for output log (prefixed predicted-func-set-id on each line, '
+#      'and uniform column lengths over all rows)'.format(TRAIN_DEBPROF_OUTPUT_FILENAME, TEST_DEBPROF_OUTPUT_FILENAME))
+print('See {} for output log (prefixed predicted-func-set-id on each line, '
+      'and uniform column lengths over all rows)'.format(TRAIN_DEBPROF_OUTPUT_FILENAME))
 print()
 print('See {} for the mapping of each predicted func set ID to the func IDs '
       'within it'.format(FUNC_SET_IDS_FILENAME))
