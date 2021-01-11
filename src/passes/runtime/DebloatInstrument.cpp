@@ -252,6 +252,10 @@ bool DebloatInstrument::runOnFunction(Function &F)
                 //LLVM_DEBUG(dbgs() <<"\ninstrument_profile call_inst_count:"<<call_inst_count);
                 //LLVM_DEBUG(dbgs() << " CallPredictionTrain: got call instr "<<*call_inst<<"\n");
                 if(func_name_to_id.find(called_func_name) == func_name_to_id.end()){
+                    if(called_func_name == "debrt_monitor"){
+                        continue;
+                    }
+                    LLVM_DEBUG(dbgs()<<"assert 0 called_func_name: "<<called_func_name<<"\n");
                     assert(0); // this is instrumentation... func name should already exist.
                     //func_name_to_id[called_func_name] = func_count++;
                 }
