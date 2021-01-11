@@ -78,14 +78,21 @@ def test_dt(dt, test_x, test_y, verify_y):
     if save_plots != "":
         graphName = save_plots + ".pkl"
         joblib.dump(dt, graphName)
-    accuracy = dt.score(test_x, test_y)
-    predictedY = dt.predict(test_x)
-    pandas.DataFrame(predictedY).to_csv('prediction.csv')
 
-    print("Accuracy: {}".format(accuracy))
-    print("Depth: {}".format(dt.tree_.max_depth))
-    #print("Decision tree path: {}".format(dt.decision_path(trainX[2:3,:])))
-    print("Decision tree: {}".format(dt.n_classes_))
+    #
+    #
+    # XXX disabling all scoring and prediction from scikit for now. We're
+    # doing it online. What matters for now is that we can train the DT in
+    # scikit and write it to file (and its c++ equivalent).
+    #accuracy = dt.score(test_x, test_y)
+    #predictedY = dt.predict(test_x)
+    #pandas.DataFrame(predictedY).to_csv('prediction.csv')
+    #print("Accuracy: {}".format(accuracy))
+    #print("Depth: {}".format(dt.tree_.max_depth))
+    ##print("Decision tree path: {}".format(dt.decision_path(trainX[2:3,:])))
+    #print("Decision tree: {}".format(dt.n_classes_))
+    #
+    #
 
     listClassNames = []
     for cl in range(0,dt.n_classes_):
@@ -99,7 +106,7 @@ def test_dt(dt, test_x, test_y, verify_y):
                                 feature_names=list(training_dataset)[1:],
                                 class_names=listClassNames)
     print(to_cpp.get_code(dt))
-    verify_accuracy(predictedY, verify_y)
+    #verify_accuracy(predictedY, verify_y)
     to_cpp.save_code(dt)
 
      
@@ -111,15 +118,23 @@ def train_and_test(training_dataset, test_dataset):
     # slice the 0th column (we want to predict) over all rows
     train_y = training_dataset.values[:,0]
     # fit only on training data
+
+    #
+    # XXX ignore test data in python for now
     # apply same transformation to test data
-    test_x = test_dataset.values[:,1:]
-    test_y = test_dataset.values[:,0]
-    verify_y = test_dataset.values[:,2] # the actual func (not set) id that got hit at runtime
-    if do_scaling == 1:
-        scaler = StandardScaler()  
-        scaler.fit(train_x)  
-        train_x = scaler.transform(train_x)  
-        test_x = scaler.transform(test_x)  
+    #test_x = test_dataset.values[:,1:]
+    #test_y = test_dataset.values[:,0]
+    #verify_y = test_dataset.values[:,2] # the actual func (not set) id that got hit at runtime
+    #if do_scaling == 1:
+    #    scaler = StandardScaler()  
+    #    scaler.fit(train_x)  
+    #    train_x = scaler.transform(train_x)  
+    #    test_x = scaler.transform(test_x)  
+    verify_y = None
+    test_x = None
+    test_y = None
+    #
+
     dt = train_dt(train_x, train_y)
     test_dt(dt, test_x, test_y, verify_y)
 
@@ -174,7 +189,13 @@ if __name__ == '__main__' :
     max_tree_depth = args.max_tree_depth
 
     training_dataset = read_csv_get_dataframe(csvFileName)
-    test_dataset     = read_csv_get_dataframe(test_csvFileName)
+
+    #
+    # XXX ignore test data in python for now
+    #test_dataset     = read_csv_get_dataframe(test_csvFileName)
+    test_dataset = None
+    #
+    
 
     read_func_sets(func_sets_filename)
 
