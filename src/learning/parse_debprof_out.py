@@ -149,7 +149,7 @@ def get_num_columns_to_pad():
     return max_final_columns - num_args
 
 
-def empty_line_buf():
+def empty_line_buf(fp_out, fp_filtered_out):
     global curr_line_to_write
     global line_buf
     global buf_idx 
@@ -175,7 +175,7 @@ def empty_line_buf():
             for i in range(get_num_columns_to_pad()):
                 curr_line_to_write = curr_line_to_write+',0'
             line_to_write = '{},{}\n'.format(func_set_id, curr_line_to_write)
-            write_to_logs(line_to_write)
+            write_to_logs(line_to_write, fp_out, fp_filtered_out)
 
 
 def write_to_logs(line_to_write, fp_out, fp_filtered_out):
@@ -205,8 +205,8 @@ def post_process(input_filename, fp_out, fp_filtered_out):
             for i in range(get_num_columns_to_pad()):
                 curr_line_to_write = curr_line_to_write+',0'
             line_to_write = '{},{}\n'.format(func_set_id, curr_line_to_write)
-            write_to_logs(line_to_write)
-        empty_line_buf()
+            write_to_logs(line_to_write, fp_out, fp_filtered_out)
+        empty_line_buf(fp_out, fp_filtered_out)
 
 
 def get_max_final_columns():
