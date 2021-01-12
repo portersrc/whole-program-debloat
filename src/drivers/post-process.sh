@@ -9,4 +9,5 @@ for BMARK in "${BMARKS[@]}"; do
     FOLDER=${BMARK_TO_FOLDER[$BMARK]}
     echo "folder:    ${BASE_PATH}/${FOLDER}"
     ${PARSE_DEBPROF_PY} ${BASE_PATH}/${FOLDER}
+    #${PARSE_DEBPROF_PY} ${BASE_PATH}/${FOLDER} "process-test-data"
 done
