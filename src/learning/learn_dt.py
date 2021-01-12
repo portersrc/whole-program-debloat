@@ -79,20 +79,14 @@ def test_dt(dt, test_x, test_y, verify_y):
         graphName = save_plots + ".pkl"
         joblib.dump(dt, graphName)
 
-    #
-    #
-    # XXX disabling all scoring and prediction from scikit for now. We're
-    # doing it online. What matters for now is that we can train the DT in
-    # scikit and write it to file (and its c++ equivalent).
-    #accuracy = dt.score(test_x, test_y)
-    #predictedY = dt.predict(test_x)
-    #pandas.DataFrame(predictedY).to_csv('prediction.csv')
-    #print("Accuracy: {}".format(accuracy))
-    #print("Depth: {}".format(dt.tree_.max_depth))
-    ##print("Decision tree path: {}".format(dt.decision_path(trainX[2:3,:])))
-    #print("Decision tree: {}".format(dt.n_classes_))
-    #
-    #
+    if do_accuracy:
+        accuracy = dt.score(test_x, test_y)
+        predictedY = dt.predict(test_x)
+        pandas.DataFrame(predictedY).to_csv('prediction.csv')
+        print("Accuracy: {}".format(accuracy))
+        print("Depth: {}".format(dt.tree_.max_depth))
+        #print("Decision tree path: {}".format(dt.decision_path(trainX[2:3,:])))
+        print("Decision tree: {}".format(dt.n_classes_))
 
     listClassNames = []
     for cl in range(0,dt.n_classes_):
@@ -106,7 +100,8 @@ def test_dt(dt, test_x, test_y, verify_y):
                                 feature_names=list(training_dataset)[1:],
                                 class_names=listClassNames)
     print(to_cpp.get_code(dt))
-    #verify_accuracy(predictedY, verify_y)
+    if do_accuracy:
+        verify_accuracy(predictedY, verify_y)
     to_cpp.save_code(dt)
 
      
@@ -119,21 +114,19 @@ def train_and_test(training_dataset, test_dataset):
     train_y = training_dataset.values[:,0]
     # fit only on training data
 
-    #
-    # XXX ignore test data in python for now
-    # apply same transformation to test data
-    #test_x = test_dataset.values[:,1:]
-    #test_y = test_dataset.values[:,0]
-    #verify_y = test_dataset.values[:,2] # the actual func (not set) id that got hit at runtime
-    #if do_scaling == 1:
-    #    scaler = StandardScaler()  
-    #    scaler.fit(train_x)  
-    #    train_x = scaler.transform(train_x)  
-    #    test_x = scaler.transform(test_x)  
     verify_y = None
     test_x = None
     test_y = None
-    #
+    if do_accuracy:
+        # apply same transformation to test data
+        test_x = test_dataset.values[:,1:]
+        test_y = test_dataset.values[:,0]
+        verify_y = test_dataset.values[:,2] # the actual func (not set) id that got hit at runtime
+        if do_scaling == 1:
+            scaler = StandardScaler()
+            scaler.fit(train_x)
+            train_x = scaler.transform(train_x)
+            test_x = scaler.transform(test_x)
 
     dt = train_dt(train_x, train_y)
     test_dt(dt, test_x, test_y, verify_y)
@@ -169,6 +162,12 @@ if __name__ == '__main__' :
                         required=False,
                         help='Normalize input data',
                         default=0)
+    parser.add_argument('-do_accuracy',
+                        dest='do_accuracy',
+                        type=bool,
+                        required=False,
+                        help='Calculate accuracy (requires test logs/data)',
+                        default=False)
     parser.add_argument('-max_tree_depth',
                         dest='max_tree_depth',
                         type=int,
@@ -187,14 +186,12 @@ if __name__ == '__main__' :
     save_plots = args.save_plots
     do_scaling = args.do_scaling
     max_tree_depth = args.max_tree_depth
+    do_accuracy = args.do_accuracy
 
     training_dataset = read_csv_get_dataframe(csvFileName)
-
-    #
-    # XXX ignore test data in python for now
-    #test_dataset     = read_csv_get_dataframe(test_csvFileName)
     test_dataset = None
-    #
+    if do_accuracy:
+        test_dataset = read_csv_get_dataframe(test_csvFileName)
     
 
     read_func_sets(func_sets_filename)
