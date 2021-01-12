@@ -18,9 +18,18 @@ import sys
 #
 
 BASE_PATH=''
-if len(sys.argv) == 2:
+if len(sys.argv) > 1:
     BASE_PATH = sys.argv[1] + '/'
-if len(sys.argv) > 2:
+
+# support a "test" argument, to indicate you want post-processing on the test
+# files.  requires you to pass the path before it, if you use this option.
+PROCESS_TEST_DATA = False
+if len(sys.argv) == 3:
+    assert sys.argv[2] == 'test'
+    PROCESS_TEST_DATA = True
+
+
+if len(sys.argv) > 3:
     print('Unexpected command-line args. FIXME usage (pass input path or nothing (to use curdir)')
 
 
@@ -31,6 +40,7 @@ TEST_DEBPROF_INPUT_FILENAME   = BASE_PATH + TEST_BASENAME
 TRAIN_DEBPROF_OUTPUT_FILENAME = BASE_PATH + 'final-' + TRAIN_BASENAME
 TRAIN_FILTERED_DEBPROF_OUTPUT_FILENAME = BASE_PATH + 'final-filtered-' + TRAIN_BASENAME
 TEST_DEBPROF_OUTPUT_FILENAME  = BASE_PATH + 'final-' + TEST_BASENAME
+TEST_FILTERED_DEBPROF_OUTPUT_FILENAME  = BASE_PATH + 'final-filtered-' + TEST_BASENAME
 
 FUNC_SET_IDS_FILENAME = BASE_PATH + 'debprof-func-set-ids-to-funcs.out'
 
@@ -167,7 +177,7 @@ def empty_line_buf():
             write_to_logs(line_to_write)
 
 
-def write_to_logs(line_to_write):
+def write_to_logs(line_to_write, fp_out, fp_filtered_out):
     global func_id_to_samples
     if line_to_write:
         # CALLED_FUNC_ID_IDX + 1 b/c line-to-write is output and has the
@@ -177,16 +187,16 @@ def write_to_logs(line_to_write):
             func_id_to_samples[called_func_id] = 0
         if func_id_to_samples[called_func_id] < CALLED_FUNC_SAMPLES_THRESHOLD:
             func_id_to_samples[called_func_id] += 1
-            fp_train_filtered_out.write(line_to_write)
-    fp_train_out.write(line_to_write)
+            fp_filtered_out.write(line_to_write)
+    fp_out.write(line_to_write)
 
 
-def post_process(input_filename):
+def post_process(input_filename, fp_out, fp_filtered_out):
     global curr_line_to_write
     with open(input_filename) as f:
         prime_line_buf(f)
-        fp_train_out.write('predicted_func_set_id,{}'.format(DEBPROF_COLUMN_HEADERS))
-        fp_train_filtered_out.write('predicted_func_set_id,{}'.format(DEBPROF_COLUMN_HEADERS))
+        fp_out.write('predicted_func_set_id,{}'.format(DEBPROF_COLUMN_HEADERS))
+        fp_filtered_out.write('predicted_func_set_id,{}'.format(DEBPROF_COLUMN_HEADERS))
         for line in f:
             line = line.strip()
             update_line_buf(line)
@@ -200,32 +210,37 @@ def post_process(input_filename):
 
 def get_max_final_columns():
     a = count_max_columns(TRAIN_DEBPROF_INPUT_FILENAME)
-    #b = count_max_columns(TEST_DEBPROF_INPUT_FILENAME)
-    # final-*-debprof.out will have a prefixed target value on each row,
-    # so it will have 1 more column than the max of the train and test runs.
-    #return max(a, b) + 1
+    if PROCESS_TEST_DATA:
+        b = count_max_columns(TEST_DEBPROF_INPUT_FILENAME)
+        # final-*-debprof.out will have a prefixed target value on each row,
+        # so it will have 1 more column than the max of the train and test runs.
+        return max(a, b) + 1
     return a + 1
 
 max_final_columns = get_max_final_columns()
 
 fp_train_out = open(TRAIN_DEBPROF_OUTPUT_FILENAME, 'w')
 fp_train_filtered_out = open(TRAIN_FILTERED_DEBPROF_OUTPUT_FILENAME, 'w')
-#fp_test_out  = open(TEST_DEBPROF_OUTPUT_FILENAME, 'w')
+if PROCESS_TEST_DATA:
+    fp_test_out = open(TEST_DEBPROF_OUTPUT_FILENAME, 'w')
+    fp_test_filtered_out = open(TEST_FILTERED_DEBPROF_OUTPUT_FILENAME, 'w')
 fp_func_set_ids = open(FUNC_SET_IDS_FILENAME, 'w')
 
 
 print()
 print('input logs:')
 print('  {}'.format(TRAIN_DEBPROF_INPUT_FILENAME))
-#print('  {}'.format(TEST_DEBPROF_INPUT_FILENAME))
+if PROCESS_TEST_DATA:
+    print('  {}'.format(TEST_DEBPROF_INPUT_FILENAME))
 print('max_final_columns = {}'.format(max_final_columns))
 print('PREDICTED_FUNCS_SET_SIZE = {}'.format(PREDICTED_FUNCS_SET_SIZE))
 print()
 print('Sanitizing logs before training...')
 
 
-post_process(TRAIN_DEBPROF_INPUT_FILENAME)
-#post_process(TEST_DEBPROF_INPUT_FILENAME, fp_test_out)
+post_process(TRAIN_DEBPROF_INPUT_FILENAME, fp_train_out, fp_train_filtered_out)
+if PROCESS_TEST_DATA:
+    post_process(TEST_DEBPROF_INPUT_FILENAME, fp_test_out, fp_test_filtered_out)
 
 
 # Write the func set IDs and their corresponding functions to file.
@@ -240,15 +255,20 @@ for called_funcs, func_set_id in sorted(called_funcs_to_id.items(), key=lambda x
     
 fp_train_out.close()
 fp_train_filtered_out.close()
-#fp_test_out.close()
+if PROCESS_TEST_DATA:
+    fp_test_out.close()
+    fp_test_filtered_out.close()
 fp_func_set_ids.close()
 
 print('...Done')
 print()
-#print('See {} and {} for output log (prefixed predicted-func-set-id on each line, '
-#      'and uniform column lengths over all rows)'.format(TRAIN_DEBPROF_OUTPUT_FILENAME, TEST_DEBPROF_OUTPUT_FILENAME))
-print('See {} for output log (prefixed predicted-func-set-id on each line, '
-      'and uniform column lengths over all rows)'.format(TRAIN_DEBPROF_OUTPUT_FILENAME))
+if PROCESS_TEST_DATA:
+    print('See {} and {} for output log (prefixed predicted-func-set-id on each line, '
+          'and uniform column lengths over all rows)'.format(TRAIN_DEBPROF_OUTPUT_FILENAME,
+                                                             TEST_DEBPROF_OUTPUT_FILENAME))
+else:
+    print('See {} for output log (prefixed predicted-func-set-id on each line, '
+          'and uniform column lengths over all rows)'.format(TRAIN_DEBPROF_OUTPUT_FILENAME))
 print()
 print('See {} for the mapping of each predicted func set ID to the func IDs '
       'within it'.format(FUNC_SET_IDS_FILENAME))
