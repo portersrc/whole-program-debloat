@@ -29,6 +29,7 @@ TEST_BASENAME  = 'test-debprof.out'
 TRAIN_DEBPROF_INPUT_FILENAME  = BASE_PATH + TRAIN_BASENAME
 TEST_DEBPROF_INPUT_FILENAME   = BASE_PATH + TEST_BASENAME
 TRAIN_DEBPROF_OUTPUT_FILENAME = BASE_PATH + 'final-' + TRAIN_BASENAME
+TRAIN_FILTERED_DEBPROF_OUTPUT_FILENAME = BASE_PATH + 'final-filtered-' + TRAIN_BASENAME
 TEST_DEBPROF_OUTPUT_FILENAME  = BASE_PATH + 'final-' + TEST_BASENAME
 
 FUNC_SET_IDS_FILENAME = BASE_PATH + 'debprof-func-set-ids-to-funcs.out'
@@ -68,6 +69,12 @@ buf_called_func_ids = [''] * PREDICTED_FUNCS_SET_SIZE
 called_funcs_to_id   = {}
 called_funcs_counter = 0
 
+
+# A mapping from a function ID that we've seen called in the logs, to the
+# number of samples that we've seen so far for it in the log. We will up
+# write up to some CALLED_FUNC_SAMPLES_THRESHOLD in our filtered output.
+func_id_to_samples = {}
+CALLED_FUNC_SAMPLES_THRESHOLD = 100
 
 def count_max_columns(filename):
     print('Checking {} for max columns'.format(filename))
@@ -131,7 +138,7 @@ def get_num_columns_to_pad():
     return max_final_columns - num_args
 
 
-def empty_line_buf(fp_out):
+def empty_line_buf():
     global curr_line_to_write
     global line_buf
     global buf_idx 
@@ -157,14 +164,29 @@ def empty_line_buf(fp_out):
             for i in range(get_num_columns_to_pad()):
                 curr_line_to_write = curr_line_to_write+',0'
             line_to_write = '{},{}\n'.format(func_set_id, curr_line_to_write)
-            fp_out.write(line_to_write)
+            write_to_logs(line_to_write)
 
 
-def post_process(input_filename, fp_out):
+def write_to_logs(line_to_write):
+    global func_id_to_samples
+    if line_to_write:
+        # CALLED_FUNC_ID_IDX + 1 b/c line-to-write is output and has the
+        # predicted as the 0th element now. So called func id has shifted up 1
+        called_func_id = line_to_write.split(',')[CALLED_FUNC_ID_IDX+1]
+        if called_func_id not in func_id_to_samples:
+            func_id_to_samples[called_func_id] = 0
+        if func_id_to_samples[called_func_id] < CALLED_FUNC_SAMPLES_THRESHOLD:
+            func_id_to_samples[called_func_id] += 1
+            fp_train_filtered_out.write(line_to_write)
+    fp_train_out.write(line_to_write)
+
+
+def post_process(input_filename):
     global curr_line_to_write
     with open(input_filename) as f:
         prime_line_buf(f)
-        fp_out.write('predicted_func_set_id,{}'.format(DEBPROF_COLUMN_HEADERS))
+        fp_train_out.write('predicted_func_set_id,{}'.format(DEBPROF_COLUMN_HEADERS))
+        fp_train_filtered_out.write('predicted_func_set_id,{}'.format(DEBPROF_COLUMN_HEADERS))
         for line in f:
             line = line.strip()
             update_line_buf(line)
@@ -172,8 +194,8 @@ def post_process(input_filename, fp_out):
             for i in range(get_num_columns_to_pad()):
                 curr_line_to_write = curr_line_to_write+',0'
             line_to_write = '{},{}\n'.format(func_set_id, curr_line_to_write)
-            fp_out.write(line_to_write)
-        empty_line_buf(fp_out)
+            write_to_logs(line_to_write)
+        empty_line_buf()
 
 
 def get_max_final_columns():
@@ -187,6 +209,7 @@ def get_max_final_columns():
 max_final_columns = get_max_final_columns()
 
 fp_train_out = open(TRAIN_DEBPROF_OUTPUT_FILENAME, 'w')
+fp_train_filtered_out = open(TRAIN_FILTERED_DEBPROF_OUTPUT_FILENAME, 'w')
 #fp_test_out  = open(TEST_DEBPROF_OUTPUT_FILENAME, 'w')
 fp_func_set_ids = open(FUNC_SET_IDS_FILENAME, 'w')
 
@@ -201,7 +224,7 @@ print()
 print('Sanitizing logs before training...')
 
 
-post_process(TRAIN_DEBPROF_INPUT_FILENAME, fp_train_out)
+post_process(TRAIN_DEBPROF_INPUT_FILENAME)
 #post_process(TEST_DEBPROF_INPUT_FILENAME, fp_test_out)
 
 
@@ -216,6 +239,7 @@ for called_funcs, func_set_id in sorted(called_funcs_to_id.items(), key=lambda x
                                             
     
 fp_train_out.close()
+fp_train_filtered_out.close()
 #fp_test_out.close()
 fp_func_set_ids.close()
 
