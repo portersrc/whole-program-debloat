@@ -21,11 +21,12 @@ BASE_PATH=''
 if len(sys.argv) > 1:
     BASE_PATH = sys.argv[1] + '/'
 
-# support a "test" argument, to indicate you want post-processing on the test
-# files.  requires you to pass the path before it, if you use this option.
+# support a "process-test-data" argument, to indicate you want post-processing
+# on the test files.  requires you to pass the path before it, if you use this
+# option.
 PROCESS_TEST_DATA = False
 if len(sys.argv) == 3:
-    assert sys.argv[2] == 'test'
+    assert sys.argv[2] == 'process-test-data'
     PROCESS_TEST_DATA = True
 
 
