@@ -173,6 +173,7 @@ int debrt_monitor(int argc, ...)
     static int buf_elems = 0;
     int i;
     va_list ap;
+    int callsite_were_about_to_call;
     int function_were_about_to_call;
 
     // argc count includes itself, I think. So if argc is 5, it means we'll
@@ -190,8 +191,11 @@ int debrt_monitor(int argc, ...)
     if(buf_elems < 5){
         // pull out just the callsite ID (which is the 0th element)
         va_start(ap, argc);
-        feature_buf_big[fb_idx + buf_elems] = va_arg(ap, int);
+        callsite_were_about_to_call = va_arg(ap, int);
+        function_were_about_to_call = va_arg(ap, int);
         va_end(ap);
+        //feature_buf_big[fb_idx + buf_elems] = callsite_were_about_to_call;
+        feature_buf_big[fb_idx + buf_elems] = function_were_about_to_call;
         buf_elems++;
 
         // once buf is primed, get our first prediction.
@@ -220,11 +224,14 @@ int debrt_monitor(int argc, ...)
     // we're about to call (which is what we predicted as part of our last
     // predicted set)
     va_start(ap, argc);
-    feature_buf_big[fb_idx] = va_arg(ap, int);
+    callsite_were_about_to_call = va_arg(ap, int);
     function_were_about_to_call = va_arg(ap, int);
     va_end(ap);
+    //feature_buf_big[fb_idx] = callsite_were_about_to_call;
+    feature_buf_big[fb_idx] = function_were_about_to_call;
 
     // Check if the function we're about to call is in our predicted set
+    //if(pred_set_p->find(callsite_were_about_to_call) == pred_set_p->end()){
     if(pred_set_p->find(function_were_about_to_call) == pred_set_p->end()){
         num_mispredictions++;
     }

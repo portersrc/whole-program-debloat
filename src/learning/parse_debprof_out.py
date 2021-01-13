@@ -72,6 +72,7 @@ buf_called_func_ids = [''] * PREDICTED_FUNCS_SET_SIZE
 
 NUM_FEATURE_ELEMS = 5
 buf_callsite_ids = []
+buf_function_ids = []
 
 # Map a unique string of called func IDs to a unique integer ID
 # This integer ID will be the target value of the predictor.
@@ -187,6 +188,7 @@ def empty_line_buf(fp_out, fp_filtered_out, fp_callsite_out):
 def write_to_logs(line_to_write, fp_out, fp_filtered_out, fp_callsite_out):
     global func_id_to_samples
     global buf_callsite_ids
+    global buf_function_ids
 
     if line_to_write:
         #
@@ -213,12 +215,19 @@ def write_to_logs(line_to_write, fp_out, fp_filtered_out, fp_callsite_out):
         #    fp_filtered_out.write(line_to_write)
     fp_out.write(line_to_write)
 
-    buf_callsite_ids.insert(0, line_to_write.split(',')[CALLSITE_ID_IDX+1])
-    if len(buf_callsite_ids) > NUM_FEATURE_ELEMS:
-        buf_callsite_ids.pop()
-        assert len(buf_callsite_ids) == NUM_FEATURE_ELEMS
+    #buf_callsite_ids.insert(0, line_to_write.split(',')[CALLSITE_ID_IDX+1])
+    #if len(buf_callsite_ids) > NUM_FEATURE_ELEMS:
+    #    buf_callsite_ids.pop()
+    #    assert len(buf_callsite_ids) == NUM_FEATURE_ELEMS
+    #    callsite_line = '{},{}\n'.format(line_to_write.split(',')[0],
+    #                                     ','.join(buf_callsite_ids))
+    #    fp_callsite_out.write(callsite_line)
+    buf_function_ids.insert(0, line_to_write.split(',')[CALLED_FUNC_ID_IDX+1])
+    if len(buf_function_ids) > NUM_FEATURE_ELEMS:
+        buf_function_ids.pop()
+        assert len(buf_function_ids) == NUM_FEATURE_ELEMS
         callsite_line = '{},{}\n'.format(line_to_write.split(',')[0],
-                                         ','.join(buf_callsite_ids))
+                                         ','.join(buf_function_ids))
         fp_callsite_out.write(callsite_line)
 
 
