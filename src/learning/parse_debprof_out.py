@@ -86,6 +86,7 @@ called_funcs_counter = 0
 # write up to some CALLED_FUNC_SAMPLES_THRESHOLD in our filtered output.
 func_id_to_samples = {}
 CALLED_FUNC_SAMPLES_THRESHOLD = 100
+FULL_LINE_SAMPLES_THRESHOLD = 100
 
 def count_max_columns(filename):
     print('Checking {} for max columns'.format(filename))
@@ -181,6 +182,10 @@ def empty_line_buf(fp_out, fp_filtered_out):
 def write_to_logs(line_to_write, fp_out, fp_filtered_out):
     global func_id_to_samples
     if line_to_write:
+        #
+        # XXX wasn't at all effective for DTs. This technique
+        # just checks for 100 samples of a particular called-func-id
+        #
         # CALLED_FUNC_ID_IDX + 1 b/c line-to-write is output and has the
         # predicted as the 0th element now. So called func id has shifted up 1
         called_func_id = line_to_write.split(',')[CALLED_FUNC_ID_IDX+1]
@@ -189,6 +194,16 @@ def write_to_logs(line_to_write, fp_out, fp_filtered_out):
         if func_id_to_samples[called_func_id] < CALLED_FUNC_SAMPLES_THRESHOLD:
             func_id_to_samples[called_func_id] += 1
             fp_filtered_out.write(line_to_write)
+
+        #
+        # XXX Commenting out... end up with a huge log, whether 100 or 1000
+        # full line samples.
+        #
+        #if line_to_write not in func_id_to_samples:
+        #    func_id_to_samples[line_to_write] = 0
+        #if func_id_to_samples[line_to_write] < FULL_LINE_SAMPLES_THRESHOLD:
+        #    func_id_to_samples[line_to_write] += 1
+        #    fp_filtered_out.write(line_to_write)
     fp_out.write(line_to_write)
 
 
