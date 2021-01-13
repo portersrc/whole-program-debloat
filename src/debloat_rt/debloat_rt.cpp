@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include <set>
+#include <queue>
 #include "debrt_decision_tree.h"
 
 using namespace std;
@@ -79,7 +80,7 @@ vector<string> split(const string &s, char delim)
 //    at the next function call.
 //
 extern "C" {
-int debrt_monitor(int argc, ...)
+int debrt_monitor_orig(int argc, ...)
 {
     static int lib_initialized = 0;
     int i;
@@ -130,6 +131,58 @@ int debrt_monitor(int argc, ...)
     return 0;
 }
 }
+
+/*extern "C" {
+int debrt_monitor(int argc, ...)
+{
+    static int lib_initialized = 0;
+    int i;
+    va_list ap;
+    int feature_buf[MAX_NUM_FEATURES];
+    int function_were_about_to_call;
+
+    // argc count includes itself, I think. So if argc is 5, it means we'll
+    // need a feature buffer size of 4 or larger.
+    assert((argc-1) <= MAX_NUM_FEATURES);
+
+    // initialize library
+    if(!lib_initialized){
+        _debrt_init(); // ignore return
+        lib_initialized = 1;
+        // Get a new prediction
+        next_prediction_func_set_id = debrt_decision_tree(feature_buf);
+        pred_set_p = &func_sets[next_prediction_func_set_id];
+        return 0;
+    }
+
+    // XXX can we avoid this memset?
+    memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
+
+    // gather features into a buffer
+    va_start(ap, argc);
+    for(i = 0; i < argc; i++){
+        feature_buf[i] = va_arg(ap, int);
+    }
+    va_end(ap);
+
+
+    // Check if the function we're about to call (which is also in our feature
+    // buffer) is in our predicted set
+    function_were_about_to_call = feature_buf[CALLED_FUNC_ID_IDX];
+    //fprintf(fp_out, "%d,%d,%d\n", next_prediction_func_set_id,
+    //                           feature_buf[CALLSITE_ID_IDX],
+    //                           function_were_about_to_call);
+    if(pred_set_p->find(function_were_about_to_call) == pred_set_p->end()){
+        num_mispredictions++;
+    }
+    total_predictions++;
+
+    // Get a new prediction
+    next_prediction_func_set_id = debrt_decision_tree(feature_buf);
+    pred_set_p = &func_sets[next_prediction_func_set_id];
+
+    return 0;
+}*/
 
 
 // Read the all func set IDs and their corresponding func IDs into an array
