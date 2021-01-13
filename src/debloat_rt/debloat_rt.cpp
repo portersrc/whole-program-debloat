@@ -96,6 +96,17 @@ int debrt_monitor_orig(int argc, ...)
     if(!lib_initialized){
         _debrt_init(); // ignore return
         lib_initialized = 1;
+        // FIXME BEGIN copy-pasted code...
+        // XXX can we avoid this memset?
+        memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
+
+        // gather features into a buffer
+        va_start(ap, argc);
+        for(i = 0; i < argc; i++){
+            feature_buf[i] = va_arg(ap, int);
+        }
+        va_end(ap);
+        // FIXME END copy-pasted code...
         // Get a new prediction
         next_prediction_func_set_id = debrt_decision_tree(feature_buf);
         pred_set_p = &func_sets[next_prediction_func_set_id];
