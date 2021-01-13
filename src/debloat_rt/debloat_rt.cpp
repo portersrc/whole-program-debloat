@@ -46,6 +46,13 @@ int  _debrt_init(void);
 void _debrt_destroy(void);
 
 
+#define NUM_FEATURE_ELEMS 5
+#define NUM_FEATURE_BUF_BIG_ELEMS (NUM_FEATURE_ELEMS * 100)
+#define FP_IDX_BASE (NUM_FEATURE_BUF_BIG_ELEMS - NUM_FEATURE_ELEMS - 1)
+int feature_buf_big[NUM_FEATURE_BUF_BIG_ELEMS];
+int fb_idx = FP_IDX_BASE;
+
+
 
 
 
@@ -143,13 +150,29 @@ int debrt_monitor_orig(int argc, ...)
 }
 }
 
-/*extern "C" {
+
+
+//
+// General idea behind this approach:
+// We're going to use just the callsite IDs to make a prediction. We assume
+// the original instrumentation is still passing all of the function args
+// as before, but we just ignore them. We pull out just the callsite ID.
+// We're using the last ~5 callsite IDs to determine what the next
+// functions will be. Thus, our features are now an ordered list of the
+// last 5 functions. In order to avoid an std queue and converting it
+// to an int[] on every function call, we just keep a "feature_buf_big" that
+// can hold much more history. We keep an index into it called "fb_idx" that
+// lets us insert new functions at the "front", and then decrement. When
+// we pass the feature_buf_big to the DT, we don't need to pass a size or
+// anything, b/c it should only be indexing up to 5 elements from it.
+//
+extern "C" {
 int debrt_monitor(int argc, ...)
 {
     static int lib_initialized = 0;
+    static int buf_elems = 0;
     int i;
     va_list ap;
-    int feature_buf[MAX_NUM_FEATURES];
     int function_were_about_to_call;
 
     // argc count includes itself, I think. So if argc is 5, it means we'll
@@ -160,40 +183,60 @@ int debrt_monitor(int argc, ...)
     if(!lib_initialized){
         _debrt_init(); // ignore return
         lib_initialized = 1;
-        // Get a new prediction
-        next_prediction_func_set_id = debrt_decision_tree(feature_buf);
-        pred_set_p = &func_sets[next_prediction_func_set_id];
+
+    }
+
+    // prime the buffer
+    if(buf_elems < 5){
+        // pull out just the callsite ID (which is the 0th element)
+        va_start(ap, argc);
+        feature_buf_big[fb_idx + buf_elems] = va_arg(ap, int);
+        va_end(ap);
+        buf_elems++;
+
+        // once buf is primed, get our first prediction.
+        if(buf_elems == 5){
+            // Get a new prediction
+            next_prediction_func_set_id = debrt_decision_tree(&feature_buf_big[fb_idx]);
+            pred_set_p = &func_sets[next_prediction_func_set_id];
+        }
         return 0;
     }
 
-    // XXX can we avoid this memset?
-    memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
+    // ... execution reaches here when the lib is initialized and the buffer
+    // is primed
 
-    // gather features into a buffer
-    va_start(ap, argc);
-    for(i = 0; i < argc; i++){
-        feature_buf[i] = va_arg(ap, int);
+    fb_idx--;
+
+    // "reset" feature-buf-big.
+    // Move the fb_idx back to its starting position. Copy elements that we
+    // need up to the top
+    if(fb_idx < 0){
+        fb_idx = FP_IDX_BASE;
+        memcpy(&feature_buf_big[fb_idx+1], &feature_buf_big[0], sizeof(int)*(NUM_FEATURE_ELEMS-1));
     }
+
+    // pull out the callsite ID (which we use for predicting) and the function
+    // we're about to call (which is what we predicted as part of our last
+    // predicted set)
+    va_start(ap, argc);
+    feature_buf_big[fb_idx] = va_arg(ap, int);
+    function_were_about_to_call = va_arg(ap, int);
     va_end(ap);
 
-
-    // Check if the function we're about to call (which is also in our feature
-    // buffer) is in our predicted set
-    function_were_about_to_call = feature_buf[CALLED_FUNC_ID_IDX];
-    //fprintf(fp_out, "%d,%d,%d\n", next_prediction_func_set_id,
-    //                           feature_buf[CALLSITE_ID_IDX],
-    //                           function_were_about_to_call);
+    // Check if the function we're about to call is in our predicted set
     if(pred_set_p->find(function_were_about_to_call) == pred_set_p->end()){
         num_mispredictions++;
     }
     total_predictions++;
 
     // Get a new prediction
-    next_prediction_func_set_id = debrt_decision_tree(feature_buf);
+    next_prediction_func_set_id = debrt_decision_tree(&feature_buf_big[fb_idx]);
     pred_set_p = &func_sets[next_prediction_func_set_id];
 
     return 0;
-}*/
+}
+}
 
 
 // Read the all func set IDs and their corresponding func IDs into an array
