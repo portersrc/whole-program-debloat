@@ -40,12 +40,14 @@ TRAIN_DEBPROF_INPUT_FILENAME  = BASE_PATH + TRAIN_BASENAME
 TEST_DEBPROF_INPUT_FILENAME   = BASE_PATH + TEST_BASENAME
 TRAIN_DEBPROF_OUTPUT_FILENAME = BASE_PATH + 'final-' + TRAIN_BASENAME
 TRAIN_FILTERED_DEBPROF_OUTPUT_FILENAME = BASE_PATH + 'final-filtered-' + TRAIN_BASENAME
+TRAIN_CALLSITE_DEBPROF_OUTPUT_FILENAME = BASE_PATH + 'final-callsite-' + TRAIN_BASENAME
 TEST_DEBPROF_OUTPUT_FILENAME  = BASE_PATH + 'final-' + TEST_BASENAME
 TEST_FILTERED_DEBPROF_OUTPUT_FILENAME  = BASE_PATH + 'final-filtered-' + TEST_BASENAME
 
 FUNC_SET_IDS_FILENAME = BASE_PATH + 'debprof-func-set-ids-to-funcs.out'
 
 DEBPROF_COLUMN_HEADERS = ''
+DEBPROF_CALLSITE_COLUMN_HEADERS = 'callsite_id_0,callsite_id_1,...'
 
 
 
@@ -67,6 +69,9 @@ line_buf = [None] * PREDICTED_FUNCS_SET_SIZE
 buf_idx  = 0
 
 buf_called_func_ids = [''] * PREDICTED_FUNCS_SET_SIZE
+
+NUM_FEATURE_ELEMS = 5
+buf_callsite_ids = [''] * PREDICTED_FUNCS_SET_SIZE
 
 # Map a unique string of called func IDs to a unique integer ID
 # This integer ID will be the target value of the predictor.
@@ -150,7 +155,7 @@ def get_num_columns_to_pad():
     return max_final_columns - num_args
 
 
-def empty_line_buf(fp_out, fp_filtered_out):
+def empty_line_buf(fp_out, fp_filtered_out, fp_callsite_out):
     global curr_line_to_write
     global line_buf
     global buf_idx 
@@ -176,11 +181,13 @@ def empty_line_buf(fp_out, fp_filtered_out):
             for i in range(get_num_columns_to_pad()):
                 curr_line_to_write = curr_line_to_write+',0'
             line_to_write = '{},{}\n'.format(func_set_id, curr_line_to_write)
-            write_to_logs(line_to_write, fp_out, fp_filtered_out)
+            write_to_logs(line_to_write, fp_out, fp_filtered_out, fp_callsite_out)
 
 
-def write_to_logs(line_to_write, fp_out, fp_filtered_out):
+def write_to_logs(line_to_write, fp_out, fp_filtered_out, fp_callsite_out):
     global func_id_to_samples
+    global buf_callsite_ids
+
     if line_to_write:
         #
         # XXX wasn't at all effective for DTs. This technique
@@ -206,13 +213,21 @@ def write_to_logs(line_to_write, fp_out, fp_filtered_out):
         #    fp_filtered_out.write(line_to_write)
     fp_out.write(line_to_write)
 
+    buf_callsite_ids.insert(0, line_to_write.split(',')[CALLSITE_ID_IDX+1])
+    if len(buf_callsite_ids) > NUM_FEATURE_ELEMS:
+        buf_callsite_ids.pop()
+        assert len(buf_callsite_ids) == NUM_FEATURE_ELEMS
+        callsite_line = line_to_write.split(',')[0] + ',' + ','.join(buf_callsite_ids)
+        fp_callsite_out.write(callsite_line)
 
-def post_process(input_filename, fp_out, fp_filtered_out):
+
+def post_process(input_filename, fp_out, fp_filtered_out, fp_callsite_out):
     global curr_line_to_write
     with open(input_filename) as f:
         prime_line_buf(f)
         fp_out.write('predicted_func_set_id,{}'.format(DEBPROF_COLUMN_HEADERS))
         fp_filtered_out.write('predicted_func_set_id,{}'.format(DEBPROF_COLUMN_HEADERS))
+        fp_callsite_out.write('predicted_func_set_id,{}'.format(DEBPROF_CALLSITE_COLUMN_HEADERS))
         for line in f:
             line = line.strip()
             update_line_buf(line)
@@ -220,8 +235,8 @@ def post_process(input_filename, fp_out, fp_filtered_out):
             for i in range(get_num_columns_to_pad()):
                 curr_line_to_write = curr_line_to_write+',0'
             line_to_write = '{},{}\n'.format(func_set_id, curr_line_to_write)
-            write_to_logs(line_to_write, fp_out, fp_filtered_out)
-        empty_line_buf(fp_out, fp_filtered_out)
+            write_to_logs(line_to_write, fp_out, fp_filtered_out, fp_callsite_out)
+        empty_line_buf(fp_out, fp_filtered_out, fp_callsite_out)
 
 
 def get_max_final_columns():
@@ -237,6 +252,7 @@ max_final_columns = get_max_final_columns()
 
 fp_train_out = open(TRAIN_DEBPROF_OUTPUT_FILENAME, 'w')
 fp_train_filtered_out = open(TRAIN_FILTERED_DEBPROF_OUTPUT_FILENAME, 'w')
+fp_train_callsite_out = open(TRAIN_CALLSITE_DEBPROF_OUTPUT_FILENAME, 'w')
 if PROCESS_TEST_DATA:
     fp_test_out = open(TEST_DEBPROF_OUTPUT_FILENAME, 'w')
     fp_test_filtered_out = open(TEST_FILTERED_DEBPROF_OUTPUT_FILENAME, 'w')
@@ -254,9 +270,9 @@ print()
 print('Sanitizing logs before training...')
 
 
-post_process(TRAIN_DEBPROF_INPUT_FILENAME, fp_train_out, fp_train_filtered_out)
+post_process(TRAIN_DEBPROF_INPUT_FILENAME, fp_train_out, fp_train_filtered_out, fp_train_callsite_out)
 if PROCESS_TEST_DATA:
-    post_process(TEST_DEBPROF_INPUT_FILENAME, fp_test_out, fp_test_filtered_out)
+    post_process(TEST_DEBPROF_INPUT_FILENAME, fp_test_out, fp_test_filtered_out, fp_train_callsite_out)
 
 
 # Write the func set IDs and their corresponding functions to file.
@@ -271,6 +287,7 @@ for called_funcs, func_set_id in sorted(called_funcs_to_id.items(), key=lambda x
     
 fp_train_out.close()
 fp_train_filtered_out.close()
+fp_train_callsite_out.close()
 if PROCESS_TEST_DATA:
     fp_test_out.close()
     fp_test_filtered_out.close()
