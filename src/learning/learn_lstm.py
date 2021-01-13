@@ -70,7 +70,7 @@ def train_and_test(train_dataset, test_dataset):
     train_x = train_x.reshape((train_x.shape[0], 1, train_x.shape[1]))
     test_x = test_x.reshape((test_x.shape[0], 1, test_x.shape[1]))
     #print(train_x.shape, train_y.shape, test_x.shape, test_y.shape)
-     
+
     # design network
     model = Sequential()
     model.add(LSTM(50, input_shape=(train_x.shape[1], train_x.shape[2])))
@@ -85,6 +85,43 @@ def train_and_test(train_dataset, test_dataset):
                         verbose=2,
                         shuffle=False)
 
+
+def train_only(train_dataset):
+    # ensure all data is float
+    train_values = train_dataset.values.astype('float32')
+    #train_values = train_dataset.astype('float32')
+    train_values[numpy.isnan(train_values)] = 0
+    #print(train_values[:5,:])
+    #sys.exit(42)
+
+    # normalize features
+    scaler = MinMaxScaler(feature_range=(0, 1))
+    scaled_train = scaler.fit_transform(train_values)
+
+    # slice the 1st column to the last one (our features), over all rows
+    train_x = scaled_train[:,1:]
+    # slice the 0th column (we want to predict) over all rows
+    train_y = scaled_train[:,0]
+    # fit only on training data
+
+    # reshape input to be 3D [samples, timesteps, features]
+    train_x = train_x.reshape((train_x.shape[0], 1, train_x.shape[1]))
+    #print(train_x.shape, train_y.shape)
+
+    # design network
+    model = Sequential()
+    model.add(LSTM(50, input_shape=(train_x.shape[1], train_x.shape[2])))
+    model.add(Dense(1))
+    model.compile(loss='mae', optimizer='adam')
+    # fit network
+    history = model.fit(train_x,
+                        train_y,
+                        epochs=50,
+                        batch_size=72,
+                        verbose=2,
+                        shuffle=False)
+    #from kerasify import export_model
+    #export_model(model, 'kerasified.model')
 
 
 
@@ -106,10 +143,20 @@ if __name__ == '__main__' :
                         required=False,
                         help='Save plots to file',
                         default="")
+    # hack... take this param and drop it... allows learn.sh to blindly pass it
+    # to this script without checking. learn-dt makes use of it.
+    parser.add_argument('-func_sets_file_name',
+                        dest='func_sets_file_name',
+                        type=str,
+                        required=False,
+                        help='Ignored. Not used.',
+                        default=None)
 
     args = parser.parse_args()
     save_plots = args.save_plots
     train_dataframe = read_csv_get_dataframe(args.csv_file_name)
-    test_dataframe  = read_csv_get_dataframe(args.test_csv_file_name)
 
-    train_and_test(train_dataframe, test_dataframe)
+    #test_dataframe  = read_csv_get_dataframe(args.test_csv_file_name)
+    #train_and_test(train_dataframe, test_dataframe)
+
+    train_only(train_dataframe)
