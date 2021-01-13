@@ -47,7 +47,7 @@ TEST_FILTERED_DEBPROF_OUTPUT_FILENAME  = BASE_PATH + 'final-filtered-' + TEST_BA
 FUNC_SET_IDS_FILENAME = BASE_PATH + 'debprof-func-set-ids-to-funcs.out'
 
 DEBPROF_COLUMN_HEADERS = ''
-DEBPROF_CALLSITE_COLUMN_HEADERS = 'callsite_id_0,callsite_id_1,...'
+DEBPROF_CALLSITE_COLUMN_HEADERS = 'callsite_id_0,callsite_id_1,...\n'
 
 
 
@@ -71,7 +71,7 @@ buf_idx  = 0
 buf_called_func_ids = [''] * PREDICTED_FUNCS_SET_SIZE
 
 NUM_FEATURE_ELEMS = 5
-buf_callsite_ids = [''] * PREDICTED_FUNCS_SET_SIZE
+buf_callsite_ids = []
 
 # Map a unique string of called func IDs to a unique integer ID
 # This integer ID will be the target value of the predictor.
@@ -217,7 +217,8 @@ def write_to_logs(line_to_write, fp_out, fp_filtered_out, fp_callsite_out):
     if len(buf_callsite_ids) > NUM_FEATURE_ELEMS:
         buf_callsite_ids.pop()
         assert len(buf_callsite_ids) == NUM_FEATURE_ELEMS
-        callsite_line = line_to_write.split(',')[0] + ',' + ','.join(buf_callsite_ids)
+        callsite_line = '{},{}\n'.format(line_to_write.split(',')[0],
+                                         ','.join(buf_callsite_ids))
         fp_callsite_out.write(callsite_line)
 
 
