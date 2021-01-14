@@ -184,7 +184,6 @@ int debrt_monitor(int argc, ...)
     if(!lib_initialized){
         _debrt_init(); // ignore return
         lib_initialized = 1;
-
     }
 
     // prime the buffer
@@ -238,17 +237,18 @@ int debrt_monitor(int argc, ...)
     total_predictions++;
 
     // Get a new prediction
-    next_prediction_func_set_id = debrt_decision_tree(&feature_buf_big[fb_idx]);
+    //next_prediction_func_set_id = debrt_decision_tree(&feature_buf_big[fb_idx]);
+    next_prediction_func_set_id = 5 + debrt_decision_tree(&feature_buf_big[fb_idx]);
     pred_set_p = &func_sets[next_prediction_func_set_id];
 
     // log what features we send to the DT and what prediction we get back.
     // the predictions might not exactly match training data, but the
     // features should match it exactly.
-    fprintf(fp_out, "%d", next_prediction_func_set_id);
-    for(i = 0; i < NUM_FEATURE_ELEMS; i++){
-        fprintf(fp_out, ",%d", feature_buf_big[fb_idx+i]);
-    }
-    fprintf(fp_out, "\n");
+    //fprintf(fp_out, "%d", next_prediction_func_set_id);
+    //for(i = 0; i < NUM_FEATURE_ELEMS; i++){
+    //    fprintf(fp_out, ",%d", feature_buf_big[fb_idx+i]);
+    //}
+    //fprintf(fp_out, "\n");
 
     return 0;
 }
