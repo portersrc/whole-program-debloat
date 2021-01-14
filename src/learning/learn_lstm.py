@@ -143,14 +143,24 @@ if __name__ == '__main__' :
                         required=False,
                         help='Save plots to file',
                         default="")
-    # hack... take this param and drop it... allows learn.sh to blindly pass it
-    # to this script without checking. learn-dt makes use of it.
+    # hack... take these params and drop them... allows learn.sh to blindly
+    # pass them to this script without checking. learn-dt makes use of them
+    # also note: do-accuracy is sort of enabled for the lstm even without
+    # executing the train-and-test stuff. It doesn't show the accuracy
+    # for test data, of course, but with just the train data we at least
+    # see the loss.
     parser.add_argument('-func_sets_file_name',
                         dest='func_sets_file_name',
                         type=str,
                         required=False,
                         help='Ignored. Not used.',
                         default=None)
+    parser.add_argument('-do_accuracy',
+                        dest='do_accuracy',
+                        type=bool,
+                        required=False,
+                        help='Calculate accuracy (requires test logs/data)',
+                        default=False)
 
     args = parser.parse_args()
     save_plots = args.save_plots
