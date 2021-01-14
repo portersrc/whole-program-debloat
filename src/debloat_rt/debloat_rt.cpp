@@ -115,7 +115,8 @@ int debrt_monitor_orig(int argc, ...)
         va_end(ap);
         // FIXME END copy-pasted code...
         // Get a new prediction
-        next_prediction_func_set_id = debrt_decision_tree(feature_buf);
+        //next_prediction_func_set_id = debrt_decision_tree(feature_buf);
+        next_prediction_func_set_id = 6 + debrt_decision_tree(feature_buf);
         pred_set_p = &func_sets[next_prediction_func_set_id];
         return 0;
     }
@@ -143,7 +144,8 @@ int debrt_monitor_orig(int argc, ...)
     total_predictions++;
 
     // Get a new prediction
-    next_prediction_func_set_id = debrt_decision_tree(feature_buf);
+    //next_prediction_func_set_id = debrt_decision_tree(feature_buf);
+    next_prediction_func_set_id = 6 + debrt_decision_tree(feature_buf);
     pred_set_p = &func_sets[next_prediction_func_set_id];
 
     return 0;
@@ -201,6 +203,7 @@ int debrt_monitor(int argc, ...)
         if(buf_elems == 5){
             // Get a new prediction
             next_prediction_func_set_id = debrt_decision_tree(&feature_buf_big[fb_idx]);
+            //next_prediction_func_set_id = 4 + debrt_decision_tree(&feature_buf_big[fb_idx]);
             pred_set_p = &func_sets[next_prediction_func_set_id];
         }
         return 0;
@@ -237,8 +240,8 @@ int debrt_monitor(int argc, ...)
     total_predictions++;
 
     // Get a new prediction
-    //next_prediction_func_set_id = debrt_decision_tree(&feature_buf_big[fb_idx]);
-    next_prediction_func_set_id = 5 + debrt_decision_tree(&feature_buf_big[fb_idx]);
+    next_prediction_func_set_id = debrt_decision_tree(&feature_buf_big[fb_idx]);
+    //next_prediction_func_set_id = 4 + debrt_decision_tree(&feature_buf_big[fb_idx]);
     pred_set_p = &func_sets[next_prediction_func_set_id];
 
     // log what features we send to the DT and what prediction we get back.
