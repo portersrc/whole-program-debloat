@@ -29,6 +29,7 @@ for BMARK in "${BMARKS[@]}"; do
       -func_sets_file_name ${FUNC_SETS_FILENAME} \
       -save_plots ${SAVE_PLOTS} \
       &> ${OUTPUT_FILE}
+      #-do_accuracy True \
     echo
     echo "Dumping ${OUTPUT_FILE} to stdout:"
     cat $OUTPUT_FILE
