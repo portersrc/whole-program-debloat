@@ -1,7 +1,8 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 import sys
 import pandas
 import argparse
+from sklearn.tree import export_text
 from sklearn.tree import export_graphviz
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.preprocessing import StandardScaler
@@ -61,7 +62,7 @@ def read_func_sets(func_sets_filename):
 def verify_accuracy(predictedY, verify_y):
     correct = 0
     assert len(predictedY) == len(verify_y)
-    for i in xrange(len(predictedY)):
+    for i in range(len(predictedY)):
         #print(verify_y[i])
         #print(predictedY[i])
         #print(func_sets[predictedY[i]])
@@ -99,6 +100,8 @@ def test_dt(dt, test_x, test_y, verify_y):
                                 out_file=f,
                                 feature_names=list(training_dataset)[1:],
                                 class_names=listClassNames)
+    with open('exported-scikit-dt.txt', 'w') as f:
+        f.write(export_text(dt, max_depth=1000))
     print(to_cpp.get_code(dt))
     if do_accuracy:
         verify_accuracy(predictedY, verify_y)
