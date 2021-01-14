@@ -43,6 +43,7 @@ TRAIN_FILTERED_DEBPROF_OUTPUT_FILENAME = BASE_PATH + 'final-filtered-' + TRAIN_B
 TRAIN_CALLSITE_DEBPROF_OUTPUT_FILENAME = BASE_PATH + 'final-callsite-' + TRAIN_BASENAME
 TEST_DEBPROF_OUTPUT_FILENAME  = BASE_PATH + 'final-' + TEST_BASENAME
 TEST_FILTERED_DEBPROF_OUTPUT_FILENAME  = BASE_PATH + 'final-filtered-' + TEST_BASENAME
+TEST_CALLSITE_DEBPROF_OUTPUT_FILENAME  = BASE_PATH + 'final-callsite-' + TEST_BASENAME
 
 FUNC_SET_IDS_FILENAME = BASE_PATH + 'debprof-func-set-ids-to-funcs.out'
 
@@ -266,6 +267,7 @@ fp_train_callsite_out = open(TRAIN_CALLSITE_DEBPROF_OUTPUT_FILENAME, 'w')
 if PROCESS_TEST_DATA:
     fp_test_out = open(TEST_DEBPROF_OUTPUT_FILENAME, 'w')
     fp_test_filtered_out = open(TEST_FILTERED_DEBPROF_OUTPUT_FILENAME, 'w')
+    fp_test_callsite_out = open(TEST_CALLSITE_DEBPROF_OUTPUT_FILENAME, 'w')
 fp_func_set_ids = open(FUNC_SET_IDS_FILENAME, 'w')
 
 
@@ -282,7 +284,7 @@ print('Sanitizing logs before training...')
 
 post_process(TRAIN_DEBPROF_INPUT_FILENAME, fp_train_out, fp_train_filtered_out, fp_train_callsite_out)
 if PROCESS_TEST_DATA:
-    post_process(TEST_DEBPROF_INPUT_FILENAME, fp_test_out, fp_test_filtered_out, fp_train_callsite_out)
+    post_process(TEST_DEBPROF_INPUT_FILENAME, fp_test_out, fp_test_filtered_out, fp_test_callsite_out)
 
 
 # Write the func set IDs and their corresponding functions to file.
@@ -301,6 +303,7 @@ fp_train_callsite_out.close()
 if PROCESS_TEST_DATA:
     fp_test_out.close()
     fp_test_filtered_out.close()
+    fp_test_callsite_out.close()
 fp_func_set_ids.close()
 
 print('...Done')
