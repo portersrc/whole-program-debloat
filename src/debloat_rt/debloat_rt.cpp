@@ -4,6 +4,8 @@
 #include <errno.h>                                                              
 #include <assert.h>
 #include <string.h>
+#include <unistd.h>
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -11,7 +13,14 @@
 #include <vector>
 #include <set>
 #include <queue>
+#include <map>
+
 #include "debrt_decision_tree.h"
+
+
+
+
+
 
 using namespace std;
 
@@ -54,6 +63,19 @@ int fb_idx = FP_IDX_BASE;
 
 
 
+// The base address of our executable. Gotten from /proc/<pid>/maps.
+// Tells us where the mapping starts.
+// For the executable, mapped memory for our program.
+long long executable_base_addr;
+
+map<string, int> func_name_to_id;
+map<int, string> func_id_to_name; // convenience
+map<string, long long> func_name_to_offset;
+map<int, long long> func_id_to_page;
+map<int, pair<long long, long> > func_id_to_addr_and_size;
+
+
+
 
 
 template<typename Out>
@@ -72,6 +94,69 @@ vector<string> split(const string &s, char delim)
     split(s, delim, back_inserter(elems));
     return elems;
 }
+
+
+
+
+void _dump_func_name_to_id()
+{
+    for(map<string, int>::iterator it = func_name_to_id.begin(); it != func_name_to_id.end(); it++){
+        cout << it->first << " " << it->second << endl;
+    }
+}
+
+void _dump_func_id_to_page(void)
+{
+    int func_id;
+    long long page;
+    for(map<int, long long>::iterator it = func_id_to_page.begin(); it != func_id_to_page.end(); it++){
+        func_id = it->first;
+        page    = it->second;
+        printf("%d: 0x%llx\n", func_id, page);
+    }
+}
+
+void _dump_func_id_to_addr_and_size(void)
+{
+    int func_id;
+    long long addr;
+    long size;
+    for(auto it = func_id_to_addr_and_size.begin(); it != func_id_to_addr_and_size.end(); it++){
+        func_id = it->first;
+        //pair<long long, long> addr_and_size = it->second;
+        addr = it->second.first;
+        size = it->second.second;
+        //printf("%d: 0x%llx %ld\n", func_id, addr_and_size[0], addr_and_size[1]);
+        //printf("%d:\n", func_id);
+        printf("%d (%s): 0x%llx %ld\n", func_id, func_id_to_name[func_id].c_str(), addr, size);
+    }
+}
+
+
+
+/*
+static inline
+void remap_permissions(char *addr, int size, int perm)
+{
+    char *aligned_addr_base;
+    char *aligned_addr_end;
+    int size_to_remap;
+
+    PRINTF_FLUSH("remap_permissions():\n");
+
+    aligned_addr_base = (char *) ((unsigned long)(addr) & ~(page_size - 1));
+    aligned_addr_end  = (char *) ((unsigned long)(addr+size) & ~(page_size - 1));
+    size_to_remap = page_size + (aligned_addr_end - aligned_addr_base);
+    PRINTF_FLUSH("  aligned_addr_base: %p\n", aligned_addr_base);
+    PRINTF_FLUSH("  aligned_addr_end:  %p\n", aligned_addr_end);
+    PRINTF_FLUSH("  size_to_remap:     %d\n", size_to_remap);
+
+    if(mprotect(aligned_addr_base, size_to_remap, perm) == -1){
+        PRINTF_FLUSH("mprotect error\n");
+    }
+    PRINTF_FLUSH("  mprotect succeeded\n");
+}*/
+
 
 
 
@@ -258,6 +343,8 @@ int debrt_monitor(int argc, ...)
 }
 
 
+
+
 // Read the all func set IDs and their corresponding func IDs into an array
 // of sets called "func_sets". func_sets is indexed by the func set ID. Each
 // element is a set of integers, which are the function IDs of that func set.
@@ -267,7 +354,7 @@ int debrt_monitor(int argc, ...)
 //   0 -1292216545,-1292216556,-1292216557,
 //   1 -1292216556,-1292216557,
 //   2 -1292216544,-1292216556,-1292216557,
-void read_func_sets(void)
+void _read_func_sets(void)
 {
     int i;
     int k;
@@ -303,9 +390,267 @@ void read_func_sets(void)
 }
 
 
+void _read_nm(void)
+{
+    int k;
+    string line;
+    ifstream ifs;
+    vector<string> elems;
+
+    ifs.open("nm.out");
+    if(!ifs.is_open()){
+        perror("Error opening nm file");
+        exit(EXIT_FAILURE);
+    }
+
+    while(getline(ifs, line)){
+        vector<string> line_vec;
+        elems = split(line, ' ');
+        if(elems.size() == 3){
+            //for(k = 0; k < elems.size(); k++){
+            //    cout << elems[k] << " ";
+            //}
+            //cout << endl;
+            long long offset;
+            string func_name;
+            offset = strtoll(elems[0].c_str(), NULL, 16);
+            func_name = elems[2];
+            func_name_to_offset[func_name] = offset;
+        }
+    }
+}
+
+
+void _read_readelf(void)
+{
+    //vector<string> elems;
+    int k;
+    string line;
+    ifstream ifs;
+    int token_start;
+    int token_end;
+    int token_count;
+    string token;
+
+    enum READELF_COLS {
+        RELF_NUM = 0,
+        RELF_VALUE,
+        RELF_SIZE,
+        RELF_TYPE,
+        RELF_BIND,
+        RELF_VIS,
+        RELF_NDX,
+        RELF_NAME
+    };
+    int idx;
+    int which_token;
+    string func_name;
+    long long func_addr;
+    long func_size;
+
+    ifs.open("readelf.out");
+    if(!ifs.is_open()){
+        perror("Error opening nm file");
+        exit(EXIT_FAILURE);
+    }
+
+    while(getline(ifs, line)){
+
+        token_count = 0;
+        idx = 0;
+        while(idx < line.size() && line.at(idx) != '\n'){
+            //printf("%c", line.at(idx));
+            //idx++;
+            while(idx < line.size() && line.at(idx) == ' '){
+                idx++;
+            }
+            token_start = idx;
+            while(idx < line.size() && line.at(idx) != ' ' && line[idx] != '\n'){
+                idx++;
+            }
+            token_end = idx;
+            token = line.substr(token_start, token_end - token_start);
+
+            which_token = token_count;
+
+            // func addr
+            if(which_token == RELF_VALUE){
+                func_addr = strtoll(token.c_str(), NULL, 16);
+
+            }else if(which_token == RELF_SIZE){
+                func_size = strtol(token.c_str(), NULL, 10);
+
+            // func nae
+            }else if(which_token == RELF_NAME){
+                func_name = token;
+                // check that the name is part of whatever we got in nm.
+                if(func_name_to_id.find(func_name) != func_name_to_id.end()){
+                    int func_id = func_name_to_id[func_name];
+                    func_id_to_addr_and_size[func_id] = make_pair(func_addr, func_size);
+                }
+                //cout << func_name <<  " " << func_addr << " " << func_size << endl;
+            }
+            token_count++;
+        }
+        //cout << endl;
+    }
+}
+
+
+// We need to parse the /proc/<pid>/maps file to answer the following question:
+//   What's the base address of the instruction code of the binary?
+//
+// Each line of the file holds a memory mapping.
+// Parse 3 pieces of information on each line:
+//   What's the base address of the mapping?
+//   Is the mapping executable?
+//   Is the mapping of our binary (or is it just some other shared object)?
+//
+// If it's executable and if it's our binary, then we've found the mapping
+// we care about, and the answer to our question is just the base address
+// for that line.
+// Notice that we still check every line to make sure there is only one
+// line with our binary that is executable. If we find more than one of these
+// lines, it means our assumptions were wrong, and we assert.
+// If that happens, I need to look more closely. I'll need to figure out how to
+// determine all such mappings and how to handle them for the purpose of finding
+// each page in memory for every function in the binary.
+long long _get_base_addr_of_main_mapping()
+{
+    #define MAPPING_FILENAME_SZ 128
+    #define MAPPING_LINE_SZ 512
+    FILE *fp;
+    char mapping_filename[MAPPING_FILENAME_SZ];
+    char line[MAPPING_LINE_SZ];
+    int num_spaces;
+
+    snprintf(mapping_filename, MAPPING_FILENAME_SZ, "/proc/%d/maps", getpid());
+    fp = fopen(mapping_filename, "r");
+
+    enum STATES {
+        GET_BASE_ADDR = 0,
+        GET_IS_EXECUTABLE,
+        GET_BINARY_NAME,
+        COMPLETE
+    };
+    int state;
+
+    state = GET_BASE_ADDR;
+    long long base_addr_of_main_mapping = 0;
+
+    int num_executable_binary_lines;
+    num_executable_binary_lines = 0;
+    while(fgets(line, MAPPING_LINE_SZ, fp)){
+        //printf("%s", line);
+        num_spaces = 0;
+        long long addr_base;
+        char *binary_name;
+        char *c = line;
+        state = GET_BASE_ADDR;
+        while(*c){
+            if(state == GET_BASE_ADDR && *c == '-'){
+                *c = '\0';
+                addr_base = strtoll(line, NULL, 16);
+                c++;
+                state++;
+                continue;
+            }
+            if(state == GET_IS_EXECUTABLE && *c == ' '){
+                num_spaces++;
+                c++;
+                if(c[2] == 'x'){
+                    state++;
+                }
+                c += 4;
+                continue;
+            }
+            if(state == GET_BINARY_NAME && *c == ' '){
+                num_spaces++;
+                if(num_spaces == 5){
+                    while(*c == ' '){
+                        c++;
+                    }
+                    binary_name = c;
+                    while(*c != '\n'){
+                        c++;
+                    }
+                    *c = '\0';
+                    c++;
+                    state++;
+                    if(strstr(binary_name, getenv("_")+2) != NULL){
+                        //printf("hit: %s\n", binary_name);
+                        num_executable_binary_lines++;
+                        base_addr_of_main_mapping = addr_base;
+                    }
+                    continue;
+                }
+            }
+            c++;
+        }
+        // If this assertion happens, I may need to handle more than one
+        // executable mapping for the binary, which makes it a little more
+        // complicated when determining the page address for a given function.
+        //printf("num exec lines: %d\n", num_executable_binary_lines);
+        // XXX Also, I believe executing with gdb can cause this assert to
+        // hit. If that happens, the assert will impede meaningful debugging,
+        // so disable when debugging.
+        assert(num_executable_binary_lines == 1);
+    }
+
+
+    fclose(fp);
+
+    return base_addr_of_main_mapping;
+}
+
+void _read_func_name_to_id(void)
+{
+    string line;
+    ifstream ifs;
+    vector<string> elems;
+
+    ifs.open("debprof_func_name_to_id.txt");
+    if(!ifs.is_open()){
+        perror("Error openening func-name-to-id file");
+        exit(EXIT_FAILURE);
+    }
+
+    while(getline(ifs, line)){
+        elems = split(line, ' ');
+        assert(elems.size() == 2);
+        func_name_to_id[elems[0]] = atoi(elems[1].c_str());
+        func_id_to_name[atoi(elems[1].c_str())] = elems[0];
+    }
+}
+
+void _populate_func_id_to_page(void)
+{
+    #define PAGE_SIZE 0x1000
+    string func_name;
+    long long offset;
+    int func_id;
+    long long page;
+    for(map<string, long long>::iterator it = func_name_to_offset.begin(); it != func_name_to_offset.end(); it++){
+        func_name = it->first;
+        offset    = it->second;
+
+        func_id = func_name_to_id[func_name];
+        page = (executable_base_addr + offset) & ~(PAGE_SIZE -1);
+
+        //cout << "func_name: " << func_name << endl;
+        //cout << "offset: "    << offset << endl;
+        //cout << "func_id: "   << func_id << endl;
+        //printf("page: 0x%llx\n", page);
+
+        func_id_to_page[func_id] = page;
+    }
+}
+
+
 int _debrt_init(void)
 {
     int e;
+    long long base_addr;
     const char *output_filename;
 
     output_filename = getenv("DEBRT_OUT");
@@ -320,9 +665,29 @@ int _debrt_init(void)
         return e;
     }
 
-    read_func_sets();
+    _read_func_sets();
+
+
+
+
+    executable_base_addr = _get_base_addr_of_main_mapping();
+    printf("executable_base_addr: 0x%llx\n", executable_base_addr);
+    _read_func_name_to_id();
+    //_dump_func_name_to_id();
+    _read_nm();
+    //_populate_func_id_to_page();
+    _read_readelf();
+
+    //_dump_func_id_to_page();
+    _dump_func_id_to_addr_and_size();
 
     atexit(_debrt_destroy);
+
+    cout << "my pid is " << getpid() << endl;
+
+    while(1){
+        sleep(10);
+    }
 
     return 0;
 }
