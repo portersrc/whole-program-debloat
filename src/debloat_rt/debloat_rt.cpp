@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/mman.h>
 
 #include <iostream>
 #include <fstream>
@@ -25,6 +26,9 @@
 using namespace std;
 
 
+#define PAGE_SIZE 0x1000
+#define RX_PERM   (PROT_READ | PROT_EXEC)
+#define NO_PERM   (PROT_NONE)
 
 
 
@@ -56,6 +60,10 @@ void _debrt_monitor_destroy(void);
 
 int  _debrt_protect_init(void);
 void _debrt_protect_destroy(void);
+void _debrt_protect_all_pages(void);
+void _debrt_protect_no_pages(void); // for debugging
+
+void _remap_permissions(long long addr, long long size, int perm);
 
 
 #define NUM_FEATURE_ELEMS 5
@@ -135,29 +143,27 @@ void _dump_func_id_to_addr_and_size(void)
 }
 
 
-
-/*
-static inline
-void remap_permissions(char *addr, int size, int perm)
+void _remap_permissions(long long addr, long long size, int perm)
 {
     char *aligned_addr_base;
     char *aligned_addr_end;
     int size_to_remap;
 
-    PRINTF_FLUSH("remap_permissions():\n");
+    printf("remap_permissions():\n");
 
-    aligned_addr_base = (char *) ((unsigned long)(addr) & ~(page_size - 1));
-    aligned_addr_end  = (char *) ((unsigned long)(addr+size) & ~(page_size - 1));
-    size_to_remap = page_size + (aligned_addr_end - aligned_addr_base);
-    PRINTF_FLUSH("  aligned_addr_base: %p\n", aligned_addr_base);
-    PRINTF_FLUSH("  aligned_addr_end:  %p\n", aligned_addr_end);
-    PRINTF_FLUSH("  size_to_remap:     %d\n", size_to_remap);
+    aligned_addr_base = (char *) ((addr) & ~(PAGE_SIZE - 1));
+    aligned_addr_end  = (char *) ((addr+size) & ~(PAGE_SIZE - 1));
+    size_to_remap = PAGE_SIZE + (aligned_addr_end - aligned_addr_base);
+    printf("  aligned_addr_base: %p\n", aligned_addr_base);
+    printf("  aligned_addr_end:  %p\n", aligned_addr_end);
+    printf("  size_to_remap:     0x%x\n", size_to_remap);
 
     if(mprotect(aligned_addr_base, size_to_remap, perm) == -1){
-        PRINTF_FLUSH("mprotect error\n");
+        //printf("mprotect error\n");
+        assert(0 && "mprotect error");
     }
-    PRINTF_FLUSH("  mprotect succeeded\n");
-}*/
+    printf("  mprotect succeeded\n");
+}
 
 
 
@@ -344,10 +350,106 @@ int debrt_monitor(int argc, ...)
 }
 }
 
-
 extern "C" {
 int debrt_protect(int argc, ...)
 {
+    static int lib_initialized = 0;
+    static int buf_elems = 0;
+    int i;
+    va_list ap;
+    int callsite_were_about_to_call;
+    int function_were_about_to_call;
+
+    // argc count includes itself, I think. So if argc is 5, it means we'll
+    // need a feature buffer size of 4 or larger.
+    assert((argc-1) <= MAX_NUM_FEATURES);
+
+    // initialize library
+    if(!lib_initialized){
+        _debrt_protect_init(); // ignore return
+        lib_initialized = 1;
+    }
+
+    // prime the buffer
+    if(buf_elems < 5){
+        // pull out just the callsite ID (which is the 0th element)
+        va_start(ap, argc);
+        callsite_were_about_to_call = va_arg(ap, int);
+        function_were_about_to_call = va_arg(ap, int);
+        va_end(ap);
+        //feature_buf_big[fb_idx + buf_elems] = callsite_were_about_to_call;
+        feature_buf_big[fb_idx + buf_elems] = function_were_about_to_call;
+        buf_elems++;
+
+        // once buf is primed, get our first prediction.
+        if(buf_elems == 5){
+            // Get a new prediction
+            next_prediction_func_set_id = debrt_decision_tree(&feature_buf_big[fb_idx]);
+            //next_prediction_func_set_id = 4 + debrt_decision_tree(&feature_buf_big[fb_idx]);
+            pred_set_p = &func_sets[next_prediction_func_set_id];
+
+            // XXX this is was a hack during testing. do_lookup_x from ld will
+            // try (and fail) to find _debrt_protect_no_pages if we execute
+            // _debrt_protect_all_pages() first. So we call no-pages first,
+            // then all-pages.  This was for testing, though... I'm leaving
+            // here in case I need it
+            //_debrt_protect_no_pages();
+            //_debrt_protect_all_pages();
+            //_debrt_protect_no_pages();
+        }
+        return 0;
+    }
+
+    // ... execution reaches here when the lib is initialized and the buffer
+    // is primed
+
+
+    // XXX We'll want to reinstate this. But compiler support and debrt code
+    // needs to be written first
+    //_debrt_protect_all_pages();
+
+    fb_idx--;
+
+    // "reset" feature-buf-big.
+    // Move the fb_idx back to its starting position. Copy elements that we
+    // need up to the top
+    if(fb_idx < 0){
+        fb_idx = FP_IDX_BASE;
+        memcpy(&feature_buf_big[fb_idx+1], &feature_buf_big[0], sizeof(int)*(NUM_FEATURE_ELEMS-1));
+    }
+
+    // pull out the callsite ID (which we use for predicting) and the function
+    // we're about to call (which is what we predicted as part of our last
+    // predicted set)
+    va_start(ap, argc);
+    callsite_were_about_to_call = va_arg(ap, int);
+    function_were_about_to_call = va_arg(ap, int);
+    va_end(ap);
+    //feature_buf_big[fb_idx] = callsite_were_about_to_call;
+    feature_buf_big[fb_idx] = function_were_about_to_call;
+
+    // Check if the function we're about to call is in our predicted set
+    //if(pred_set_p->find(callsite_were_about_to_call) == pred_set_p->end()){
+    if(pred_set_p->find(function_were_about_to_call) == pred_set_p->end()){
+        num_mispredictions++;
+    }
+    total_predictions++;
+
+    // Get a new prediction
+    next_prediction_func_set_id = debrt_decision_tree(&feature_buf_big[fb_idx]);
+    //next_prediction_func_set_id = 4 + debrt_decision_tree(&feature_buf_big[fb_idx]);
+    pred_set_p = &func_sets[next_prediction_func_set_id];
+
+    // log what features we send to the DT and what prediction we get back.
+    // the predictions might not exactly match training data, but the
+    // features should match it exactly.
+    //fprintf(fp_out, "%d", next_prediction_func_set_id);
+    //for(i = 0; i < NUM_FEATURE_ELEMS; i++){
+    //    fprintf(fp_out, ",%d", feature_buf_big[fb_idx+i]);
+    //}
+    //fprintf(fp_out, "\n");
+
+    return 0;
 }
 }
 
@@ -603,12 +705,17 @@ void _set_addr_of_main_mapping(void)
                     c++;
                     state++;
                     if(strstr(binary_name, getenv("_")+2) != NULL){
-                        //printf("hit: %s\n", binary_name);
+                    //if(strstr(binary_name, "401.bzip2_debrt") != NULL){
                         num_executable_binary_lines++;
                         executable_addr_base = addr_base;
                         executable_addr_end  = addr_end;
                     }
                     continue;
+                    //cout << "my pid is " << getpid() << endl;
+                    //cout << "getenv is " << getenv("_") << endl;
+                    //while(1){
+                    //    sleep(10);
+                    //}
                 }
             }
             c++;
@@ -616,10 +723,11 @@ void _set_addr_of_main_mapping(void)
         // If this assertion happens, I may need to handle more than one
         // executable mapping for the binary, which makes it a little more
         // complicated when determining the page address for a given function.
+        // XXX Also, executing with gdb causes this assert to hit, because
+        // getenv("_") ends up returning "gdb" instead of the binary name.
+        // If that happens, the strstr commented code above can be a workaround
+        // during debugging
         //printf("num exec lines: %d\n", num_executable_binary_lines);
-        // XXX Also, I believe executing with gdb can cause this assert to
-        // hit. If that happens, the assert will impede meaningful debugging,
-        // so disable when debugging.
         assert(num_executable_binary_lines == 1);
     }
 
@@ -652,7 +760,6 @@ void _read_func_name_to_id(void)
 
 void _populate_func_id_to_page(void)
 {
-    #define PAGE_SIZE 0x1000
     string func_name;
     long long offset;
     int func_id;
@@ -677,7 +784,6 @@ void _populate_func_id_to_page(void)
 int _debrt_monitor_init(void)
 {
     int e;
-    long long base_addr;
     const char *output_filename;
 
     output_filename = getenv("DEBRT_OUT");
@@ -694,27 +800,7 @@ int _debrt_monitor_init(void)
 
     _read_func_sets();
 
-
-
-
-    _set_addr_of_main_mapping();
-    printf("executable_addr_base: 0x%llx\n", executable_addr_base);
-    printf("executable_addr_end:  0x%llx\n", executable_addr_end);
-    _read_func_name_to_id();
-    //_dump_func_name_to_id();
-    _read_nm();
-    //_populate_func_id_to_page();
-    _read_readelf();
-
-    //_dump_func_id_to_page();
-    _dump_func_id_to_addr_and_size();
-
     atexit(_debrt_monitor_destroy);
-
-    //cout << "my pid is " << getpid() << endl;
-    //while(1){
-    //    sleep(10);
-    //}
 
     return 0;
 }
@@ -748,12 +834,75 @@ void _debrt_monitor_destroy(void)
     }
 }
 
+
+void _debrt_protect_all_pages(void)
+{
+    long long size;
+    size = executable_addr_end - executable_addr_base;
+    size = size - 1; // XXX avoids mapping the end page itself, which causes segfault
+    _remap_permissions(executable_addr_base, size, NO_PERM);
+}
+void _debrt_protect_no_pages(void)
+{
+    long long size;
+    size = executable_addr_end - executable_addr_base;
+    size = size - 1; // XXX avoids mapping the end page itself, which causes segfault
+    _remap_permissions(executable_addr_base, size, RX_PERM);
+}
+
 int _debrt_protect_init(void)
 {
-    return _debrt_monitor_init();
+    int e;
+    const char *output_filename;
+
+    output_filename = getenv("DEBRT_OUT");
+    if(!output_filename){
+        output_filename = DEFAULT_OUTPUT_FILENAME;
+    }
+    fp_out = fopen(output_filename, "w");
+    if(!fp_out){
+        e = errno;
+        fprintf(stderr, "_debrt_monitor_init failed to open %s (errno: %d)\n",
+                        output_filename, e);
+        return e;
+    }
+
+    _read_func_sets();
+
+
+    _set_addr_of_main_mapping();
+    printf("executable_addr_base: 0x%llx\n", executable_addr_base);
+    printf("executable_addr_end:  0x%llx\n", executable_addr_end);
+    _read_func_name_to_id();
+    //_dump_func_name_to_id();
+    _read_nm();
+    //_populate_func_id_to_page();
+    _read_readelf();
+
+    //_dump_func_id_to_page();
+    _dump_func_id_to_addr_and_size();
+
+    //cout << "my pid is " << getpid() << endl;
+    //while(1){
+    //    sleep(10);
+    //}
+
+    atexit(_debrt_protect_destroy);
+
+    return 0;
 }
 
 void _debrt_protect_destroy(void)
 {
-    _debrt_monitor_destroy();
+    int e;
+    int rc;
+    fprintf(fp_out, "num_mispredictions: %d\n", num_mispredictions);
+    fprintf(fp_out, "total_predictions:  %d\n", total_predictions);
+
+    rc = fclose(fp_out);
+    if(rc == EOF){
+        e = errno;
+        fprintf(stderr, "_debrt_monitor_destroy failed to close output file " \
+                        "(errno: %d)\n", e);
+    }
 }

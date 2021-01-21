@@ -66,6 +66,7 @@ namespace {
 
       private:
         Function *debrt_monitor_func;
+        Function *debrt_protect_func;
         map<CallInst *, unsigned int> call_inst_to_id;
         std::map<std::string, unsigned int> func_name_to_id;
         unsigned int call_inst_count;
@@ -77,7 +78,10 @@ namespace {
 
         bool call_inst_is_in_loop(Instruction *call_inst);
         bool can_ignore_called_func(Function *, CallInst *);
+
         void init_debrt_monitor_func(Module &);
+        void init_debrt_protect_func(Module &);
+
         void dump_stats(void);
         void read_func_name_to_id(void);
 
@@ -109,7 +113,9 @@ bool DebloatInstrument::doInitialization(Module &M)
 
     int32Ty = IntegerType::getInt32Ty(M.getContext());
 
-    init_debrt_monitor_func(M);
+    //init_debrt_monitor_func(M);
+    init_debrt_protect_func(M);
+
     stats.max_num_args = 0;
     stats.num_calls_not_in_loops = 0;
     stats.num_calls_in_loops = 0;
@@ -252,7 +258,8 @@ bool DebloatInstrument::runOnFunction(Function &F)
                 //LLVM_DEBUG(dbgs() <<"\ninstrument_profile call_inst_count:"<<call_inst_count);
                 //LLVM_DEBUG(dbgs() << " CallPredictionTrain: got call instr "<<*call_inst<<"\n");
                 if(func_name_to_id.find(called_func_name) == func_name_to_id.end()){
-                    if(called_func_name == "debrt_monitor"){
+                    //if(called_func_name == "debrt_monitor"){
+                    if(called_func_name == "debrt_protect"){
                         continue;
                     }
                     LLVM_DEBUG(dbgs()<<"assert 0 called_func_name: "<<called_func_name<<"\n");
@@ -387,9 +394,9 @@ void DebloatInstrument::create_the_call(Instruction *inst_before,
                << " callsite::"  << callsite_id << "\n");
 
 
-    // We have to instrument a call to debrt_monitor. To do that, we need
+    // We have to instrument a call to debrt_monitor/protect. To do that, we need
     // to build a list of arguments to pass to it. The first argument
-    // to debrt_monitor is the number of variadic args to follow.
+    // to debrt_monitor/protect is the number of variadic args to follow.
     // But we can't just use func_arguments_set.size() to help us here,
     // because we might ignore some arguments. So, push a 0 into the list
     // as a placeholder. We'll update it after we finish adding the other
@@ -444,19 +451,20 @@ void DebloatInstrument::create_the_call(Instruction *inst_before,
         }
     }
     // The size of ArgsV is equal to the final number of args we're passing
-    // to debrt_monitor. Subtract 1 to get the number of variadic args,
+    // to debrt_monitor/protect. Subtract 1 to get the number of variadic args,
     // and update argument 0 accordingly.
     unsigned int num_variadic_args = ArgsV.size() - 1;
     ArgsV[0] = llvm::ConstantInt::get(int32Ty, num_variadic_args, false);
 
-    // Track the max number of args that debrt_monitor is going to write
+    // Track the max number of args that debrt_monitor/protect is going to write
     // to file.
     if(num_variadic_args > stats.max_num_args){
         stats.max_num_args = num_variadic_args;
     }
 
-    // Create the call to debrt_monitor
-    Value *callinstr = builder.CreateCall(debrt_monitor_func, ArgsV);
+    // Create the call to debrt_monitor/protect
+    //Value *callinstr = builder.CreateCall(debrt_monitor_func, ArgsV);
+    Value *callinstr = builder.CreateCall(debrt_protect_func, ArgsV);
     LLVM_DEBUG(dbgs() << "callinstr::" << *callinstr << "\n");
 
 
@@ -512,7 +520,8 @@ void DebloatInstrument::instrument_outside_loop_basic(Instruction *call_inst,
             ArgsV.push_back(llvm::ConstantInt::get(int32Ty, 2, false));
             ArgsV.push_back(llvm::ConstantInt::get(int32Ty, callsite_id, false));
             ArgsV.push_back(llvm::ConstantInt::get(int32Ty, called_func_id, false));
-            Value *callinstr = builder.CreateCall(debrt_monitor_func, ArgsV);
+            //Value *callinstr = builder.CreateCall(debrt_monitor_func, ArgsV);
+            Value *callinstr = builder.CreateCall(debrt_protect_func, ArgsV);
             LLVM_DEBUG(dbgs() << "callinstr(loop)::" << *callinstr << "\n");
         }
     }else{
@@ -529,12 +538,23 @@ void DebloatInstrument::instrument_outside_loop_basic(Instruction *call_inst,
 void DebloatInstrument::init_debrt_monitor_func(Module &M)
 {
     Type *ArgTypes[] = { int32Ty  };
-    string custom_instr_func_name("debrt_monitor");
 
     debrt_monitor_func =
       Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
                        Function::ExternalLinkage,
                        "debrt_monitor",
+                       M);
+
+
+}
+void DebloatInstrument::init_debrt_protect_func(Module &M)
+{
+    Type *ArgTypes[] = { int32Ty  };
+
+    debrt_protect_func =
+      Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+                       Function::ExternalLinkage,
+                       "debrt_protect",
                        M);
 
 
