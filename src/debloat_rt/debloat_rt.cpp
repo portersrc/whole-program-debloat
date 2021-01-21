@@ -34,8 +34,6 @@ using namespace std;
 
 
 
-
-
 // XXX this could be read in? It varies based on the benchmark. we have
 // an assert in case this is violated. Could double size or fix properly
 // if that happens
@@ -81,9 +79,11 @@ long long executable_addr_end  = 0;
 map<string, int> func_name_to_id;
 map<int, string> func_id_to_name; // convenience
 map<string, long long> func_name_to_offset;
-map<int, long long> func_id_to_page;
 map<int, pair<long long, long> > func_id_to_addr_and_size;
 
+
+map<int, vector<long long> > func_id_to_pages;
+set<long long> mapped_pages;
 
 
 
@@ -115,19 +115,24 @@ void _dump_func_name_to_id()
     }
 }
 
-void _dump_func_id_to_page(void)
+void _dump_func_id_to_pages(void)
 {
+    printf("%s\n", __FUNCTION__);
+    int i;
     int func_id;
     long long page;
-    for(map<int, long long>::iterator it = func_id_to_page.begin(); it != func_id_to_page.end(); it++){
+    for(map<int, vector<long long> >::iterator it = func_id_to_pages.begin(); it != func_id_to_pages.end(); it++){
         func_id = it->first;
-        page    = it->second;
-        printf("%d: 0x%llx\n", func_id, page);
+        auto pages    = it->second;
+        for(i = 0; i < pages.size(); i++){
+            printf("%d: 0x%llx\n", func_id, pages[i]);
+        }
     }
 }
 
 void _dump_func_id_to_addr_and_size(void)
 {
+    printf("%s\n", __FUNCTION__);
     int func_id;
     long long addr;
     long size;
@@ -606,13 +611,23 @@ void _read_readelf(void)
             }else if(which_token == RELF_SIZE){
                 func_size = strtol(token.c_str(), NULL, 10);
 
-            // func nae
+            // func name
             }else if(which_token == RELF_NAME){
                 func_name = token;
                 // check that the name is part of whatever we got in nm.
                 if(func_name_to_id.find(func_name) != func_name_to_id.end()){
                     int func_id = func_name_to_id[func_name];
                     func_id_to_addr_and_size[func_id] = make_pair(func_addr, func_size);
+                    vector<long long> pages;
+                    long long first_page;
+                    long long last_page;
+                    long long p;
+                    first_page = (executable_addr_base + func_addr) & ~(PAGE_SIZE-1);
+                    last_page  = (executable_addr_base + func_addr + func_size) & ~(PAGE_SIZE-1);
+                    for(p = first_page; p <= last_page; p += 0x1000){
+                        pages.push_back(p);
+                    }
+                    func_id_to_pages[func_id] = pages;
                 }
                 //cout << func_name <<  " " << func_addr << " " << func_size << endl;
             }
@@ -758,27 +773,6 @@ void _read_func_name_to_id(void)
     }
 }
 
-void _populate_func_id_to_page(void)
-{
-    string func_name;
-    long long offset;
-    int func_id;
-    long long page;
-    for(map<string, long long>::iterator it = func_name_to_offset.begin(); it != func_name_to_offset.end(); it++){
-        func_name = it->first;
-        offset    = it->second;
-
-        func_id = func_name_to_id[func_name];
-        page = (executable_addr_base + offset) & ~(PAGE_SIZE -1);
-
-        //cout << "func_name: " << func_name << endl;
-        //cout << "offset: "    << offset << endl;
-        //cout << "func_id: "   << func_id << endl;
-        //printf("page: 0x%llx\n", page);
-
-        func_id_to_page[func_id] = page;
-    }
-}
 
 
 int _debrt_monitor_init(void)
@@ -876,10 +870,9 @@ int _debrt_protect_init(void)
     _read_func_name_to_id();
     //_dump_func_name_to_id();
     _read_nm();
-    //_populate_func_id_to_page();
     _read_readelf();
 
-    //_dump_func_id_to_page();
+    _dump_func_id_to_pages();
     _dump_func_id_to_addr_and_size();
 
     //cout << "my pid is " << getpid() << endl;
