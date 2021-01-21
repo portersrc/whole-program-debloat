@@ -62,11 +62,10 @@ int feature_buf_big[NUM_FEATURE_BUF_BIG_ELEMS];
 int fb_idx = FP_IDX_BASE;
 
 
+// The base and end addresses of our executable. Gotten from /proc/<pid>/maps.
+long long executable_addr_base = 0;
+long long executable_addr_end  = 0;
 
-// The base address of our executable. Gotten from /proc/<pid>/maps.
-// Tells us where the mapping starts.
-// For the executable, mapped memory for our program.
-long long executable_base_addr;
 
 map<string, int> func_name_to_id;
 map<int, string> func_id_to_name; // convenience
@@ -343,7 +342,29 @@ int debrt_monitor(int argc, ...)
 }
 
 
+extern "C" {
+int debrt_protect(int argc, ...)
+{
+}
+}
 
+extern "C" {
+int debrt_return(void)
+{
+}
+}
+
+extern "C" {
+int debrt_protect_loop(int argc, ...)
+{
+}
+}
+
+extern "C" {
+int debrt_loop_end(void)
+{
+}
+}
 
 // Read the all func set IDs and their corresponding func IDs into an array
 // of sets called "func_sets". func_sets is indexed by the func set ID. Each
@@ -515,7 +536,7 @@ void _read_readelf(void)
 // If that happens, I need to look more closely. I'll need to figure out how to
 // determine all such mappings and how to handle them for the purpose of finding
 // each page in memory for every function in the binary.
-long long _get_base_addr_of_main_mapping()
+void _set_addr_of_main_mapping(void)
 {
     #define MAPPING_FILENAME_SZ 128
     #define MAPPING_LINE_SZ 512
@@ -536,7 +557,6 @@ long long _get_base_addr_of_main_mapping()
     int state;
 
     state = GET_BASE_ADDR;
-    long long base_addr_of_main_mapping = 0;
 
     int num_executable_binary_lines;
     num_executable_binary_lines = 0;
@@ -544,6 +564,7 @@ long long _get_base_addr_of_main_mapping()
         //printf("%s", line);
         num_spaces = 0;
         long long addr_base;
+        long long addr_end;
         char *binary_name;
         char *c = line;
         state = GET_BASE_ADDR;
@@ -552,6 +573,7 @@ long long _get_base_addr_of_main_mapping()
                 *c = '\0';
                 addr_base = strtoll(line, NULL, 16);
                 c++;
+                addr_end = strtoll(c, NULL, 16);
                 state++;
                 continue;
             }
@@ -580,7 +602,8 @@ long long _get_base_addr_of_main_mapping()
                     if(strstr(binary_name, getenv("_")+2) != NULL){
                         //printf("hit: %s\n", binary_name);
                         num_executable_binary_lines++;
-                        base_addr_of_main_mapping = addr_base;
+                        executable_addr_base = addr_base;
+                        executable_addr_end  = addr_end;
                     }
                     continue;
                 }
@@ -600,7 +623,8 @@ long long _get_base_addr_of_main_mapping()
 
     fclose(fp);
 
-    return base_addr_of_main_mapping;
+    assert(executable_addr_base);
+    assert(executable_addr_end);
 }
 
 void _read_func_name_to_id(void)
@@ -635,7 +659,7 @@ void _populate_func_id_to_page(void)
         offset    = it->second;
 
         func_id = func_name_to_id[func_name];
-        page = (executable_base_addr + offset) & ~(PAGE_SIZE -1);
+        page = (executable_addr_base + offset) & ~(PAGE_SIZE -1);
 
         //cout << "func_name: " << func_name << endl;
         //cout << "offset: "    << offset << endl;
@@ -670,8 +694,9 @@ int _debrt_init(void)
 
 
 
-    executable_base_addr = _get_base_addr_of_main_mapping();
-    printf("executable_base_addr: 0x%llx\n", executable_base_addr);
+    _set_addr_of_main_mapping();
+    printf("executable_addr_base: 0x%llx\n", executable_addr_base);
+    printf("executable_addr_end:  0x%llx\n", executable_addr_end);
     _read_func_name_to_id();
     //_dump_func_name_to_id();
     _read_nm();
