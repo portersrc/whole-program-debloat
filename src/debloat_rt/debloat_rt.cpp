@@ -51,8 +51,11 @@ int num_mispredictions;
 int total_predictions;
 
 
-int  _debrt_init(void);
-void _debrt_destroy(void);
+int  _debrt_monitor_init(void);
+void _debrt_monitor_destroy(void);
+
+int  _debrt_protect_init(void);
+void _debrt_protect_destroy(void);
 
 
 #define NUM_FEATURE_ELEMS 5
@@ -185,7 +188,7 @@ int debrt_monitor_orig(int argc, ...)
 
     // initialize library
     if(!lib_initialized){
-        _debrt_init(); // ignore return
+        _debrt_monitor_init(); // ignore return
         lib_initialized = 1;
         // FIXME BEGIN copy-pasted code...
         // XXX can we avoid this memset?
@@ -268,7 +271,7 @@ int debrt_monitor(int argc, ...)
 
     // initialize library
     if(!lib_initialized){
-        _debrt_init(); // ignore return
+        _debrt_monitor_init(); // ignore return
         lib_initialized = 1;
     }
 
@@ -671,7 +674,7 @@ void _populate_func_id_to_page(void)
 }
 
 
-int _debrt_init(void)
+int _debrt_monitor_init(void)
 {
     int e;
     long long base_addr;
@@ -684,7 +687,7 @@ int _debrt_init(void)
     fp_out = fopen(output_filename, "w");
     if(!fp_out){
         e = errno;
-        fprintf(stderr, "debrt_init failed to open %s (errno: %d)\n",
+        fprintf(stderr, "_debrt_monitor_init failed to open %s (errno: %d)\n",
                         output_filename, e);
         return e;
     }
@@ -706,19 +709,19 @@ int _debrt_init(void)
     //_dump_func_id_to_page();
     _dump_func_id_to_addr_and_size();
 
-    atexit(_debrt_destroy);
+    atexit(_debrt_monitor_destroy);
 
-    cout << "my pid is " << getpid() << endl;
-
-    while(1){
-        sleep(10);
-    }
+    //cout << "my pid is " << getpid() << endl;
+    //while(1){
+    //    sleep(10);
+    //}
 
     return 0;
 }
 
 
-void _debrt_destroy(void)
+
+void _debrt_monitor_destroy(void)
 {
     int e;
     int rc;
@@ -740,7 +743,17 @@ void _debrt_destroy(void)
     rc = fclose(fp_out);
     if(rc == EOF){
         e = errno;
-        fprintf(stderr, "debrt_destroy failed to close output file " \
+        fprintf(stderr, "_debrt_monitor_destroy failed to close output file " \
                         "(errno: %d)\n", e);
     }
+}
+
+int _debrt_protect_init(void)
+{
+    return _debrt_monitor_init();
+}
+
+void _debrt_protect_destroy(void)
+{
+    _debrt_monitor_destroy();
 }
