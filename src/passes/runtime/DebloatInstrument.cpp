@@ -67,6 +67,8 @@ namespace {
       private:
         Function *debrt_monitor_func;
         Function *debrt_protect_func;
+        Function *debrt_return_func;
+        Function *debrt_return_func_intrinsic;
         map<CallInst *, unsigned int> call_inst_to_id;
         std::map<std::string, unsigned int> func_name_to_id;
         unsigned int call_inst_count;
@@ -75,12 +77,13 @@ namespace {
         set<Loop *> instrumented_loops;
         set<Instruction *> jump_phi_nodes;
         Type *int32Ty;
+        Type *int64Ty;
 
         bool call_inst_is_in_loop(Instruction *call_inst);
         bool can_ignore_called_func(Function *, CallInst *);
 
         void init_debrt_monitor_func(Module &);
-        void init_debrt_protect_func(Module &);
+        void init_debrt_protect_funcs(Module &);
 
         void dump_stats(void);
         void read_func_name_to_id(void);
@@ -89,6 +92,7 @@ namespace {
                                  unsigned int callsite_id,
                                  unsigned int called_func_id,
                                  set<Value *> func_arguments_set);
+        void instrument_return(Instruction *ret_inst, unsigned int func_id);
         void instrument_outside_loop_basic(Instruction *call_inst,
                                            unsigned int callsite_id,
                                            unsigned int called_func_id,
@@ -112,9 +116,10 @@ bool DebloatInstrument::doInitialization(Module &M)
     func_count = 0;
 
     int32Ty = IntegerType::getInt32Ty(M.getContext());
+    int64Ty = IntegerType::getInt64Ty(M.getContext());
 
     //init_debrt_monitor_func(M);
-    init_debrt_protect_func(M);
+    init_debrt_protect_funcs(M);
 
     stats.max_num_args = 0;
     stats.num_calls_not_in_loops = 0;
@@ -135,7 +140,7 @@ void DebloatInstrument::read_func_name_to_id(void)
 
     ifs.open("debprof_func_name_to_id.txt");
     if(!ifs.is_open()) {
-        perror("Error opening func name to id ile");
+        perror("Error opening func name to id file");
         exit(EXIT_FAILURE);
     }
 
@@ -213,6 +218,7 @@ bool DebloatInstrument::runOnFunction(Function &F)
     bool can_instrument;
     string func_name;
     CallInst *call_inst;
+    ReturnInst *ret_inst;
 
     func_name = getDemangledName(F);
     if(func_name == "main"){
@@ -340,6 +346,11 @@ bool DebloatInstrument::runOnFunction(Function &F)
                                         func_arguments_set);
                 }
             }
+
+            ret_inst = dyn_cast<ReturnInst>(&*it_inst);
+            if(ret_inst){
+                instrument_return(ret_inst, func_name_to_id[func_name]);
+            }
         }
     }
     return true;
@@ -370,6 +381,84 @@ void DebloatInstrument::instrument_callsite(Instruction *call_inst,
                                                func_arguments_set);
         }
     }
+}
+
+
+void DebloatInstrument::instrument_return(Instruction *inst_before,
+                                          unsigned int func_id)
+{
+    Value *retinstrIntrinsic;
+    Module *m;
+    Type *ptr_i8;
+    std::vector<Value *> ArgsVIntrinsic;
+
+    m = inst_before->getModule();
+    ptr_i8 = PointerType::get(Type::getInt8Ty(m->getContext()), 0);
+
+    IRBuilder<> builderIntrinsic(inst_before);
+    ArgsVIntrinsic.push_back(llvm::ConstantInt::get(int32Ty, 0, false));
+    LLVM_DEBUG(dbgs() << "Instrumenting ret-inst::" << inst_before << "\n");
+    retinstrIntrinsic =
+      builderIntrinsic.CreateCall(debrt_return_func_intrinsic, ArgsVIntrinsic);
+      //builderIntrinsic.CreateCall(debrt_return_func_intrinsic);
+    LLVM_DEBUG(dbgs() << "retinstrIntrinsic::" << *retinstrIntrinsic << "\n");
+
+
+    IRBuilder<> builder(inst_before);
+    std::vector<Value *> ArgsV;
+    LLVM_DEBUG(dbgs() << "retinstrIntrinsic type: " << *(retinstrIntrinsic->getType()) << "\n");
+    if(retinstrIntrinsic->getType()->isPointerTy()){
+        LLVM_DEBUG(dbgs() << " that type is a pointer\n");
+    }
+    Value *castedArg = nullptr;
+    castedArg = builder.CreatePtrToInt(retinstrIntrinsic, int64Ty);
+    ArgsV.push_back(castedArg);
+    //ArgsV.push_back(
+    //  llvm::ConstantInt::get(
+    //    int64Ty,
+    //    builder.CreatePtrToInt(retinstrIntrinsic, int64Ty),
+    //    false
+    //  )
+    //);
+    //ArgsV.push_back(
+    //  llvm::ConstantInt::get(
+    //    ptr_i8,
+    //    builder.CreatePointerCast(
+    //      retinstrIntrinsic,
+    //      ptr_i8),
+    //    false
+    //  )
+    //);
+    //ArgsV.push_back(
+    //  llvm::ConstantInt::get(
+    //    ptr_i8,
+    //    builder.CreateIntCast(
+    //      retinstrIntrinsic,
+    //      int64Ty,
+    //      false), //isSigned?
+    //    false
+    //  )
+    //);
+    //ArgsV.push_back(llvm::ConstantInt::get(ptr_i8, retinstrIntrinsic, false));
+    //ArgsV.push_back(llvm::ConstantInt::get(ptr_i8, 0, false));
+    LLVM_DEBUG(dbgs() << "Instrumenting ret-inst::" << inst_before << "\n");
+    CallInst *retinstr = builder.CreateCall(debrt_return_func, ArgsV);
+    LLVM_DEBUG(dbgs() << "retinstr::" << *retinstr << "\n");
+
+
+
+
+    // This is what we used to use:
+    //IRBuilder<> builder(inst_before);
+    //std::vector<Value *> ArgsV;
+    //ArgsV.push_back(llvm::ConstantInt::get(int32Ty, func_id, false));
+    //LLVM_DEBUG(dbgs() << "Instrumenting ret-inst::" << inst_before << "\n");
+    //Value *retinstr = builder.CreateCall(debrt_return_func, ArgsV);
+    //LLVM_DEBUG(dbgs() << "retinstr::" << *retinstr << "\n");
+
+
+
+
 }
 
 
@@ -547,17 +636,63 @@ void DebloatInstrument::init_debrt_monitor_func(Module &M)
 
 
 }
-void DebloatInstrument::init_debrt_protect_func(Module &M)
+void DebloatInstrument::init_debrt_protect_funcs(Module &M)
 {
-    Type *ArgTypes[] = { int32Ty  };
+    Type *ptr_i8;
+    ptr_i8 = PointerType::get(Type::getInt8Ty(M.getContext()), 0);
+
+    Type *ArgTypes[]    = { int32Ty  };
+    Type *ArgTypes64[]  = { int64Ty  };
+    Type *ArgTypesPtr[] = { ptr_i8 };
 
     debrt_protect_func =
       Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
                        Function::ExternalLinkage,
                        "debrt_protect",
                        M);
+    debrt_return_func =
+      //Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+      //Function::Create(FunctionType::get(int32Ty, ArgTypesPtr, true),
+      Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
+                       Function::ExternalLinkage,
+                       "debrt_return",
+                       M);
+
+    //Function *func = Function::Create(func_type, GlobalValue::ExternalLinkage, "llvm.addressofreturnaddress", F->getParent());
 
 
+    ////llvm::Type *ArgTypes[] = { ptr_i8 };
+    //llvm::Type *ArgTypes[] = { int32Ty };
+
+    //f = dyn_cast<Function>(
+    //  m->getOrInsertFunction(
+    //    "llvm.addressofreturnaddress",
+    //    FunctionType::get(
+    //      //int32Ty, ArgTypes, false /*this is var arg func type*/
+    //      ptr_i8, ArgTypes, false /*this is var arg func type*/
+    //    )
+    //  )
+    //);
+
+    //debrt_return_func_intrinsic =
+    //  //Function::Create(FunctionType::get(ptr_i8, ArgTypes, false),
+    //  //Function::Create(FunctionType::get(ptr_i8, NULL, false),
+    //  //Function::Create(FunctionType::get(ptr_i8, ArgTypesEmpty, false),
+    //  Function::Create(FunctionType::get(ptr_i8, false),
+    //                   Function::ExternalLinkage,
+    //                   //"llvm.addressofreturnaddress",
+    //                   "llvm.addressofreturnaddress.p0i8",
+    //                   &M);
+    debrt_return_func_intrinsic =
+      //Function::Create(FunctionType::get(ptr_i8, ArgTypes, false),
+      //Function::Create(FunctionType::get(ptr_i8, NULL, false),
+      //Function::Create(FunctionType::get(ptr_i8, ArgTypesEmpty, false),
+      Function::Create(FunctionType::get(ptr_i8, ArgTypes, false),
+                       Function::ExternalLinkage,
+                       //"llvm.addressofreturnaddress",
+                       //"llvm.addressofreturnaddress.p0i8",
+                       "llvm.returnaddress",
+                       &M);
 }
 
 
