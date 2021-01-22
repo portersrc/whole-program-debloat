@@ -154,20 +154,20 @@ void _remap_permissions(long long addr, long long size, int perm)
     char *aligned_addr_end;
     int size_to_remap;
 
-    printf("remap_permissions():\n");
+    //printf("remap_permissions():\n");
 
     aligned_addr_base = (char *) ((addr) & ~(PAGE_SIZE - 1));
     aligned_addr_end  = (char *) ((addr+size) & ~(PAGE_SIZE - 1));
     size_to_remap = PAGE_SIZE + (aligned_addr_end - aligned_addr_base);
-    printf("  aligned_addr_base: %p\n", aligned_addr_base);
-    printf("  aligned_addr_end:  %p\n", aligned_addr_end);
-    printf("  size_to_remap:     0x%x\n", size_to_remap);
+    //printf("  aligned_addr_base: %p\n", aligned_addr_base);
+    //printf("  aligned_addr_end:  %p\n", aligned_addr_end);
+    //printf("  size_to_remap:     0x%x\n", size_to_remap);
 
     if(mprotect(aligned_addr_base, size_to_remap, perm) == -1){
         //printf("mprotect error\n");
         assert(0 && "mprotect error");
     }
-    printf("  mprotect succeeded\n");
+    //printf("  mprotect succeeded\n");
 }
 
 
@@ -413,6 +413,7 @@ int debrt_protect(int argc, ...)
     // needs to be written first
     //_debrt_protect_all_pages();
 
+
     fb_idx--;
 
     // "reset" feature-buf-big.
@@ -459,8 +460,13 @@ int debrt_protect(int argc, ...)
 }
 
 extern "C" {
-int debrt_return(void)
+//int debrt_return(int func_id)
+int debrt_return(long long func_addr)
 {
+    //printf("debrt-return func addr: %p\n", func_addr);
+    //printf("debrt-return func addr: 0x%llx\n", func_addr);
+    _remap_permissions(func_addr, 1, RX_PERM);
+    return 0;
 }
 }
 
