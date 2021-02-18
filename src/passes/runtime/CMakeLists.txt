@@ -1,7 +1,7 @@
 add_library(DebloatInstrument MODULE
     DebloatInstrument.cpp
-    util.cpp
-    backslice.cpp
+    ../common/util.cpp
+    ../common/backslice.cpp
 )
 
 # Use C++11 to compile your pass (i.e., supply -std=c++11).
@@ -20,3 +20,5 @@ if(APPLE)
         LINK_FLAGS "-undefined dynamic_lookup"
     )
 endif(APPLE)
+
+add_definitions(-DDEBUG_TYPE="DebloatInstrument")

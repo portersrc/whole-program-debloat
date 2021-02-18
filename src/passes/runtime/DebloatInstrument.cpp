@@ -1,7 +1,7 @@
 
 #include "DebloatInstrument.hpp"
-#include "backslice.hpp"
-#include "util.hpp"
+#include "../common/backslice.hpp"
+#include "../common/util.hpp"
 
 
 
@@ -69,6 +69,8 @@ namespace {
         Function *debrt_protect_func;
         Function *debrt_return_func;
         Function *debrt_return_func_intrinsic;
+        Function *debrt_protect_loop_func;
+        Function *debrt_loop_end_func;
         map<CallInst *, unsigned int> call_inst_to_id;
         std::map<std::string, unsigned int> func_name_to_id;
         unsigned int call_inst_count;
@@ -693,6 +695,19 @@ void DebloatInstrument::init_debrt_protect_funcs(Module &M)
                        //"llvm.addressofreturnaddress.p0i8",
                        "llvm.returnaddress",
                        &M);
+
+    debrt_protect_loop_func =
+      Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+                       Function::ExternalLinkage,
+                       "debrt_protect_loop",
+                       M);
+
+    debrt_loop_end_func = 
+      Function::Create(FunctionType::get(int32Ty, false),
+                       Function::ExternalLinkage,
+                       "debrt_loop_end",
+                       &M);
+
 }
 
 

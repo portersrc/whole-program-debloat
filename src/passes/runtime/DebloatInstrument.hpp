@@ -14,6 +14,4 @@
 using namespace llvm;
 using namespace std;
 
-#define DEBUG_TYPE "DebloatInstrument"
-
 #endif
