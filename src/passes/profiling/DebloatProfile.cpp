@@ -313,10 +313,10 @@ void DebloatProfile::instrument_callsite(Instruction *call_inst,
                         false);
     }else{
         if(LOOP_BASIC){
-            instrument_outside_loop_basic(call_inst,
-                                          callsite_id,
-                                          called_func_id,
-                                          func_arguments_set);
+            //instrument_outside_loop_basic(call_inst,
+            //                              callsite_id,
+            //                              called_func_id,
+            //                              func_arguments_set);
         }else{
             instrument_outside_loop_avail_args(call_inst,
                                                callsite_id,
