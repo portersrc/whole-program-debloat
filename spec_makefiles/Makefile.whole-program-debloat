@@ -11,6 +11,7 @@
 
 # cporter
 DEBLOAT_PROF_LIBPATH := /home/rudy/wo/whole-program-debloat/build/debloat_prof
+DEBLOAT_RT_LIBPATH   := /home/rudy/wo/whole-program-debloat/build/debloat_rt
 
 
 
@@ -340,15 +341,75 @@ else
 $(EXEBASE): $(OBJS)
 # Normal, non-ONESTEP build
 ifndef NEEDATFILE
-	# cporter: This is the one that gets hit
-	$(LD) $^ $(LDOUT)
-	#opt   -load  LLVMDebloatProfile.so -DebloatProfile -debug-only=DebloatProfile <$(NUMBER).$(NAME)_linked.bc > $(NUMBER).$(NAME)_opt.bc
-	opt   -load  LLVMDebloatProfile.so -DebloatProfile <$(NUMBER).$(NAME)_linked.bc > $(NUMBER).$(NAME)_opt.bc
+	#
+	#$(LD) $^ $(LDOUT)
+	#
+
+base: $(EXEBASE)
+	# optimize O3 and 1K inline thresh (before any instrumentation)
+	#mv $(NUMBER).$(NAME)_linked.bc $(NUMBER).$(NAME)_linked_no_O3.bc
+	#opt -O3 \
+    #  -inline-threshold=1000 \
+    #  < $(NUMBER).$(NAME)_linked_no_O3.bc \
+    #  > $(NUMBER).$(NAME)_linked.bc
+	#
+	# optimize O3 (no change to inline thresh)
+	#mv $(NUMBER).$(NAME)_linked.bc $(NUMBER).$(NAME)_linked_no_O3.bc
+	#opt -O3 \
+    #  < $(NUMBER).$(NAME)_linked_no_O3.bc \
+    #  > $(NUMBER).$(NAME)_linked.bc
+	#
+	# baseline (no optimizations (?default optimizations?), no instrumentation)
+	#opt   <$(NUMBER).$(NAME)_linked.bc > $(NUMBER).$(NAME)_opt.bc
+	#
+	# baseline with O3
+	opt -O3   <$(NUMBER).$(NAME)_linked.bc > $(NUMBER).$(NAME)_opt.bc
 	llc  \
       $(NUMBER).$(NAME)_opt.bc \
       -relocation-model=pic \
       -o $(NUMBER).$(NAME)_opt.s
-	g++ $(NUMBER).$(NAME)_opt.s -o $(NUMBER).$(NAME)_debprof -L$(DEBLOAT_PROF_LIBPATH) -ldebloat_prof -lm -lrt
+	g++ $(NUMBER).$(NAME)_opt.s -o $(NUMBER).$(NAME)_baseline -lm -lrt
+
+prof: $(EXEBASE)
+	# DebloatProfile (with debug output)
+	#opt \
+    #  -load libDebloatProfile.so -DebloatProfile \
+    #  -debug-only=DebloatProfile \
+    #  < $(NUMBER).$(NAME)_linked.bc \
+    #  > $(NUMBER).$(NAME)_opt.bc
+	opt \
+      -load libDebloatProfile.so -DebloatProfile \
+      < $(NUMBER).$(NAME)_linked.bc \
+      > $(NUMBER).$(NAME)_opt.bc
+	llc  \
+      $(NUMBER).$(NAME)_opt.bc \
+      -relocation-model=pic \
+      -o $(NUMBER).$(NAME)_opt.s
+	g++ $(NUMBER).$(NAME)_opt.s \
+      -o $(NUMBER).$(NAME)_debprof \
+      -L$(DEBLOAT_PROF_LIBPATH) -ldebloat_prof -lm -lrt
+
+instr: $(EXEBASE)
+	# DebloatInstrument (with debug output)
+	#opt \
+    #  -load libDebloatInstrument.so -DebloatInstrument \
+    #  -debug-only=DebloatInstrument \
+    #  < $(NUMBER).$(NAME)_linked.bc \
+    #  > $(NUMBER).$(NAME)_opt.bc
+	#
+	opt \
+      -load libDebloatInstrument.so -DebloatInstrument \
+      < $(NUMBER).$(NAME)_linked.bc \
+      > $(NUMBER).$(NAME)_opt.bc
+	llc  \
+      $(NUMBER).$(NAME)_opt.bc \
+      -relocation-model=pic \
+      -o $(NUMBER).$(NAME)_opt.s
+	g++ $(NUMBER).$(NAME)_opt.s \
+      -o $(NUMBER).$(NAME)_debrt \
+      -L$(DEBLOAT_RT_LIBPATH) \
+      -ldebloat_rt -lm -lrt
+
 else
 	# cporter: IGNORE BEGIN
 	@echo "see makefile whole-program-debloat. print 2"
