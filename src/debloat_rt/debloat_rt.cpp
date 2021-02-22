@@ -473,14 +473,17 @@ int debrt_return(long long func_addr)
 extern "C" {
 int debrt_protect_loop(int argc, ...)
 {
+    return 0;
 }
 }
 
 extern "C" {
 int debrt_loop_end(void)
 {
+    return 0;
 }
 }
+
 
 // Read the all func set IDs and their corresponding func IDs into an array
 // of sets called "func_sets". func_sets is indexed by the func set ID. Each
