@@ -82,7 +82,6 @@ namespace {
         Type *int64Ty;
 
         bool call_inst_is_in_loop(Instruction *call_inst);
-        bool can_ignore_called_func(Function *, CallInst *);
 
         void init_debrt_monitor_func(Module &);
         void init_debrt_protect_funcs(Module &);
@@ -183,37 +182,6 @@ bool DebloatInstrument::call_inst_is_in_loop(Instruction *call_inst)
 }
 
 
-bool DebloatInstrument::can_ignore_called_func(Function *called_func, CallInst *call_inst)
-{
-    if(called_func == NULL){
-        LLVM_DEBUG(dbgs()<<"called_func is NULL\n");
-        return true;;
-    }
-    if(called_func->isIntrinsic()){
-        LLVM_DEBUG(dbgs()<<"called_func isIntrinsic\n");
-        return true;;
-    }
-    if(!called_func->hasName()){
-        LLVM_DEBUG(dbgs()<<"called_func !hasName\n");
-        return true;;
-    }
-    if(call_inst->getDereferenceableBytes(0)){
-        LLVM_DEBUG(dbgs()<<"Skipping derefereceable bytes: "<<*call_inst<<"\n");
-        return true;;
-    }
-    std::string callInstrString;
-    llvm::raw_string_ostream callrso(callInstrString);
-    call_inst->print(callrso);
-    std::string toFindin = callrso.str();
-    std::string ignoreclassStr("%class.");
-    if(toFindin.find(ignoreclassStr) != std::string::npos){
-        LLVM_DEBUG(dbgs()<<"Skipping ignoreclass: "<<*call_inst<<"\n");
-        return true;;
-    }
-    return false;
-}
-
-
 bool DebloatInstrument::runOnFunction(Function &F)
 {
     unsigned int num_args;
@@ -246,7 +214,7 @@ bool DebloatInstrument::runOnFunction(Function &F)
             call_inst = dyn_cast<CallInst>(&*it_inst);
             if(call_inst){
                 Function *called_func = call_inst->getCalledFunction();
-                if(DebloatInstrument::can_ignore_called_func(called_func, call_inst)){
+                if(can_ignore_called_func(called_func, call_inst)){
                     continue;
                 }
 

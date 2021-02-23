@@ -1,9 +1,9 @@
 #include "util.hpp"
 
-std::string getDemangledName(const Function &F)
+string getDemangledName(const Function &F)
 {
     ItaniumPartialDemangler IPD;
-    std::string name = F.getName().str();
+    string name = F.getName().str();
     if(IPD.partialDemangle(name.c_str())){
         return name;
     }
@@ -13,3 +13,32 @@ std::string getDemangledName(const Function &F)
     return IPD.finishDemangle(nullptr, nullptr);
 }
 
+bool can_ignore_called_func(Function *called_func, CallInst *call_inst)
+{
+    if(called_func == NULL){
+        LLVM_DEBUG(dbgs()<<"called_func is NULL\n");
+        return true;;
+    }
+    if(called_func->isIntrinsic()){
+        LLVM_DEBUG(dbgs()<<"called_func isIntrinsic\n");
+        return true;;
+    }
+    if(!called_func->hasName()){
+        LLVM_DEBUG(dbgs()<<"called_func !hasName\n");
+        return true;;
+    }
+    if(call_inst->getDereferenceableBytes(0)){
+        LLVM_DEBUG(dbgs()<<"Skipping derefereceable bytes: "<<*call_inst<<"\n");
+        return true;;
+    }
+    string callInstrString;
+    llvm::raw_string_ostream callrso(callInstrString);
+    call_inst->print(callrso);
+    string toFindin = callrso.str();
+    string ignoreclassStr("%class.");
+    if(toFindin.find(ignoreclassStr) != string::npos){
+        LLVM_DEBUG(dbgs()<<"Skipping ignoreclass: "<<*call_inst<<"\n");
+        return true;;
+    }
+    return false;
+}
