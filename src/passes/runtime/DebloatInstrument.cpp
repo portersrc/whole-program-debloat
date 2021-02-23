@@ -428,9 +428,9 @@ void DebloatInstrument::create_the_call(Instruction *inst_before,
                << " callsite::"  << callsite_id << "\n");
 
 
-    // We have to instrument a call to debrt_monitor/protect. To do that, we need
+    // We have to instrument a call to our debloat lib. To do that, we need
     // to build a list of arguments to pass to it. The first argument
-    // to debrt_monitor/protect is the number of variadic args to follow.
+    // to our debloat lib is the number of variadic args to follow.
     // But we can't just use func_arguments_set.size() to help us here,
     // because we might ignore some arguments. So, push a 0 into the list
     // as a placeholder. We'll update it after we finish adding the other
@@ -485,19 +485,19 @@ void DebloatInstrument::create_the_call(Instruction *inst_before,
         }
     }
     // The size of ArgsV is equal to the final number of args we're passing
-    // to debrt_monitor/protect. Subtract 1 to get the number of variadic args,
+    // to our debloat lib. Subtract 1 to get the number of variadic args,
     // and update argument 0 accordingly.
     unsigned int num_variadic_args = ArgsV.size() - 1;
+    LLVM_DEBUG(dbgs() << "num_variadic_args::" << num_variadic_args << "\n");
     ArgsV[0] = llvm::ConstantInt::get(int32Ty, num_variadic_args, false);
 
-    // Track the max number of args that debrt_monitor/protect is going to write
+    // Track the max number of args that our debloat lib is going to write
     // to file.
     if(num_variadic_args > stats.max_num_args){
         stats.max_num_args = num_variadic_args;
     }
 
-    // Create the call to debrt_monitor/protect
-    //Value *callinstr = builder.CreateCall(debrt_monitor_func, ArgsV);
+    // Create the call to our debloat lib
     Value *callinstr = builder.CreateCall(debrt_protect_func, ArgsV);
     LLVM_DEBUG(dbgs() << "callinstr::" << *callinstr << "\n");
 

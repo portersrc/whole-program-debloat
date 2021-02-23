@@ -304,9 +304,9 @@ void DebloatProfile::create_the_call(Instruction *inst_before,
                << " callsite::"  << callsite_id << "\n");
 
 
-    // We have to instrument a call to debprof_print_args. To do that, we need
+    // We have to instrument a call to our debloat lib. To do that, we need
     // to build a list of arguments to pass to it. The first argument
-    // to debprof_print_args is the number of variadic args to follow.
+    // to our debloat lib is the number of variadic args to follow.
     // But we can't just use func_arguments_set.size() to help us here,
     // because we might ignore some arguments. So, push a 0 into the list
     // as a placeholder. We'll update it after we finish adding the other
@@ -361,27 +361,24 @@ void DebloatProfile::create_the_call(Instruction *inst_before,
         }
     }
     // The size of ArgsV is equal to the final number of args we're passing
-    // to debprof_print_args. Subtract 1 to get the number of variadic args,
+    // to our debloat lib. Subtract 1 to get the number of variadic args,
     // and update argument 0 accordingly.
     unsigned int num_variadic_args = ArgsV.size() - 1;
     LLVM_DEBUG(dbgs() << "num_variadic_args::" << num_variadic_args << "\n");
     ArgsV[0] = llvm::ConstantInt::get(int32Ty, num_variadic_args, false);
 
-    // Track the max number of args that debprof_print_args is going to write
+    // Track the max number of args that our debloat lib is going to write
     // to file.
     if(num_variadic_args > stats.max_num_args){
         stats.max_num_args = num_variadic_args;
     }
 
-    // Create the call to debprof_print_args
-    LLVM_DEBUG(dbgs() << "invoking CreateCall\n");
+    // Create the call to our debloat lib
     Value *callinstr = builder.CreateCall(debprof_print_args_func, ArgsV);
     LLVM_DEBUG(dbgs() << "callinstr::" << *callinstr << "\n");
 
 
 }
-
-
 
 
 void DebloatProfile::instrument_outside_loop_basic(Instruction *call_inst,
