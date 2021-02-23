@@ -66,10 +66,6 @@ namespace {
                                            unsigned int callsite_id,
                                            unsigned int called_func_id,
                                            set<Value *> func_arguments_set);
-        void instrument_outside_loop_avail_args(Instruction *call_inst,
-                                                unsigned int callsite_id,
-                                                unsigned int called_func_id,
-                                                set<Value *> func_arguments_set);
         void create_the_call(Instruction *inst_before,
                              unsigned int callsite_id,
                              unsigned int called_func_id,
@@ -285,11 +281,6 @@ void DebloatProfile::instrument_callsite(Instruction *call_inst,
             //                              callsite_id,
             //                              called_func_id,
             //                              func_arguments_set);
-        }else{
-            instrument_outside_loop_avail_args(call_inst,
-                                               callsite_id,
-                                               called_func_id,
-                                               func_arguments_set);
         }
     }
 }
@@ -394,30 +385,6 @@ void DebloatProfile::create_the_call(Instruction *inst_before,
 }
 
 
-void DebloatProfile::instrument_outside_loop_avail_args(Instruction *call_inst,
-                                                        unsigned int callsite_id,
-                                                        unsigned int called_func_id,
-                                                        set<Value *> func_arguments_set)
-{
-    Loop *L;
-    Instruction *inst_before;
-    BasicBlock *preHeaderBB;
-
-    L = LI->getLoopFor(call_inst->getParent());
-    preHeaderBB = L->getLoopPreheader();
-    if(preHeaderBB){
-        // if we have not yet instrumented this loop...
-        if(instrumented_loops.count(L) == 0){
-            instrumented_loops.insert(L);
-            inst_before = preHeaderBB->getTerminator();
-            create_the_call(inst_before, callsite_id, called_func_id, func_arguments_set, true);
-        }
-    }else{
-        // FIXME see LLVM doxygen on getLoopPreheader. The fix is to walk
-        // incoming edges to the first BB of the loop
-        stats.num_loops_no_preheader++;
-    }
-}
 
 
 void DebloatProfile::instrument_outside_loop_basic(Instruction *call_inst,
