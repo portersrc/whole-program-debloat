@@ -148,20 +148,10 @@ void DebloatInstrument::read_func_name_to_id(void)
 
 bool DebloatInstrument::doFinalization(Module &M)
 {
-    //dump_stats();
     return false;
 }
 
 
-void DebloatInstrument::dump_stats(void)
-{
-    //FILE *fp = fopen("debprof_pass_stats.txt", "w");
-    //fprintf(fp, "max_num_args: %u\n", stats.max_num_args);
-    //fprintf(fp, "num_calls_in_loops: %u\n", stats.num_calls_in_loops);
-    //fprintf(fp, "num_calls_not_in_loops: %u\n", stats.num_calls_not_in_loops);
-    //fprintf(fp, "num_loops_no_preheader: %u\n", stats.num_loops_no_preheader);
-    //fclose(fp);
-}
 
 
 bool DebloatInstrument::call_inst_is_in_loop(Instruction *call_inst)
