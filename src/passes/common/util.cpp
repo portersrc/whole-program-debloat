@@ -17,19 +17,19 @@ bool can_ignore_called_func(Function *called_func, CallInst *call_inst)
 {
     if(called_func == NULL){
         LLVM_DEBUG(dbgs()<<"called_func is NULL\n");
-        return true;;
+        return true;
     }
     if(called_func->isIntrinsic()){
         LLVM_DEBUG(dbgs()<<"called_func isIntrinsic\n");
-        return true;;
+        return true;
     }
     if(!called_func->hasName()){
         LLVM_DEBUG(dbgs()<<"called_func !hasName\n");
-        return true;;
+        return true;
     }
     if(call_inst->getDereferenceableBytes(0)){
         LLVM_DEBUG(dbgs()<<"Skipping derefereceable bytes: "<<*call_inst<<"\n");
-        return true;;
+        return true;
     }
     string callInstrString;
     llvm::raw_string_ostream callrso(callInstrString);
@@ -38,7 +38,7 @@ bool can_ignore_called_func(Function *called_func, CallInst *call_inst)
     string ignoreclassStr("%class.");
     if(toFindin.find(ignoreclassStr) != string::npos){
         LLVM_DEBUG(dbgs()<<"Skipping ignoreclass: "<<*call_inst<<"\n");
-        return true;;
+        return true;
     }
     return false;
 }
