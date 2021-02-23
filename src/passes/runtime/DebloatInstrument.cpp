@@ -81,8 +81,7 @@ namespace {
 
         bool call_inst_is_in_loop(Instruction *call_inst);
 
-        void init_debrt_monitor_func(Module &);
-        void init_debrt_protect_funcs(Module &);
+        void init_debrt_funcs(Module &);
 
         void dump_stats(void);
         void read_func_name_to_id(void);
@@ -113,8 +112,7 @@ bool DebloatInstrument::doInitialization(Module &M)
     int32Ty = IntegerType::getInt32Ty(M.getContext());
     int64Ty = IntegerType::getInt64Ty(M.getContext());
 
-    //init_debrt_monitor_func(M);
-    init_debrt_protect_funcs(M);
+    init_debrt_funcs(M);
 
     stats.max_num_args = 0;
     stats.num_calls_not_in_loops = 0;
@@ -545,26 +543,20 @@ void DebloatInstrument::instrument_outside_loop_basic(Instruction *call_inst,
 
 
 
-void DebloatInstrument::init_debrt_monitor_func(Module &M)
-{
-    Type *ArgTypes[] = { int32Ty  };
-
-    debrt_monitor_func =
-      Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
-                       Function::ExternalLinkage,
-                       "debrt_monitor",
-                       M);
-
-
-}
-void DebloatInstrument::init_debrt_protect_funcs(Module &M)
+void DebloatInstrument::init_debrt_funcs(Module &M)
 {
     Type *ptr_i8;
     ptr_i8 = PointerType::get(Type::getInt8Ty(M.getContext()), 0);
 
-    Type *ArgTypes[]    = { int32Ty  };
-    Type *ArgTypes64[]  = { int64Ty  };
+    Type *ArgTypes[]    = { int32Ty };
+    Type *ArgTypes64[]  = { int64Ty };
     Type *ArgTypesPtr[] = { ptr_i8 };
+
+    //debrt_monitor_func =
+    //  Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+    //                   Function::ExternalLinkage,
+    //                   "debrt_monitor",
+    //                   M);
 
     debrt_protect_func =
       Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
