@@ -564,46 +564,14 @@ void DebloatInstrument::init_debrt_funcs(Module &M)
                        "debrt_protect",
                        M);
     debrt_return_func =
-      //Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
-      //Function::Create(FunctionType::get(int32Ty, ArgTypesPtr, true),
       Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
                        Function::ExternalLinkage,
                        "debrt_return",
                        M);
 
-    //Function *func = Function::Create(func_type, GlobalValue::ExternalLinkage, "llvm.addressofreturnaddress", F->getParent());
-
-
-    ////llvm::Type *ArgTypes[] = { ptr_i8 };
-    //llvm::Type *ArgTypes[] = { int32Ty };
-
-    //f = dyn_cast<Function>(
-    //  m->getOrInsertFunction(
-    //    "llvm.addressofreturnaddress",
-    //    FunctionType::get(
-    //      //int32Ty, ArgTypes, false /*this is var arg func type*/
-    //      ptr_i8, ArgTypes, false /*this is var arg func type*/
-    //    )
-    //  )
-    //);
-
-    //debrt_return_func_intrinsic =
-    //  //Function::Create(FunctionType::get(ptr_i8, ArgTypes, false),
-    //  //Function::Create(FunctionType::get(ptr_i8, NULL, false),
-    //  //Function::Create(FunctionType::get(ptr_i8, ArgTypesEmpty, false),
-    //  Function::Create(FunctionType::get(ptr_i8, false),
-    //                   Function::ExternalLinkage,
-    //                   //"llvm.addressofreturnaddress",
-    //                   "llvm.addressofreturnaddress.p0i8",
-    //                   &M);
     debrt_return_func_intrinsic =
-      //Function::Create(FunctionType::get(ptr_i8, ArgTypes, false),
-      //Function::Create(FunctionType::get(ptr_i8, NULL, false),
-      //Function::Create(FunctionType::get(ptr_i8, ArgTypesEmpty, false),
       Function::Create(FunctionType::get(ptr_i8, ArgTypes, false),
                        Function::ExternalLinkage,
-                       //"llvm.addressofreturnaddress",
-                       //"llvm.addressofreturnaddress.p0i8",
                        "llvm.returnaddress",
                        &M);
 
