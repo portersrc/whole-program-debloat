@@ -69,7 +69,8 @@ namespace {
                              unsigned int callsite_id,
                              unsigned int called_func_id,
                              set<Value *> func_arguments_set,
-                             bool do_backslice);
+                             bool do_backslice,
+                             Function *debloat_func);
     };
 }
 
@@ -273,7 +274,8 @@ void DebloatProfile::instrument_callsite(Instruction *call_inst,
                         callsite_id,
                         called_func_id,
                         func_arguments_set,
-                        false);
+                        false,
+                        debprof_print_args_func);
     }else{
         //instrument_outside_loop_basic(call_inst,
         //                              callsite_id,
@@ -293,7 +295,8 @@ void DebloatProfile::create_the_call(Instruction *inst_before,
                                      unsigned int callsite_id,
                                      unsigned int called_func_id,
                                      set<Value *> func_arguments_set,
-                                     bool do_backslice)
+                                     bool do_backslice,
+                                     Function *debloat_func)
 {
 
     IRBuilder<> builder(inst_before);
@@ -374,7 +377,7 @@ void DebloatProfile::create_the_call(Instruction *inst_before,
     }
 
     // Create the call to our debloat lib
-    Value *callinstr = builder.CreateCall(debprof_print_args_func, ArgsV);
+    Value *callinstr = builder.CreateCall(debloat_func, ArgsV);
     LLVM_DEBUG(dbgs() << "callinstr::" << *callinstr << "\n");
 
 
