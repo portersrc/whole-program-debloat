@@ -6,8 +6,6 @@
 
 
 
-const int LOOP_BASIC = 1;
-
 
 
 
@@ -335,12 +333,10 @@ void DebloatInstrument::instrument_callsite(Instruction *call_inst,
                         func_arguments_set,
                         false);
     }else{
-        if(LOOP_BASIC){
-            //instrument_outside_loop_basic(call_inst,
-            //                              callsite_id,
-            //                              called_func_id,
-            //                              func_arguments_set);
-        }
+        //instrument_outside_loop_basic(call_inst,
+        //                              callsite_id,
+        //                              called_func_id,
+        //                              func_arguments_set);
     }
 }
 
