@@ -70,7 +70,7 @@ namespace {
         Function *debrt_protect_loop_func;
         Function *debrt_loop_end_func;
         map<CallInst *, unsigned int> call_inst_to_id;
-        std::map<std::string, unsigned int> func_name_to_id;
+        map<string, unsigned int> func_name_to_id;
         unsigned int call_inst_count;
         unsigned int func_count;
         dp_stats_t stats;
@@ -201,7 +201,7 @@ bool DebloatInstrument::runOnFunction(Function &F)
                     continue;
                 }
 
-                std::string called_func_name = called_func->getName().str();
+                string called_func_name = called_func->getName().str();
                 LLVM_DEBUG(dbgs()<<"called_func_name: "<<called_func_name<<"\n");
 
                 //LLVM_DEBUG(dbgs()<<"\n callinst:"<<*call_inst);
@@ -238,7 +238,7 @@ bool DebloatInstrument::runOnFunction(Function &F)
 
                 for(unsigned int i = 0 ; i < num_args; i++){
                     Value *argV = call_inst->getArgOperand(i);
-                    std::string prnt_type;
+                    string prnt_type;
                     llvm::raw_string_ostream rso(prnt_type);
                     argV->getType()->print(rso);
                     LLVM_DEBUG(dbgs() << "argument:: " << i << " = " << *argV
@@ -280,7 +280,7 @@ bool DebloatInstrument::runOnFunction(Function &F)
                         //PostDominatorTree &PDT = getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
                         //computeControlDependence(PDT, needRDFofBBs, RDFBlocks);
                         //LLVM_DEBUG(dbgs()<<"Calling rdf instrument::"<<RDFBlocks.size());
-                        //std::string rdf_info_str = instrumentRDF(RDFBlocks, call_inst_to_id[call_inst], i+1 );
+                        //string rdf_info_str = instrumentRDF(RDFBlocks, call_inst_to_id[call_inst], i+1 );
                     }else{
                         LLVM_DEBUG(dbgs() << "wtf 2z\n");
                         if((argV->getType()->isIntegerTy()
@@ -337,7 +337,7 @@ void DebloatInstrument::instrument_return(Instruction *inst_before,
     Value *retinstrIntrinsic;
     Module *m;
     Type *ptr_i8;
-    std::vector<Value *> ArgsVIntrinsic;
+    vector<Value *> ArgsVIntrinsic;
 
     m = inst_before->getModule();
     ptr_i8 = PointerType::get(Type::getInt8Ty(m->getContext()), 0);
@@ -352,7 +352,7 @@ void DebloatInstrument::instrument_return(Instruction *inst_before,
 
 
     IRBuilder<> builder(inst_before);
-    std::vector<Value *> ArgsV;
+    vector<Value *> ArgsV;
     LLVM_DEBUG(dbgs() << "retinstrIntrinsic type: " << *(retinstrIntrinsic->getType()) << "\n");
     if(retinstrIntrinsic->getType()->isPointerTy()){
         LLVM_DEBUG(dbgs() << " that type is a pointer\n");
@@ -397,7 +397,7 @@ void DebloatInstrument::instrument_return(Instruction *inst_before,
 
     // This is what we used to use:
     //IRBuilder<> builder(inst_before);
-    //std::vector<Value *> ArgsV;
+    //vector<Value *> ArgsV;
     //ArgsV.push_back(llvm::ConstantInt::get(int32Ty, func_id, false));
     //LLVM_DEBUG(dbgs() << "Instrumenting ret-inst::" << inst_before << "\n");
     //Value *retinstr = builder.CreateCall(debrt_return_func, ArgsV);
@@ -424,7 +424,7 @@ void DebloatInstrument::create_the_call(Instruction *inst_before,
 {
 
     IRBuilder<> builder(inst_before);
-    std::vector<Value *> ArgsV;
+    vector<Value *> ArgsV;
 
 
     LLVM_DEBUG(dbgs() << "Instrumented for callins::" << inst_before
@@ -527,7 +527,7 @@ void DebloatInstrument::instrument_outside_loop_basic(Instruction *call_inst,
             // FIXME for now, instrument just the callsite_id and the
             // called_func_id
             IRBuilder<> builder(inst_before);
-            std::vector<Value *> ArgsV;
+            vector<Value *> ArgsV;
             ArgsV.push_back(llvm::ConstantInt::get(int32Ty, 2, false));
             ArgsV.push_back(llvm::ConstantInt::get(int32Ty, callsite_id, false));
             ArgsV.push_back(llvm::ConstantInt::get(int32Ty, called_func_id, false));

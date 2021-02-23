@@ -44,7 +44,7 @@ namespace {
       private:
         Function *debprof_print_args_func;
         map<CallInst *, unsigned int> call_inst_to_id;
-        std::map<std::string, unsigned int> func_name_to_id;
+        map<string, unsigned int> func_name_to_id;
         unsigned int call_inst_count;
         unsigned int func_count;
         dp_stats_t stats;
@@ -166,7 +166,7 @@ bool DebloatProfile::runOnFunction(Function &F)
                     continue;
                 }
 
-                std::string called_func_name = called_func->getName().str();
+                string called_func_name = called_func->getName().str();
                 LLVM_DEBUG(dbgs()<<"called_func_name: "<<called_func_name<<"\n");
 
                 //LLVM_DEBUG(dbgs()<<"\n callinst:"<<*call_inst);
@@ -197,7 +197,7 @@ bool DebloatProfile::runOnFunction(Function &F)
 
                 for(unsigned int i = 0 ; i < num_args; i++){
                     Value *argV = call_inst->getArgOperand(i);
-                    std::string prnt_type;
+                    string prnt_type;
                     llvm::raw_string_ostream rso(prnt_type);
                     argV->getType()->print(rso);
                     LLVM_DEBUG(dbgs() << "argument:: " << i << " = " << *argV
@@ -239,7 +239,7 @@ bool DebloatProfile::runOnFunction(Function &F)
                         //PostDominatorTree &PDT = getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
                         //computeControlDependence(PDT, needRDFofBBs, RDFBlocks);
                         //LLVM_DEBUG(dbgs()<<"Calling rdf instrument::"<<RDFBlocks.size());
-                        //std::string rdf_info_str = instrumentRDF(RDFBlocks, call_inst_to_id[call_inst], i+1 );
+                        //string rdf_info_str = instrumentRDF(RDFBlocks, call_inst_to_id[call_inst], i+1 );
                     }else{
                         LLVM_DEBUG(dbgs() << "wtf 2z\n");
                         if((argV->getType()->isIntegerTy()
@@ -300,7 +300,7 @@ void DebloatProfile::create_the_call(Instruction *inst_before,
 {
 
     IRBuilder<> builder(inst_before);
-    std::vector<Value *> ArgsV;
+    vector<Value *> ArgsV;
 
 
     LLVM_DEBUG(dbgs() << "Instrumented for callins::" << inst_before
@@ -403,7 +403,7 @@ void DebloatProfile::instrument_outside_loop_basic(Instruction *call_inst,
             // FIXME for now, instrument just the callsite_id and the
             // called_func_id
             IRBuilder<> builder(inst_before);
-            std::vector<Value *> ArgsV;
+            vector<Value *> ArgsV;
             ArgsV.push_back(llvm::ConstantInt::get(int32Ty, 2, false));
             ArgsV.push_back(llvm::ConstantInt::get(int32Ty, callsite_id, false));
             ArgsV.push_back(llvm::ConstantInt::get(int32Ty, called_func_id, false));
