@@ -32,7 +32,7 @@ bool can_ignore_called_func(Function *called_func, CallInst *call_inst)
         return true;
     }
     string callInstrString;
-    llvm::raw_string_ostream callrso(callInstrString);
+    raw_string_ostream callrso(callInstrString);
     call_inst->print(callrso);
     string toFindin = callrso.str();
     string ignoreclassStr("%class.");
