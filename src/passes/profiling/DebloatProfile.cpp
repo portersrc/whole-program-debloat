@@ -43,10 +43,6 @@ namespace {
         void dump_stats(void);
         void dump_func_name_to_id(void);
 
-        void instrument_callsite(Instruction *call_inst,
-                                 unsigned int callsite_id,
-                                 unsigned int called_func_id,
-                                 set<Value *> func_arguments_set);
         void instrument_outside_loop_basic(Instruction *call_inst,
                                            unsigned int callsite_id,
                                            unsigned int called_func_id,
@@ -223,35 +219,17 @@ bool DebloatProfile::runOnFunction(Function &F)
                     instrument_callsite(call_inst,
                                         call_inst_to_id[call_inst],
                                         func_name_to_id[called_func_name],
-                                        func_arguments_set);
+                                        func_arguments_set,
+                                        debprof_print_args_func,
+                                        jump_phi_nodes,
+                                        &stats,
+                                        LI);
+
                 }
             }
         }
     }
     return true;
-}
-
-void DebloatProfile::instrument_callsite(Instruction *call_inst,
-                                        unsigned int callsite_id,
-                                        unsigned int called_func_id,
-                                        set<Value *> func_arguments_set)
-{
-
-    if(!call_inst_is_in_loop(call_inst, LI, &stats)){
-        create_the_call(call_inst,
-                        callsite_id,
-                        called_func_id,
-                        func_arguments_set,
-                        false,
-                        debprof_print_args_func,
-                        jump_phi_nodes,
-                        &stats);
-    }else{
-        //instrument_outside_loop_basic(call_inst,
-        //                              callsite_id,
-        //                              called_func_id,
-        //                              func_arguments_set);
-    }
 }
 
 

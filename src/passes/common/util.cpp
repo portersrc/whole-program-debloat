@@ -58,6 +58,33 @@ bool call_inst_is_in_loop(Instruction *call_inst, LoopInfo *LI, deb_stats_t *sta
 }
 
 
+void instrument_callsite(Instruction *call_inst,
+                         unsigned int callsite_id,
+                         unsigned int called_func_id,
+                         set<Value *> func_arguments_set,
+                         Function *debloat_func,
+                         set<Instruction *> &jump_phi_nodes,
+                         deb_stats_t *stats,
+                         LoopInfo *LI)
+{
+    if(!call_inst_is_in_loop(call_inst, LI, stats)){
+        create_the_call(call_inst,
+                        callsite_id,
+                        called_func_id,
+                        func_arguments_set,
+                        false,
+                        debloat_func,
+                        jump_phi_nodes,
+                        stats);
+    }else{
+        //instrument_outside_loop_basic(call_inst,
+        //                              callsite_id,
+        //                              called_func_id,
+        //                              func_arguments_set);
+    }
+}
+
+
 void create_the_call(Instruction *inst_before,
                      unsigned int callsite_id,
                      unsigned int called_func_id,
@@ -156,5 +183,3 @@ void create_the_call(Instruction *inst_before,
 
 
 }
-
-

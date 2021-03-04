@@ -34,6 +34,15 @@ bool can_ignore_called_func(Function *called_func, CallInst *call_inst);
 
 bool call_inst_is_in_loop(Instruction *call_inst, LoopInfo *LI, deb_stats_t *stats);
 
+void instrument_callsite(Instruction *call_inst,
+                         unsigned int callsite_id,
+                         unsigned int called_func_id,
+                         set<Value *> func_arguments_set,
+                         Function *debloat_func,
+                         set<Instruction *> &jump_phi_nodes,
+                         deb_stats_t *stats,
+                         LoopInfo *LI);
+
 void create_the_call(Instruction *inst_before,
                      unsigned int callsite_id,
                      unsigned int called_func_id,
