@@ -179,7 +179,7 @@ bool DebloatInstrument::runOnFunction(Function &F)
     }else{
         LLVM_DEBUG(dbgs() << "NOT MAIN: " << func_name << "\n");
     }
-    LI  = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+    LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
     for(Function::iterator it_bb = F.begin();
         it_bb != F.end();
