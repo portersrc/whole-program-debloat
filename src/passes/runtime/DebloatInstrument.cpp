@@ -9,17 +9,6 @@
 
 
 
-typedef struct{
-    unsigned int max_num_args;
-    unsigned int num_calls_not_in_loops;
-    unsigned int num_calls_in_loops;
-    unsigned int num_loops_no_preheader;
-}dp_stats_t;
-
-
-
-
-
 
 
 
