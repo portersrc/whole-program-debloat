@@ -34,7 +34,7 @@ namespace {
         map<string, unsigned int> func_name_to_id;
         unsigned int call_inst_count;
         unsigned int func_count;
-        dp_stats_t stats;
+        deb_stats_t stats;
         set<Loop *> instrumented_loops;
         set<Instruction *> jump_phi_nodes;
         Type *int32Ty;

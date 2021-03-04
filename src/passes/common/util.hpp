@@ -24,7 +24,7 @@ typedef struct{
     unsigned int num_calls_not_in_loops;
     unsigned int num_calls_in_loops;
     unsigned int num_loops_no_preheader;
-}dp_stats_t;
+}deb_stats_t;
 
 
 
