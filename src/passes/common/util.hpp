@@ -32,4 +32,6 @@ string getDemangledName(const Function &F);
 
 bool can_ignore_called_func(Function *called_func, CallInst *call_inst);
 
+bool call_inst_is_in_loop(Instruction *call_inst, LoopInfo *LI, deb_stats_t *stats);
+
 #endif

@@ -68,8 +68,6 @@ namespace {
         Type *int32Ty;
         Type *int64Ty;
 
-        bool call_inst_is_in_loop(Instruction *call_inst);
-
         void init_debrt_funcs(Module &);
 
         void dump_stats(void);
@@ -136,20 +134,6 @@ void DebloatInstrument::read_func_name_to_id(void)
 
 bool DebloatInstrument::doFinalization(Module &M)
 {
-    return false;
-}
-
-
-
-
-bool DebloatInstrument::call_inst_is_in_loop(Instruction *call_inst)
-{
-    if(LI && LI->getLoopFor(call_inst->getParent())) {
-        LLVM_DEBUG(dbgs() << "i see this call_inst inside a loop\n");
-        stats.num_calls_in_loops++;
-        return true;
-    }
-    stats.num_calls_not_in_loops++;
     return false;
 }
 
@@ -304,7 +288,7 @@ void DebloatInstrument::instrument_callsite(Instruction *call_inst,
                                         set<Value *> func_arguments_set)
 {
 
-    if(!call_inst_is_in_loop(call_inst)){
+    if(!call_inst_is_in_loop(call_inst, LI, &stats)){
         create_the_call(call_inst,
                         callsite_id,
                         called_func_id,

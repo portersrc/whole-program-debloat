@@ -1,5 +1,6 @@
 #include "util.hpp"
 
+
 string getDemangledName(const Function &F)
 {
     ItaniumPartialDemangler IPD;
@@ -12,6 +13,7 @@ string getDemangledName(const Function &F)
     }
     return IPD.finishDemangle(nullptr, nullptr);
 }
+
 
 bool can_ignore_called_func(Function *called_func, CallInst *call_inst)
 {
@@ -40,5 +42,17 @@ bool can_ignore_called_func(Function *called_func, CallInst *call_inst)
         LLVM_DEBUG(dbgs()<<"Skipping ignoreclass: "<<*call_inst<<"\n");
         return true;
     }
+    return false;
+}
+
+
+bool call_inst_is_in_loop(Instruction *call_inst, LoopInfo *LI, deb_stats_t *stats)
+{
+    if(LI && LI->getLoopFor(call_inst->getParent())) {
+        LLVM_DEBUG(dbgs() << "i see this call_inst inside a loop\n");
+        stats->num_calls_in_loops++;
+        return true;
+    }
+    stats->num_calls_not_in_loops++;
     return false;
 }

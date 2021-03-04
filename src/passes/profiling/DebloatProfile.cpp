@@ -39,7 +39,6 @@ namespace {
         set<Instruction *> jump_phi_nodes;
         Type *int32Ty;
 
-        bool call_inst_is_in_loop(Instruction *call_inst);
         void init_debprof_print_func(Module &);
         void dump_stats(void);
         void dump_func_name_to_id(void);
@@ -103,18 +102,6 @@ void DebloatProfile::dump_func_name_to_id(void)
         fprintf(fp, "%s %u\n", it->first.c_str(), it->second);
     }
     fclose(fp);
-}
-
-
-bool DebloatProfile::call_inst_is_in_loop(Instruction *call_inst)
-{
-    if(LI && LI->getLoopFor(call_inst->getParent())) {
-        LLVM_DEBUG(dbgs() << "i see this call_inst inside a loop\n");
-        stats.num_calls_in_loops++;
-        return true;
-    }
-    stats.num_calls_not_in_loops++;
-    return false;
 }
 
 
@@ -256,7 +243,7 @@ void DebloatProfile::instrument_callsite(Instruction *call_inst,
                                         set<Value *> func_arguments_set)
 {
 
-    if(!call_inst_is_in_loop(call_inst)){
+    if(!call_inst_is_in_loop(call_inst, LI, &stats)){
         create_the_call(call_inst,
                         callsite_id,
                         called_func_id,
