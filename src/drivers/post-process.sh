@@ -18,7 +18,6 @@ function post_process_bmark() {
 
 
 if [ $# == 1 ]; then
-    echo "hit"
     post_process_bmark $1
 else
     for BMARK in "${BMARKS[@]}"; do

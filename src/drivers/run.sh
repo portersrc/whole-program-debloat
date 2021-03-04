@@ -1,10 +1,12 @@
 #!/bin/bash
 set -euxo pipefail
-
 source env-vars
 
 
-for BMARK in "${BMARKS[@]}"; do
+
+
+function run_bmark() {
+    BMARK=$1
     echo "benchmark: $BMARK"
     FOLDER=${BMARK_TO_FOLDER[$BMARK]}
     echo "folder:    $FOLDER"
@@ -18,4 +20,15 @@ for BMARK in "${BMARKS[@]}"; do
     #./run.sh medium
 
     popd
-done
+}
+
+
+
+
+if [ $# == 1 ]; then
+    run_bmark $1
+else
+    for BMARK in "${BMARKS[@]}"; do
+        run_bmark $BMARK
+    done
+fi

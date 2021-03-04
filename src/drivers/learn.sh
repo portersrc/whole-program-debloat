@@ -1,10 +1,12 @@
 #!/bin/bash
 set -euxo pipefail
-
 source env-vars
 
 
-for BMARK in "${BMARKS[@]}"; do
+
+
+function learn_bmark() {
+    BMARK=$1
     echo "benchmark: $BMARK"
     FOLDER=${BMARK_TO_FOLDER[$BMARK]}
     echo "folder:    ${BASE_PATH}/${FOLDER}"
@@ -37,5 +39,15 @@ for BMARK in "${BMARKS[@]}"; do
     echo
     echo "See folder ${BMARK} for all results and files"
     echo
+}
 
-done
+
+
+
+if [ $# == 1 ]; then
+    learn_bmark $1
+else
+    for BMARK in "${BMARKS[@]}"; do
+        learn_bmark $BMARK
+    done
+fi
