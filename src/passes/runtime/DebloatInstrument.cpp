@@ -70,7 +70,6 @@ namespace {
 
         void init_debrt_funcs(Module &);
 
-        void dump_stats(void);
         void read_func_name_to_id(void);
 
         void instrument_callsite(Instruction *call_inst,
