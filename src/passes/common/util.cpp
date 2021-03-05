@@ -65,7 +65,8 @@ void instrument_callsite(Instruction *call_inst,
                          Function *debloat_func,
                          set<Instruction *> &jump_phi_nodes,
                          deb_stats_t *stats,
-                         LoopInfo *LI)
+                         LoopInfo *LI,
+                         set<Loop *> &instrumented_loops)
 {
     if(!call_inst_is_in_loop(call_inst, LI, stats)){
         create_the_call(call_inst,
@@ -80,7 +81,11 @@ void instrument_callsite(Instruction *call_inst,
         //instrument_outside_loop_basic(call_inst,
         //                              callsite_id,
         //                              called_func_id,
-        //                              func_arguments_set);
+        //                              func_arguments_set,
+        //                              LI,
+        //                              debloat_func,
+        //                              stats,
+        //                              instrumented_loops);
     }
 }
 
@@ -102,7 +107,6 @@ void create_the_call(Instruction *inst_before,
 
     m = inst_before->getModule();
     int32Ty = IntegerType::getInt32Ty(m->getContext());
-
 
     LLVM_DEBUG(dbgs() << "Instrumented for callins::" << inst_before
                << " callsite::"  << callsite_id << "\n");
@@ -182,4 +186,45 @@ void create_the_call(Instruction *inst_before,
     LLVM_DEBUG(dbgs() << "callinstr::" << *callinstr << "\n");
 
 
+}
+
+
+void instrument_outside_loop_basic(Instruction *call_inst,
+                                   unsigned int callsite_id,
+                                   unsigned int called_func_id,
+                                   set<Value *> func_arguments_set,
+                                   LoopInfo *LI,
+                                   Function *debloat_func,
+                                   deb_stats_t *stats,
+                                   set<Loop *> &instrumented_loops)
+{
+    Loop *L;
+    Instruction *inst_before;
+    BasicBlock *preHeaderBB;
+
+    Type *int32Ty;
+    int32Ty = IntegerType::getInt32Ty(call_inst->getModule()->getContext());
+
+    L = LI->getLoopFor(call_inst->getParent());
+    preHeaderBB = L->getLoopPreheader();
+    if(preHeaderBB){
+        if(instrumented_loops.count(L) == 0){
+            instrumented_loops.insert(L);
+            inst_before = preHeaderBB->getTerminator();
+
+            // FIXME for now, instrument just the callsite_id and the
+            // called_func_id
+            IRBuilder<> builder(inst_before);
+            vector<Value *> ArgsV;
+            ArgsV.push_back(llvm::ConstantInt::get(int32Ty, 2, false));
+            ArgsV.push_back(llvm::ConstantInt::get(int32Ty, callsite_id, false));
+            ArgsV.push_back(llvm::ConstantInt::get(int32Ty, called_func_id, false));
+            Value *callinstr = builder.CreateCall(debloat_func, ArgsV);
+            LLVM_DEBUG(dbgs() << "callinstr(loop)::" << *callinstr << "\n");
+        }
+    }else{
+        // FIXME see LLVM doxygen on getLoopPreheader. The fix is to walk
+        // incoming edges to the first BB of the loop
+        stats->num_loops_no_preheader++;
+    }
 }

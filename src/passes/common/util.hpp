@@ -41,7 +41,8 @@ void instrument_callsite(Instruction *call_inst,
                          Function *debloat_func,
                          set<Instruction *> &jump_phi_nodes,
                          deb_stats_t *stats,
-                         LoopInfo *LI);
+                         LoopInfo *LI,
+                         set<Loop *> &instrumented_loops);
 
 void create_the_call(Instruction *inst_before,
                      unsigned int callsite_id,
@@ -51,5 +52,14 @@ void create_the_call(Instruction *inst_before,
                      Function *debloat_func,
                      set<Instruction *> &jump_phi_nodes,
                      deb_stats_t *stats);
+
+void instrument_outside_loop_basic(Instruction *call_inst,
+                                   unsigned int callsite_id,
+                                   unsigned int called_func_id,
+                                   set<Value *> func_arguments_set,
+                                   LoopInfo *LI,
+                                   Function *debloat_func,
+                                   deb_stats_t *stats,
+                                   set<Loop *> &instrumented_loops);
 
 #endif

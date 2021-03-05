@@ -43,10 +43,6 @@ namespace {
         void dump_stats(void);
         void dump_func_name_to_id(void);
 
-        void instrument_outside_loop_basic(Instruction *call_inst,
-                                           unsigned int callsite_id,
-                                           unsigned int called_func_id,
-                                           set<Value *> func_arguments_set);
     };
 }
 
@@ -223,7 +219,8 @@ bool DebloatProfile::runOnFunction(Function &F)
                                         debprof_print_args_func,
                                         jump_phi_nodes,
                                         &stats,
-                                        LI);
+                                        LI,
+                                        instrumented_loops);
 
                 }
             }
@@ -231,43 +228,6 @@ bool DebloatProfile::runOnFunction(Function &F)
     }
     return true;
 }
-
-
-void DebloatProfile::instrument_outside_loop_basic(Instruction *call_inst,
-                                                   unsigned int callsite_id,
-                                                   unsigned int called_func_id,
-                                                   set<Value *> func_arguments_set)
-{
-    Loop *L;
-    Instruction *inst_before;
-    BasicBlock *preHeaderBB;
-
-    L = LI->getLoopFor(call_inst->getParent());
-    preHeaderBB = L->getLoopPreheader();
-    if(preHeaderBB){
-        if(instrumented_loops.count(L) == 0){
-            instrumented_loops.insert(L);
-            inst_before = preHeaderBB->getTerminator();
-
-            // FIXME for now, instrument just the callsite_id and the
-            // called_func_id
-            IRBuilder<> builder(inst_before);
-            vector<Value *> ArgsV;
-            ArgsV.push_back(llvm::ConstantInt::get(int32Ty, 2, false));
-            ArgsV.push_back(llvm::ConstantInt::get(int32Ty, callsite_id, false));
-            ArgsV.push_back(llvm::ConstantInt::get(int32Ty, called_func_id, false));
-            Value *callinstr = builder.CreateCall(debprof_print_args_func, ArgsV);
-            LLVM_DEBUG(dbgs() << "callinstr(loop)::" << *callinstr << "\n");
-        }
-    }else{
-        // FIXME see LLVM doxygen on getLoopPreheader. The fix is to walk
-        // incoming edges to the first BB of the loop
-        stats.num_loops_no_preheader++;
-    }
-
-}
-
-
 
 
 void DebloatProfile::init_debprof_print_func(Module &M)
