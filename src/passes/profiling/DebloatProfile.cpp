@@ -93,140 +93,20 @@ void DebloatProfile::dump_func_name_to_id(void)
 
 bool DebloatProfile::runOnFunction(Function &F)
 {
-    unsigned int num_args;
-    bool can_instrument;
-    string func_name;
-    CallInst *call_inst;
-
-    func_name = getDemangledName(F);
-    if(func_name == "main"){
-        LLVM_DEBUG(dbgs() << "FOUND MAIN\n");
-    }else{
-        LLVM_DEBUG(dbgs() << "NOT MAIN: " << func_name << "\n");
-    }
     LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-
-    for(Function::iterator it_bb = F.begin();
-        it_bb != F.end();
-        ++it_bb){
-
-        BasicBlock *bb = &*it_bb;
-        for(BasicBlock::iterator it_inst = bb->begin();
-            it_inst != bb->end();
-            ++it_inst){
-
-            if(dyn_cast<InvokeInst>(&*it_inst)){
-                continue;
-            }
-
-            call_inst = dyn_cast<CallInst>(&*it_inst);
-            if(call_inst){
-                Function *called_func = call_inst->getCalledFunction();
-                if(can_ignore_called_func(called_func, call_inst)){
-                    continue;
-                }
-
-                string called_func_name = called_func->getName().str();
-                LLVM_DEBUG(dbgs()<<"called_func_name: "<<called_func_name<<"\n");
-
-                //LLVM_DEBUG(dbgs()<<"\n callinst:"<<*call_inst);
-                //LLVM_DEBUG(dbgs()<<"\n called func:"<<called_func->getName());
-                //LLVM_DEBUG(dbgs()<<"\n does not throw:"<<call_inst->doesNotThrow());
-                //LLVM_DEBUG(dbgs()<<"\n does not throw:"<<called_func->doesNotThrow());
-                //LLVM_DEBUG(dbgs()<<"\n get getDereferenceableBytes:"<<call_inst->getDereferenceableBytes(0));
-
-                if(call_inst_to_id.find(call_inst) == call_inst_to_id.end()){
-                    call_inst_to_id[call_inst] = call_inst_count++;
-                    LLVM_DEBUG(dbgs() << "Hit init\n");
-                }
-                //LLVM_DEBUG(dbgs() <<"\ninstrument_profile call_inst_count:"<<call_inst_count);
-                //LLVM_DEBUG(dbgs() << " CallPredictionTrain: got call instr "<<*call_inst<<"\n");
-                if(func_name_to_id.find(called_func_name) == func_name_to_id.end()){
-                    func_name_to_id[called_func_name] = func_count++;
-                }
-                //LLVM_DEBUG(dbgs()<<"with arguments ::\n" );
-
-                num_args = call_inst->getNumArgOperands();
-                LLVM_DEBUG(dbgs()
-                  << "\n#_CALL_instrument:funcID:" << func_name_to_id[called_func_name]
-                  << ":call_inst_count:" << call_inst_to_id[call_inst]<<":"
-                  << "num_args:" << num_args << "\n");
-
-                set<Value*> func_arguments_set;
-                can_instrument = true;
-
-                for(unsigned int i = 0 ; i < num_args; i++){
-                    Value *argV = call_inst->getArgOperand(i);
-                    string prnt_type;
-                    llvm::raw_string_ostream rso(prnt_type);
-                    argV->getType()->print(rso);
-                    LLVM_DEBUG(dbgs() << "argument:: " << i << " = " << *argV
-                               << " of type::" << rso.str() << "\n");
-                    if(dyn_cast<InvokeInst>(argV)){
-                        can_instrument = false;
-                        LLVM_DEBUG(dbgs() << "IS invoke instr should ignore: "
-                                   << *argV);
-                        break;
-                    }
-                    if(Instruction *argI = dyn_cast<Instruction>(argV)){
-                        if(auto *c = dyn_cast<CallInst>(argI)){
-                            if(c->getDereferenceableBytes(0)){
-                                can_instrument = false;
-                                LLVM_DEBUG(dbgs()
-                                           << "IS invoke instr should ignore: "
-                                           << *argV);
-                                break;
-                            }
-                        }
-
-                        //SmallPtrSet<BasicBlock *, 16> needRDFofBBs;
-                        //get_parent_PHI_def_for(argI, needRDFofBBs);
-
-                        // Now the needrdf is set, so get the rdfs and then
-                        // instrument them, before moving on to next function call
-                        //LLVM_DEBUG(dbgs() << "argument::" << *argI);
-                        if(dyn_cast<Instruction>(argV)
-                        && (argV->getType()->isIntegerTy()
-                           || argV->getType()->isFloatTy()
-                           || argV->getType()->isDoubleTy()
-                           || argV->getType()->isPointerTy())){
-                            LLVM_DEBUG(dbgs() << "valid type argument::" << *argI << "\n");
-                            func_arguments_set.insert(argV);
-                        }else{
-                            LLVM_DEBUG(dbgs() << "wtf 1\n");
-                        }
-                        //SmallVector<BasicBlock *, 32> RDFBlocks;
-                        //PostDominatorTree &PDT = getAnalysis<PostDominatorTreeWrapperPass>().getPostDomTree();
-                        //computeControlDependence(PDT, needRDFofBBs, RDFBlocks);
-                        //LLVM_DEBUG(dbgs()<<"Calling rdf instrument::"<<RDFBlocks.size());
-                        //string rdf_info_str = instrumentRDF(RDFBlocks, call_inst_to_id[call_inst], i+1 );
-                    }else{
-                        LLVM_DEBUG(dbgs() << "wtf 2z\n");
-                        if((argV->getType()->isIntegerTy()
-                         || argV->getType()->isFloatTy()
-                         || argV->getType()->isDoubleTy()
-                         || argV->getType()->isPointerTy())){
-                            LLVM_DEBUG(dbgs() << "valid type argument\n");
-                            func_arguments_set.insert(argV);
-                        }
-                    }
-                }
-                if(can_instrument){
-                    instrument_callsite(call_inst,
-                                        call_inst_to_id[call_inst],
-                                        func_name_to_id[called_func_name],
-                                        func_arguments_set,
-                                        debprof_print_args_func,
-                                        jump_phi_nodes,
-                                        &stats,
-                                        LI,
-                                        instrumented_loops);
-
-                }
-            }
-        }
-    }
-    return true;
+    return run_on_function(true,
+                           F,
+                           debprof_print_args_func,
+                           jump_phi_nodes,
+                           LI,
+                           NULL,
+                           NULL,
+                           call_inst_to_id,
+                           &call_inst_count,
+                           &func_count,
+                           &stats,
+                           instrumented_loops,
+                           func_name_to_id);
 }
 
 

@@ -62,4 +62,20 @@ void instrument_outside_loop_basic(Instruction *call_inst,
                                    deb_stats_t *stats,
                                    set<Loop *> &instrumented_loops);
 
+void instrument_return(Instruction *inst_before, unsigned int func_id);
+
+bool run_on_function(bool is_profiling,
+                     Function &F,
+                     Function *debloat_func,
+                     set<Instruction *> &jump_phi_nodes,
+                     LoopInfo *LI,
+                     Function *debrt_return_func,
+                     Function *debrt_return_func_intrinsic,
+                     map<CallInst *, unsigned int> &call_inst_to_id,
+                     unsigned int *call_inst_count,
+                     unsigned int *func_count,
+                     deb_stats_t *stats,
+                     set<Loop *> &instrumented_loops,
+                     map<string, unsigned int> &func_name_to_id);
+
 #endif
