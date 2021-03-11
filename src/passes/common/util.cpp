@@ -15,7 +15,9 @@ string getDemangledName(const Function &F)
 }
 
 
-bool can_ignore_called_func(Function *called_func, CallInst *call_inst)
+bool can_ignore_called_func(Function *called_func,
+                            CallInst *call_inst,
+                            unordered_set<Function *> &app_funcs)
 {
     if(called_func == NULL){
         LLVM_DEBUG(dbgs()<<"called_func is NULL\n");
@@ -31,6 +33,9 @@ bool can_ignore_called_func(Function *called_func, CallInst *call_inst)
     }
     if(call_inst->getDereferenceableBytes(0)){
         LLVM_DEBUG(dbgs()<<"Skipping derefereceable bytes: "<<*call_inst<<"\n");
+        return true;
+    }
+    if(app_funcs.find(called_func) == app_funcs.end()){
         return true;
     }
     string callInstrString;
@@ -326,6 +331,7 @@ bool run_on_function(bool is_profiling,
                      unsigned int *func_count,
                      deb_stats_t *stats,
                      set<Loop *> &instrumented_loops,
+                     unordered_set<Function *> &app_funcs,
                      map<string, unsigned int> &func_name_to_id)
 {
     unsigned int num_args;
@@ -357,7 +363,7 @@ bool run_on_function(bool is_profiling,
             call_inst = dyn_cast<CallInst>(&*it_inst);
             if(call_inst){
                 Function *called_func = call_inst->getCalledFunction();
-                if(can_ignore_called_func(called_func, call_inst)){
+                if(can_ignore_called_func(called_func, call_inst, app_funcs)){
                     continue;
                 }
 

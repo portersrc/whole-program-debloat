@@ -7,6 +7,7 @@
 #include <llvm/IR/IRBuilder.h>
 
 #include <set>
+#include <unordered_set>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -76,6 +77,7 @@ bool run_on_function(bool is_profiling,
                      unsigned int *func_count,
                      deb_stats_t *stats,
                      set<Loop *> &instrumented_loops,
+                     unordered_set<Function *> &app_funcs,
                      map<string, unsigned int> &func_name_to_id);
 
 #endif

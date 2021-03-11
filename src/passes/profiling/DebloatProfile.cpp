@@ -6,6 +6,7 @@
 
 
 
+
 namespace {
 
     struct DebloatProfile : public FunctionPass {
@@ -30,6 +31,7 @@ namespace {
 
       private:
         Function *debprof_print_args_func;
+        unordered_set<Function *> app_funcs;
         map<CallInst *, unsigned int> call_inst_to_id;
         map<string, unsigned int> func_name_to_id;
         unsigned int call_inst_count;
@@ -53,6 +55,22 @@ bool DebloatProfile::doInitialization(Module &M)
     func_count = 0;
 
     int32Ty = IntegerType::getInt32Ty(M.getContext());
+
+    for(auto &f : M){
+        LLVM_DEBUG(dbgs() << "seeing: " << getDemangledName(f) << "\n");
+        if(f.hasName() && !f.isDeclaration()){
+            LLVM_DEBUG(dbgs() << "  inserting: " << getDemangledName(f) << "\n");
+            app_funcs.insert(&f);
+        }else{
+            if(!f.hasName()){
+                LLVM_DEBUG(dbgs() << "  no name\n");
+            }else if(f.isDeclaration()){
+                LLVM_DEBUG(dbgs() << "  is declaration\n");
+            }else{
+                assert(0 && "unexpected: has name, isn't declaration, bug fell through\n");
+            }
+        }
+    }
 
     init_debprof_print_func(M);
     stats.max_num_args = 0;
@@ -106,6 +124,7 @@ bool DebloatProfile::runOnFunction(Function &F)
                            &func_count,
                            &stats,
                            instrumented_loops,
+                           app_funcs,
                            func_name_to_id);
 }
 

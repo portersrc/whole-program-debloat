@@ -58,6 +58,7 @@ namespace {
         Function *debrt_return_func_intrinsic;
         Function *debrt_protect_loop_func;
         Function *debrt_loop_end_func;
+        unordered_set<Function *> app_funcs;
         map<CallInst *, unsigned int> call_inst_to_id;
         map<string, unsigned int> func_name_to_id;
         unsigned int call_inst_count;
@@ -72,7 +73,6 @@ namespace {
 
         void read_func_name_to_id(void);
 
-        void instrument_return(Instruction *ret_inst, unsigned int func_id);
     };
 }
 
@@ -84,6 +84,12 @@ bool DebloatInstrument::doInitialization(Module &M)
 
     int32Ty = IntegerType::getInt32Ty(M.getContext());
     int64Ty = IntegerType::getInt64Ty(M.getContext());
+
+    for(auto &f : M){
+        if(f.hasName() && !f.isDeclaration()){
+            app_funcs.insert(&f);
+        }
+    }
 
     init_debrt_funcs(M);
 
@@ -138,6 +144,7 @@ bool DebloatInstrument::runOnFunction(Function &F)
                            &func_count,
                            &stats,
                            instrumented_loops,
+                           app_funcs,
                            func_name_to_id);
 }
 
