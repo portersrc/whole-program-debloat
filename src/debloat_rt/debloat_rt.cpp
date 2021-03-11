@@ -21,8 +21,6 @@
 
 
 
-extern char __executable_start;
-//extern int main(void);
 
 
 using namespace std;
@@ -733,10 +731,6 @@ void _set_addr_of_main_mapping(void)
     char mapping_filename[MAPPING_FILENAME_SZ];
     char line[MAPPING_LINE_SZ];
     int num_spaces;
-
-    //printf("executable start: 0x%lx\n", (unsigned long)&__executable_start);
-    //int main(int, char **);
-    //printf("%p\n", &main);
 
     snprintf(mapping_filename, MAPPING_FILENAME_SZ, "/proc/%d/maps", getpid());
     fp = fopen(mapping_filename, "r");
