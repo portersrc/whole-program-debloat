@@ -21,6 +21,8 @@
 
 
 
+extern char __executable_start;
+//extern int main(void);
 
 
 using namespace std;
@@ -29,6 +31,7 @@ using namespace std;
 #define PAGE_SIZE 0x1000
 #define RX_PERM   (PROT_READ | PROT_EXEC)
 #define NO_PERM   (PROT_NONE)
+#define RO_PERM   (PROT_READ)
 
 
 
@@ -154,22 +157,58 @@ void _remap_permissions(long long addr, long long size, int perm)
     char *aligned_addr_end;
     int size_to_remap;
 
-    //printf("remap_permissions():\n");
 
     aligned_addr_base = (char *) ((addr) & ~(PAGE_SIZE - 1));
     aligned_addr_end  = (char *) ((addr+size) & ~(PAGE_SIZE - 1));
     size_to_remap = PAGE_SIZE + (aligned_addr_end - aligned_addr_base);
-    //printf("  aligned_addr_base: %p\n", aligned_addr_base);
-    //printf("  aligned_addr_end:  %p\n", aligned_addr_end);
-    //printf("  size_to_remap:     0x%x\n", size_to_remap);
+
+    // FIXME
+    // FIXME
+    // temporary to reduce remapping when returning. mapped-pages
+    // needs proper support for ranges of pages that get mapped, and
+    // for removing and adding
+    // FIXME
+    // FIXME
+    if(mapped_pages.find((long long)aligned_addr_base) != mapped_pages.end()){
+        return;
+    }
+    mapped_pages.insert((long long)aligned_addr_base);
+
+    printf("remap_permissions():\n");
+    printf("  aligned_addr_base: %p\n", aligned_addr_base);
+    printf("  aligned_addr_end:  %p\n", aligned_addr_end);
+    printf("  size_to_remap:     0x%x\n", size_to_remap);
 
     if(mprotect(aligned_addr_base, size_to_remap, perm) == -1){
-        //printf("mprotect error\n");
+        printf("mprotect error\n");
         assert(0 && "mprotect error");
     }
-    //printf("  mprotect succeeded\n");
+    printf("  mprotect succeeded\n");
 }
 
+
+void _map_pages(int func_id)
+{
+    long long first_page;
+    long long last_page;
+    long long size;
+
+    if(func_id_to_pages.find(func_id) == func_id_to_pages.end()){
+        printf("ERROR: seeing func id not in my map: %d\n", func_id);
+        return;
+    }
+    vector<long long> &func_pages = func_id_to_pages[func_id];
+
+    first_page = func_pages[0];
+    last_page  = func_pages[func_pages.size()-1];
+    size       = last_page - first_page;
+
+    //printf("mapping func id %d with first page, last page: 0x%llx, 0x%llx\n",
+    //       func_id, first_page, last_page);
+
+    // FIXME clumsy math and then reuse of _remap_permissions()
+    _remap_permissions(func_pages[0], size, RX_PERM);
+}
 
 
 
@@ -360,6 +399,7 @@ int debrt_protect(int argc, ...)
 {
     static int lib_initialized = 0;
     static int buf_elems = 0;
+    static int first_prediction = 1;
     int i;
     va_list ap;
     int callsite_were_about_to_call;
@@ -400,7 +440,9 @@ int debrt_protect(int argc, ...)
             // here in case I need it
             //_debrt_protect_no_pages();
             //_debrt_protect_all_pages();
-            //_debrt_protect_no_pages();
+            ////_debrt_protect_no_pages();
+            //printf("built-in return: %p\n", __builtin_return_address(0));
+            //_remap_permissions((long long)__builtin_return_address(0), 1, RX_PERM);
         }
         return 0;
     }
@@ -411,7 +453,15 @@ int debrt_protect(int argc, ...)
 
     // XXX We'll want to reinstate this. But compiler support and debrt code
     // needs to be written first
-    //_debrt_protect_all_pages();
+
+    if(first_prediction){
+        first_prediction = 0;
+        _debrt_protect_all_pages();
+        printf("hit after all-pages\n");
+        printf("built-in return: %p\n", __builtin_return_address(0));
+        // ensure the initial page that we can from is mapped RX
+        _remap_permissions((long long)__builtin_return_address(0), 1, RX_PERM);
+    }
 
 
     fb_idx--;
@@ -434,17 +484,27 @@ int debrt_protect(int argc, ...)
     //feature_buf_big[fb_idx] = callsite_were_about_to_call;
     feature_buf_big[fb_idx] = function_were_about_to_call;
 
+    printf("callsite_were_about_to_call: %d\n", callsite_were_about_to_call);
+    printf("function_were_about_to_call: %d\n", function_were_about_to_call);
+
     // Check if the function we're about to call is in our predicted set
     //if(pred_set_p->find(callsite_were_about_to_call) == pred_set_p->end()){
     if(pred_set_p->find(function_were_about_to_call) == pred_set_p->end()){
+        printf("got mispredict\n");
         num_mispredictions++;
     }
     total_predictions++;
+
+    printf("about to map pages\n");
+    // FIXME this is a test. it's going to make sure every page is RX before
+    // it's executed. Ignores prediction or misprediction
+    _map_pages(function_were_about_to_call);
 
     // Get a new prediction
     next_prediction_func_set_id = debrt_decision_tree(&feature_buf_big[fb_idx]);
     //next_prediction_func_set_id = 4 + debrt_decision_tree(&feature_buf_big[fb_idx]);
     pred_set_p = &func_sets[next_prediction_func_set_id];
+    printf("got next prediction func set id: %d\n", next_prediction_func_set_id);
 
     // log what features we send to the DT and what prediction we get back.
     // the predictions might not exactly match training data, but the
@@ -674,6 +734,10 @@ void _set_addr_of_main_mapping(void)
     char line[MAPPING_LINE_SZ];
     int num_spaces;
 
+    //printf("executable start: 0x%lx\n", (unsigned long)&__executable_start);
+    //int main(int, char **);
+    //printf("%p\n", &main);
+
     snprintf(mapping_filename, MAPPING_FILENAME_SZ, "/proc/%d/maps", getpid());
     fp = fopen(mapping_filename, "r");
 
@@ -840,10 +904,15 @@ void _debrt_monitor_destroy(void)
 
 void _debrt_protect_all_pages(void)
 {
-    long long size;
-    size = executable_addr_end - executable_addr_base;
-    size = size - 1; // XXX avoids mapping the end page itself, which causes segfault
-    _remap_permissions(executable_addr_base, size, NO_PERM);
+    // FIXME - reinstate some of this after we test with hard-coded values
+    //long long size;
+    //size = executable_addr_end - executable_addr_base;
+    //size = size - 1; // XXX avoids mapping the end page itself, which causes segfault
+    ////_remap_permissions(executable_addr_base, size, NO_PERM);
+    //_remap_permissions(executable_addr_base, size, RO_PERM);
+    long long first_page = executable_addr_base + 0x1000;
+    long long size = 0x14000 - 1;
+    _remap_permissions(first_page, size, RO_PERM);
 }
 void _debrt_protect_no_pages(void)
 {
