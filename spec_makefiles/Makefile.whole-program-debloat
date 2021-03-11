@@ -409,6 +409,9 @@ instr: $(EXEBASE)
       -o $(NUMBER).$(NAME)_debrt \
       -L$(DEBLOAT_RT_LIBPATH) \
       -ldebloat_rt -lm -lrt
+	# FIXME redirect with &> wasn't working... tee works for now but is messy
+	readelf -s --wide $(NUMBER).$(NAME)_debrt | tee readelf.out
+	nm $(NUMBER).$(NAME)_debrt | tee nm.out
 
 else
 	# cporter: IGNORE BEGIN
