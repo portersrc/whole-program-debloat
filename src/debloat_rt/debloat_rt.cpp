@@ -169,10 +169,10 @@ void _remap_permissions(long long addr, long long size, int perm)
     // for removing and adding
     // FIXME
     // FIXME
-    if(mapped_pages.find((long long)aligned_addr_base) != mapped_pages.end()){
+    if(mapped_pages.find((long long) aligned_addr_base) != mapped_pages.end()){
         return;
     }
-    mapped_pages.insert((long long)aligned_addr_base);
+    mapped_pages.insert((long long) aligned_addr_base);
 
     printf("remap_permissions():\n");
     printf("  aligned_addr_base: %p\n", aligned_addr_base);
