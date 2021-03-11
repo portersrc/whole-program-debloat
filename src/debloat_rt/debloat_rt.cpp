@@ -430,17 +430,6 @@ int debrt_protect(int argc, ...)
             next_prediction_func_set_id = debrt_decision_tree(&feature_buf_big[fb_idx]);
             //next_prediction_func_set_id = 4 + debrt_decision_tree(&feature_buf_big[fb_idx]);
             pred_set_p = &func_sets[next_prediction_func_set_id];
-
-            // XXX this is was a hack during testing. do_lookup_x from ld will
-            // try (and fail) to find _debrt_protect_no_pages if we execute
-            // _debrt_protect_all_pages() first. So we call no-pages first,
-            // then all-pages.  This was for testing, though... I'm leaving
-            // here in case I need it
-            //_debrt_protect_no_pages();
-            //_debrt_protect_all_pages();
-            ////_debrt_protect_no_pages();
-            //printf("built-in return: %p\n", __builtin_return_address(0));
-            //_remap_permissions((long long)__builtin_return_address(0), 1, RX_PERM);
         }
         return 0;
     }
