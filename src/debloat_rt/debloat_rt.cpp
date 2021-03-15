@@ -656,13 +656,15 @@ int debrt_return(long long func_addr)
 extern "C" {
 int debrt_protect_loop(int argc, ...)
 {
+    printf("%s\n", __FUNCTION__);
     return 0;
 }
 }
 
 extern "C" {
-int debrt_loop_end(void)
+int debrt_protect_loop_end(void)
 {
+    printf("%s\n", __FUNCTION__);
     return 0;
 }
 }

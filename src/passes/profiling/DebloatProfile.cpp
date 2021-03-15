@@ -119,6 +119,8 @@ bool DebloatProfile::runOnFunction(Function &F)
                            LI,
                            NULL,
                            NULL,
+                           NULL,
+                           NULL,
                            call_inst_to_id,
                            &call_inst_count,
                            &func_count,

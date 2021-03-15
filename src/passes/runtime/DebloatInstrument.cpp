@@ -57,7 +57,7 @@ namespace {
         Function *debrt_return_func;
         Function *debrt_return_func_intrinsic;
         Function *debrt_protect_loop_func;
-        Function *debrt_loop_end_func;
+        Function *debrt_protect_loop_end_func;
         unordered_set<Function *> app_funcs;
         map<CallInst *, unsigned int> call_inst_to_id;
         map<string, unsigned int> func_name_to_id;
@@ -139,6 +139,8 @@ bool DebloatInstrument::runOnFunction(Function &F)
                            LI,
                            debrt_return_func,
                            debrt_return_func_intrinsic,
+                           debrt_protect_loop_func,
+                           debrt_protect_loop_end_func,
                            call_inst_to_id,
                            &call_inst_count,
                            &func_count,
@@ -188,10 +190,10 @@ void DebloatInstrument::init_debrt_funcs(Module &M)
                        "debrt_protect_loop",
                        M);
 
-    debrt_loop_end_func = 
+    debrt_protect_loop_end_func =
       Function::Create(FunctionType::get(int32Ty, false),
                        Function::ExternalLinkage,
-                       "debrt_loop_end",
+                       "debrt_protect_loop_end",
                        &M);
 
 }
