@@ -56,6 +56,7 @@ int total_predictions;
 
 int  _debrt_monitor_init(void);
 void _debrt_monitor_destroy(void);
+void _init_page_to_count(void);
 
 int  _debrt_protect_init(void);
 void _debrt_protect_destroy(void);
@@ -84,7 +85,6 @@ map<int, pair<long long, long> > func_id_to_addr_and_size;
 
 
 map<int, vector<long long> > func_id_to_pages;
-set<long long> mapped_pages;
 map<long long, int> page_to_count;
 
 
@@ -161,22 +161,17 @@ void _remap_permissions(long long addr, long long size, int perm)
     aligned_addr_end  = (char *) ((addr+size) & ~(PAGE_SIZE - 1));
     size_to_remap = PAGE_SIZE + (aligned_addr_end - aligned_addr_base);
 
-    // FIXME
-    // FIXME
-    // temporary to reduce remapping when returning. mapped-pages
-    // needs proper support for ranges of pages that get mapped, and
-    // for removing and adding
-    // FIXME
-    // FIXME
-    if(mapped_pages.find((long long) aligned_addr_base) != mapped_pages.end()){
-        return;
-    }
-    mapped_pages.insert((long long) aligned_addr_base);
-
     printf("remap_permissions():\n");
     printf("  aligned_addr_base: %p\n", aligned_addr_base);
     printf("  aligned_addr_end:  %p\n", aligned_addr_end);
     printf("  size_to_remap:     0x%x\n", size_to_remap);
+    printf("  permissions:       ");
+    switch(perm){
+    case RX_PERM: printf("RX_PERM\n"); break;
+    case RO_PERM: printf("RO_PERM\n"); break;
+    case NO_PERM: printf("NO_PERM\n"); break;
+    default: assert(0); break;
+    }
 
     if(mprotect(aligned_addr_base, size_to_remap, perm) == -1){
         printf("mprotect error\n");
@@ -264,6 +259,16 @@ void update_page_counts(int func_id, int addend)
         addr = pages[i];
         page_to_count[addr] += addend;
         assert(page_to_count[addr] >= 0);
+        // FIXME: revisit this. do as blocks, rather than
+        // as individual pages.
+        if((page_to_count[addr] == 1) && (addend == 1)){
+            _remap_permissions(addr, 1, RX_PERM);
+        }
+        if(page_to_count[addr] == 0){
+            // FIXME: mark RX until bugs are sorted out
+            //_remap_permissions(addr, 1, RO_PERM);
+            _remap_permissions(addr, 1, RX_PERM);
+        }
     }
 }
 
@@ -311,20 +316,6 @@ void _update_node_age(mapped_func_node_t *n)
 
 void _update_mapped_pages(int func_id)
 {
-    printf("%s\n", __FUNCTION__);
-    // TODO
-    // TODO ... have to actually map addresses with remap permissions
-    // TODO
-    auto n = func_id_to_mapped_func_node.find(func_id);
-    if(n == func_id_to_mapped_func_node.end()){
-        _map_new_func_id(func_id);
-    }else{
-        _update_node_age(n->second);
-    }
-}
-
-void _map_pages(int func_id)
-{
     long long first_page;
     long long last_page;
     long long size;
@@ -334,17 +325,13 @@ void _map_pages(int func_id)
         printf("ERROR: seeing func id not in my map: %d\n", func_id);
         return;
     }
-    vector<long long> &func_pages = func_id_to_pages[func_id];
 
-    first_page = func_pages[0];
-    last_page  = func_pages[func_pages.size()-1];
-    size       = last_page - first_page;
-
-    //printf("mapping func id %d with first page, last page: 0x%llx, 0x%llx\n",
-    //       func_id, first_page, last_page);
-
-    // FIXME clumsy math and then reuse of _remap_permissions()
-    _remap_permissions(func_pages[0], size, RX_PERM);
+    auto n = func_id_to_mapped_func_node.find(func_id);
+    if(n == func_id_to_mapped_func_node.end()){
+        _map_new_func_id(func_id);
+    }else{
+        _update_node_age(n->second);
+    }
 }
 
 
@@ -579,11 +566,11 @@ int debrt_protect(int argc, ...)
 
     // XXX We'll want to reinstate this. But compiler support and debrt code
     // needs to be written first
-
     if(first_prediction){
         first_prediction = 0;
-        _debrt_protect_all_pages();
-        printf("hit after all-pages\n");
+        //_debrt_protect_all_pages();
+        //_init_page_to_count();
+        printf("HIT AFTER ALL-PAGES\n");
         printf("built-in return: %p\n", __builtin_return_address(0));
         // ensure the initial page that we can from is mapped RX
         _remap_permissions((long long)__builtin_return_address(0), 1, RX_PERM);
@@ -621,10 +608,7 @@ int debrt_protect(int argc, ...)
     }
     total_predictions++;
 
-    printf("about to map pages\n");
-    // FIXME this is a test. it's going to make sure every page is RX before
-    // it's executed. Ignores prediction or misprediction
-    _map_pages(function_were_about_to_call);
+    printf("about to update mapped pages\n");
     _update_mapped_pages(function_were_about_to_call);
 
     // Get a new prediction
@@ -647,12 +631,24 @@ int debrt_protect(int argc, ...)
 }
 
 extern "C" {
-//int debrt_return(int func_id)
 int debrt_return(long long func_addr)
 {
-    //printf("debrt-return func addr: %p\n", func_addr);
+    long long aligned_func_addr;
+    //printf("%s: 0x%llx\n", __FUNCTION__, func_addr);
     //printf("debrt-return func addr: 0x%llx\n", func_addr);
-    _remap_permissions(func_addr, 1, RX_PERM);
+    //_remap_permissions(func_addr, 1, RX_PERM);
+
+    aligned_func_addr = func_addr & ~(PAGE_SIZE-1);
+    if(page_to_count[aligned_func_addr] == 0){
+        printf("  mapping\n");
+        page_to_count[aligned_func_addr] = 1;
+        _remap_permissions(func_addr, 1, RX_PERM);
+        // FIXME: these will get mapped RX, but they aren't tracked as
+        // part of the prediction calls, so they won't get unmapped
+    }else{
+        //printf("  0x%llx %d\n", aligned_func_addr, page_to_count[aligned_func_addr]);
+    }
+
     return 0;
 }
 }
