@@ -64,7 +64,7 @@ namespace {
         unsigned int call_inst_count;
         unsigned int func_count;
         deb_stats_t stats;
-        set<Loop *> instrumented_loops;
+        map<Loop *, vector<int> *> loop_to_func_ids;
         set<Instruction *> jump_phi_nodes;
         Type *int32Ty;
         Type *int64Ty;
@@ -143,7 +143,7 @@ bool DebloatInstrument::runOnFunction(Function &F)
                            &call_inst_count,
                            &func_count,
                            &stats,
-                           instrumented_loops,
+                           loop_to_func_ids,
                            app_funcs,
                            func_name_to_id);
 }

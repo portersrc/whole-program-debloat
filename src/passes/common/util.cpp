@@ -71,7 +71,7 @@ void instrument_callsite(Instruction *call_inst,
                          set<Instruction *> &jump_phi_nodes,
                          deb_stats_t *stats,
                          LoopInfo *LI,
-                         set<Loop *> &instrumented_loops)
+                         map<Loop *, vector<int> *> &loop_to_func_ids)
 {
     if(!call_inst_is_in_loop(call_inst, LI, stats)){
         create_the_call(call_inst,
@@ -90,7 +90,7 @@ void instrument_callsite(Instruction *call_inst,
                                       LI,
                                       debloat_func,
                                       stats,
-                                      instrumented_loops);
+                                      loop_to_func_ids);
     }
 }
 
@@ -212,7 +212,7 @@ void instrument_outside_loop_basic(Instruction *call_inst,
                                    LoopInfo *LI,
                                    Function *debloat_func,
                                    deb_stats_t *stats,
-                                   set<Loop *> &instrumented_loops)
+                                   map<Loop *, vector<int> *> &loop_to_func_ids)
 {
     Loop *L;
     Instruction *inst_before;
@@ -224,8 +224,9 @@ void instrument_outside_loop_basic(Instruction *call_inst,
     L = get_outermost_loop(LI->getLoopFor(call_inst->getParent()));
     preHeaderBB = L->getLoopPreheader();
     if(preHeaderBB){
-        if(instrumented_loops.count(L) == 0){
-            instrumented_loops.insert(L);
+        if(loop_to_func_ids.count(L) == 0){
+            loop_to_func_ids[L] = new vector<int>;
+            loop_to_func_ids[L]->push_back(called_func_id);
             inst_before = preHeaderBB->getTerminator();
 
             // FIXME for now, instrument just the callsite_id and the
@@ -341,7 +342,7 @@ bool run_on_function(bool is_profiling,
                      unsigned int *call_inst_count,
                      unsigned int *func_count,
                      deb_stats_t *stats,
-                     set<Loop *> &instrumented_loops,
+                     map<Loop *, vector<int> *> &loop_to_func_ids,
                      unordered_set<Function *> &app_funcs,
                      map<string, unsigned int> &func_name_to_id)
 {
@@ -482,7 +483,7 @@ bool run_on_function(bool is_profiling,
                                         jump_phi_nodes,
                                         stats,
                                         LI,
-                                        instrumented_loops);
+                                        loop_to_func_ids);
                 }
             }
 

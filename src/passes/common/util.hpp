@@ -43,7 +43,7 @@ void instrument_callsite(Instruction *call_inst,
                          set<Instruction *> &jump_phi_nodes,
                          deb_stats_t *stats,
                          LoopInfo *LI,
-                         set<Loop *> &instrumented_loops);
+                         map<Loop *, vector<int> *> &loop_to_func_ids);
 
 void create_the_call(Instruction *inst_before,
                      unsigned int callsite_id,
@@ -61,7 +61,7 @@ void instrument_outside_loop_basic(Instruction *call_inst,
                                    LoopInfo *LI,
                                    Function *debloat_func,
                                    deb_stats_t *stats,
-                                   set<Loop *> &instrumented_loops);
+                                   map<Loop *, vector<int> *> &loop_to_func_ids);
 
 void instrument_return(Instruction *inst_before, unsigned int func_id);
 
@@ -76,7 +76,7 @@ bool run_on_function(bool is_profiling,
                      unsigned int *call_inst_count,
                      unsigned int *func_count,
                      deb_stats_t *stats,
-                     set<Loop *> &instrumented_loops,
+                     map<Loop *, vector<int> *> &loop_to_func_ids,
                      unordered_set<Function *> &app_funcs,
                      map<string, unsigned int> &func_name_to_id);
 
