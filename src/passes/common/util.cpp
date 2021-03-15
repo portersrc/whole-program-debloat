@@ -83,14 +83,14 @@ void instrument_callsite(Instruction *call_inst,
                         jump_phi_nodes,
                         stats);
     }else{
-        //instrument_outside_loop_basic(call_inst,
-        //                              callsite_id,
-        //                              called_func_id,
-        //                              func_arguments_set,
-        //                              LI,
-        //                              debloat_func,
-        //                              stats,
-        //                              instrumented_loops);
+        instrument_outside_loop_basic(call_inst,
+                                      callsite_id,
+                                      called_func_id,
+                                      func_arguments_set,
+                                      LI,
+                                      debloat_func,
+                                      stats,
+                                      instrumented_loops);
     }
 }
 
@@ -193,6 +193,17 @@ void create_the_call(Instruction *inst_before,
 
 }
 
+// FIXME adjusted from https://llvm.org/doxygen/CFG_8cpp_source.html#l00128
+// surely there's a public function for it?
+Loop *get_outermost_loop(Loop *L)
+{
+    while(Loop *parent = L->getParentLoop()){
+        L = parent;
+    }
+    return L;
+}
+
+
 
 void instrument_outside_loop_basic(Instruction *call_inst,
                                    unsigned int callsite_id,
@@ -210,7 +221,7 @@ void instrument_outside_loop_basic(Instruction *call_inst,
     Type *int32Ty;
     int32Ty = IntegerType::getInt32Ty(call_inst->getModule()->getContext());
 
-    L = LI->getLoopFor(call_inst->getParent());
+    L = get_outermost_loop(LI->getLoopFor(call_inst->getParent()));
     preHeaderBB = L->getLoopPreheader();
     if(preHeaderBB){
         if(instrumented_loops.count(L) == 0){
