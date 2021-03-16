@@ -25,12 +25,22 @@
 
 using namespace std;
 
+//#define DEBRT_DEBUG
+
+#ifdef DEBRT_DEBUG
+#define DEBRT_PRINTF(...) \
+    do{ \
+        printf(__VA_ARGS__); \
+    }while(0)
+#else
+#define DEBRT_PRINTF(...)
+#endif
+
 
 #define PAGE_SIZE 0x1000
 #define RX_PERM   (PROT_READ | PROT_EXEC)
 #define NO_PERM   (PROT_NONE)
 #define RO_PERM   (PROT_READ)
-
 
 
 
@@ -119,7 +129,7 @@ void _dump_func_name_to_id()
 
 void _dump_func_id_to_pages(void)
 {
-    printf("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
     int i;
     int func_id;
     long long page;
@@ -127,14 +137,14 @@ void _dump_func_id_to_pages(void)
         func_id = it->first;
         auto pages    = it->second;
         for(i = 0; i < pages.size(); i++){
-            printf("%d: 0x%llx\n", func_id, pages[i]);
+            DEBRT_PRINTF("%d: 0x%llx\n", func_id, pages[i]);
         }
     }
 }
 
 void _dump_func_id_to_addr_and_size(void)
 {
-    printf("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
     int func_id;
     long long addr;
     long size;
@@ -143,9 +153,9 @@ void _dump_func_id_to_addr_and_size(void)
         //pair<long long, long> addr_and_size = it->second;
         addr = it->second.first;
         size = it->second.second;
-        //printf("%d: 0x%llx %ld\n", func_id, addr_and_size[0], addr_and_size[1]);
-        //printf("%d:\n", func_id);
-        printf("%d (%s): 0x%llx %ld\n", func_id, func_id_to_name[func_id].c_str(), addr, size);
+        //DEBRT_PRINTF("%d: 0x%llx %ld\n", func_id, addr_and_size[0], addr_and_size[1]);
+        //DEBRT_PRINTF("%d:\n", func_id);
+        DEBRT_PRINTF("%d (%s): 0x%llx %ld\n", func_id, func_id_to_name[func_id].c_str(), addr, size);
     }
 }
 
@@ -161,23 +171,23 @@ void _remap_permissions(long long addr, long long size, int perm)
     aligned_addr_end  = (char *) ((addr+size) & ~(PAGE_SIZE - 1));
     size_to_remap = PAGE_SIZE + (aligned_addr_end - aligned_addr_base);
 
-    printf("remap_permissions():\n");
-    printf("  aligned_addr_base: %p\n", aligned_addr_base);
-    printf("  aligned_addr_end:  %p\n", aligned_addr_end);
-    printf("  size_to_remap:     0x%x\n", size_to_remap);
-    printf("  permissions:       ");
+    DEBRT_PRINTF("remap_permissions():\n");
+    DEBRT_PRINTF("  aligned_addr_base: %p\n", aligned_addr_base);
+    DEBRT_PRINTF("  aligned_addr_end:  %p\n", aligned_addr_end);
+    DEBRT_PRINTF("  size_to_remap:     0x%x\n", size_to_remap);
+    DEBRT_PRINTF("  permissions:       ");
     switch(perm){
-    case RX_PERM: printf("RX_PERM\n"); break;
-    case RO_PERM: printf("RO_PERM\n"); break;
-    case NO_PERM: printf("NO_PERM\n"); break;
+    case RX_PERM: DEBRT_PRINTF("RX_PERM\n"); break;
+    case RO_PERM: DEBRT_PRINTF("RO_PERM\n"); break;
+    case NO_PERM: DEBRT_PRINTF("NO_PERM\n"); break;
     default: assert(0); break;
     }
 
     if(mprotect(aligned_addr_base, size_to_remap, perm) == -1){
-        printf("mprotect error\n");
+        DEBRT_PRINTF("mprotect error\n");
         assert(0 && "mprotect error");
     }
-    printf("  mprotect succeeded\n");
+    DEBRT_PRINTF("  mprotect succeeded\n");
 }
 
 
@@ -208,7 +218,7 @@ int num_elems_mapped_funcs = 0;
 // enqueue at the tail
 void add_node_to_tail(mapped_func_node_t *n)
 {
-    printf("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
     if(num_elems_mapped_funcs == 0){
         mapped_funcs_head = n;
         mapped_funcs_tail = n;
@@ -220,11 +230,11 @@ void add_node_to_tail(mapped_func_node_t *n)
     n->prev = mapped_funcs_tail;
     n->next = NULL;
     mapped_funcs_tail = n;
-    printf("%s: mapped funcs tail is %d\n", __FUNCTION__, mapped_funcs_tail->func_id);
+    DEBRT_PRINTF("%s: mapped funcs tail is %d\n", __FUNCTION__, mapped_funcs_tail->func_id);
 }
 mapped_func_node_t *enq(int func_id)
 {
-    printf("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
     mapped_func_node_t *n = mapped_funcs_free_mem;
     n->func_id = func_id;
     n->pages = &func_id_to_pages[func_id];
@@ -235,7 +245,7 @@ mapped_func_node_t *enq(int func_id)
 // dequeue from the head
 mapped_func_node_t *deq(void)
 {
-    printf("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
     if(num_elems_mapped_funcs < NUM_MAPPED_FUNC_NODES){
         // XXX Assumption: We enqueue first, then dequeue
         num_elems_mapped_funcs++;
@@ -254,7 +264,7 @@ void update_page_counts(int func_id, int addend)
     long long addr;
     vector<long long> &pages = func_id_to_pages[func_id];
 
-    printf("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
     for(i = 0; i < pages.size(); i++){
         addr = pages[i];
         page_to_count[addr] += addend;
@@ -277,7 +287,7 @@ void _map_new_func_id(int func_id)
     mapped_func_node_t *new_node;
     mapped_func_node_t *old_node;
 
-    printf("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
     update_page_counts(func_id, 1);
     new_node = enq(func_id);
     func_id_to_mapped_func_node[func_id] = new_node;
@@ -285,7 +295,7 @@ void _map_new_func_id(int func_id)
            != func_id_to_mapped_func_node.end());
     old_node = deq();
     if(old_node){
-        printf("old node func id: %d\n", old_node->func_id);
+        DEBRT_PRINTF("old node func id: %d\n", old_node->func_id);
         func_id_to_mapped_func_node.erase(old_node->func_id);
         update_page_counts(old_node->func_id, -1);
     }
@@ -293,20 +303,20 @@ void _map_new_func_id(int func_id)
 
 void _update_node_age(mapped_func_node_t *n)
 {
-    printf("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
     if(n == mapped_funcs_tail){
-        printf("%s: n is tail\n", __FUNCTION__);
+        DEBRT_PRINTF("%s: n is tail\n", __FUNCTION__);
         // already at the end, which is the "youngest" position
         return;
     }
 
     if(n == mapped_funcs_head){
-        printf("%s: n is head\n", __FUNCTION__);
+        DEBRT_PRINTF("%s: n is head\n", __FUNCTION__);
         mapped_funcs_head = mapped_funcs_head->next;
         mapped_funcs_head->prev = NULL;
     }else{
         // cut the node from the list
-        printf("%s: n is in the middle of the list\n", __FUNCTION__);
+        DEBRT_PRINTF("%s: n is in the middle of the list\n", __FUNCTION__);
         n->prev->next = n->next;
         n->next->prev = n->prev;
     }
@@ -319,10 +329,10 @@ void _update_mapped_pages(int func_id)
     long long first_page;
     long long last_page;
     long long size;
-    printf("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
 
     if(func_id_to_pages.find(func_id) == func_id_to_pages.end()){
-        printf("ERROR: seeing func id not in my map: %d\n", func_id);
+        DEBRT_PRINTF("ERROR: seeing func id not in my map: %d\n", func_id);
         return;
     }
 
@@ -570,8 +580,8 @@ int debrt_protect(int argc, ...)
         first_prediction = 0;
         //_debrt_protect_all_pages();
         //_init_page_to_count();
-        printf("HIT AFTER ALL-PAGES\n");
-        printf("built-in return: %p\n", __builtin_return_address(0));
+        DEBRT_PRINTF("HIT AFTER ALL-PAGES\n");
+        DEBRT_PRINTF("built-in return: %p\n", __builtin_return_address(0));
         // ensure the initial page that we can from is mapped RX
         _remap_permissions((long long)__builtin_return_address(0), 1, RX_PERM);
     }
@@ -597,25 +607,25 @@ int debrt_protect(int argc, ...)
     //feature_buf_big[fb_idx] = callsite_were_about_to_call;
     feature_buf_big[fb_idx] = function_were_about_to_call;
 
-    //printf("callsite_were_about_to_call: %d\n", callsite_were_about_to_call);
-    printf("function_were_about_to_call: %d\n", function_were_about_to_call);
+    //DEBRT_PRINTF("callsite_were_about_to_call: %d\n", callsite_were_about_to_call);
+    DEBRT_PRINTF("function_were_about_to_call: %d\n", function_were_about_to_call);
 
     // Check if the function we're about to call is in our predicted set
     //if(pred_set_p->find(callsite_were_about_to_call) == pred_set_p->end()){
     if(pred_set_p->find(function_were_about_to_call) == pred_set_p->end()){
-        printf("got mispredict\n");
+        DEBRT_PRINTF("got mispredict\n");
         num_mispredictions++;
     }
     total_predictions++;
 
-    printf("about to update mapped pages\n");
+    DEBRT_PRINTF("about to update mapped pages\n");
     _update_mapped_pages(function_were_about_to_call);
 
     // Get a new prediction
     next_prediction_func_set_id = debrt_decision_tree(&feature_buf_big[fb_idx]);
     //next_prediction_func_set_id = 4 + debrt_decision_tree(&feature_buf_big[fb_idx]);
     pred_set_p = &func_sets[next_prediction_func_set_id];
-    printf("got next prediction func set id: %d\n", next_prediction_func_set_id);
+    DEBRT_PRINTF("got next prediction func set id: %d\n", next_prediction_func_set_id);
 
     // log what features we send to the DT and what prediction we get back.
     // the predictions might not exactly match training data, but the
@@ -634,19 +644,19 @@ extern "C" {
 int debrt_return(long long func_addr)
 {
     long long aligned_func_addr;
-    //printf("%s: 0x%llx\n", __FUNCTION__, func_addr);
-    //printf("debrt-return func addr: 0x%llx\n", func_addr);
+    //DEBRT_PRINTF("%s: 0x%llx\n", __FUNCTION__, func_addr);
+    //DEBRT_PRINTF("debrt-return func addr: 0x%llx\n", func_addr);
     //_remap_permissions(func_addr, 1, RX_PERM);
 
     aligned_func_addr = func_addr & ~(PAGE_SIZE-1);
     if(page_to_count[aligned_func_addr] == 0){
-        printf("  mapping\n");
+        DEBRT_PRINTF("  mapping\n");
         page_to_count[aligned_func_addr] = 1;
         _remap_permissions(func_addr, 1, RX_PERM);
         // FIXME: these will get mapped RX, but they aren't tracked as
         // part of the prediction calls, so they won't get unmapped
     }else{
-        //printf("  0x%llx %d\n", aligned_func_addr, page_to_count[aligned_func_addr]);
+        //DEBRT_PRINTF("  0x%llx %d\n", aligned_func_addr, page_to_count[aligned_func_addr]);
     }
 
     return 0;
@@ -656,7 +666,7 @@ int debrt_return(long long func_addr)
 extern "C" {
 int debrt_protect_loop(int argc, ...)
 {
-    printf("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
     return 0;
 }
 }
@@ -664,7 +674,7 @@ int debrt_protect_loop(int argc, ...)
 extern "C" {
 int debrt_protect_loop_end(int argc, ...)
 {
-    printf("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
     return 0;
 }
 }
@@ -784,7 +794,7 @@ void _read_readelf(void)
         token_count = 0;
         idx = 0;
         while(idx < line.size() && line.at(idx) != '\n'){
-            //printf("%c", line.at(idx));
+            //DEBRT_PRINTF("%c", line.at(idx));
             //idx++;
             while(idx < line.size() && line.at(idx) == ' '){
                 idx++;
@@ -875,7 +885,7 @@ void _set_addr_of_main_mapping(void)
     int num_executable_binary_lines;
     num_executable_binary_lines = 0;
     while(fgets(line, MAPPING_LINE_SZ, fp)){
-        //printf("%s", line);
+        //DEBRT_PRINTF("%s", line);
         num_spaces = 0;
         long long addr_base;
         long long addr_end;
@@ -936,7 +946,7 @@ void _set_addr_of_main_mapping(void)
         // getenv("_") ends up returning "gdb" instead of the binary name.
         // If that happens, the strstr commented code above can be a workaround
         // during debugging
-        //printf("num exec lines: %d\n", num_executable_binary_lines);
+        //DEBRT_PRINTF("num exec lines: %d\n", num_executable_binary_lines);
         assert(num_executable_binary_lines == 1);
     }
 
@@ -1085,8 +1095,8 @@ int _debrt_protect_init(void)
 
 
     _set_addr_of_main_mapping();
-    printf("executable_addr_base: 0x%llx\n", executable_addr_base);
-    printf("executable_addr_end:  0x%llx\n", executable_addr_end);
+    DEBRT_PRINTF("executable_addr_base: 0x%llx\n", executable_addr_base);
+    DEBRT_PRINTF("executable_addr_end:  0x%llx\n", executable_addr_end);
     _read_func_name_to_id();
     //_dump_func_name_to_id();
     _read_nm();
