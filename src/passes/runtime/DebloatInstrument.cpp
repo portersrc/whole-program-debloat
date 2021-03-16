@@ -132,7 +132,8 @@ bool DebloatInstrument::runOnFunction(Function &F)
 {
     LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     map<Loop *, set<int> *> loop_to_func_ids;
-    return run_on_function(DEB_PROTECT,
+    //return run_on_function(DEB_PROTECT,
+    return run_on_function(DEB_MONITOR,
                            F,
                            debrt_protect_func,
                            jump_phi_nodes,

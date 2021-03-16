@@ -463,8 +463,7 @@ bool run_on_function(deb_pass_e which_pass,
                     if(which_pass == DEB_PROFILE){
                         func_name_to_id[called_func_name] = (*func_count)++;
                     }else{
-                        //if(called_func_name == "debrt_monitor"){
-                        if(called_func_name == "debrt_protect"){
+                        if(called_func_name == "debrt_protect" || called_func_name == "debrt_monitor"){
                             continue;
                         }
                         LLVM_DEBUG(dbgs()<<"assert 0 called_func_name: "<<called_func_name<<"\n");
@@ -540,6 +539,9 @@ bool run_on_function(deb_pass_e which_pass,
                     }
                 }
                 if(can_instrument){
+                    if(which_pass == DEB_MONITOR){
+                        debloat_func = debrt_monitor_func;
+                    }
                     instrument_callsite(call_inst,
                                         call_inst_to_id[call_inst],
                                         func_name_to_id[called_func_name],
