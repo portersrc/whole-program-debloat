@@ -662,7 +662,7 @@ int debrt_protect_loop(int argc, ...)
 }
 
 extern "C" {
-int debrt_protect_loop_end(void)
+int debrt_protect_loop_end(int argc, ...)
 {
     printf("%s\n", __FUNCTION__);
     return 0;

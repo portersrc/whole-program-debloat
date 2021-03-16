@@ -37,7 +37,6 @@ namespace {
         unsigned int call_inst_count;
         unsigned int func_count;
         deb_stats_t stats;
-        map<Loop *, vector<int> *> loop_to_func_ids;
         set<Instruction *> jump_phi_nodes;
         Type *int32Ty;
 
@@ -112,6 +111,7 @@ void DebloatProfile::dump_func_name_to_id(void)
 bool DebloatProfile::runOnFunction(Function &F)
 {
     LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+    map<Loop *, set<int> *> loop_to_func_ids;
     return run_on_function(true,
                            F,
                            debprof_print_args_func,

@@ -71,7 +71,7 @@ void instrument_callsite(Instruction *call_inst,
                          set<Instruction *> &jump_phi_nodes,
                          deb_stats_t *stats,
                          LoopInfo *LI,
-                         map<Loop *, vector<int> *> &loop_to_func_ids)
+                         map<Loop *, set<int> *> &loop_to_func_ids)
 {
     if(!call_inst_is_in_loop(call_inst, LI, stats)){
         create_the_call(call_inst,
@@ -212,7 +212,7 @@ void instrument_outside_loop_basic(Instruction *call_inst,
                                    LoopInfo *LI,
                                    Function *debloat_func,
                                    deb_stats_t *stats,
-                                   map<Loop *, vector<int> *> &loop_to_func_ids)
+                                   map<Loop *, set<int> *> &loop_to_func_ids)
 {
     Loop *L;
     Instruction *inst_before;
@@ -225,10 +225,8 @@ void instrument_outside_loop_basic(Instruction *call_inst,
     preHeaderBB = L->getLoopPreheader();
     if(preHeaderBB){
         if(loop_to_func_ids.count(L) == 0){
-            loop_to_func_ids[L] = new vector<int>;
-            loop_to_func_ids[L]->push_back(called_func_id);
+            loop_to_func_ids[L] = new set<int>;
             inst_before = preHeaderBB->getTerminator();
-
             // FIXME for now, instrument just the callsite_id and the
             // called_func_id
             IRBuilder<> builder(inst_before);
@@ -239,6 +237,7 @@ void instrument_outside_loop_basic(Instruction *call_inst,
             Value *callinstr = builder.CreateCall(debloat_func, ArgsV);
             LLVM_DEBUG(dbgs() << "callinstr(loop)::" << *callinstr << "\n");
         }
+        loop_to_func_ids[L]->insert(called_func_id);
     }else{
         // FIXME see LLVM doxygen on getLoopPreheader. The fix is to walk
         // incoming edges to the first BB of the loop
@@ -331,6 +330,69 @@ void instrument_return(Instruction *inst_before,
 }
 
 
+void _instrument_protect_loop(map<Loop *, set<int> *> &loop_to_func_ids,
+                              Function *debrt_protect_loop_func,
+                              Function *debrt_protect_loop_end_func)
+{
+    Loop *L;
+    BasicBlock *preHeaderBB;
+    BasicBlock *uniqueExitBB;
+    Instruction *inst_before;
+    set<int> *func_ids;
+    int func_id;
+
+    for(map<Loop *, set<int> *>::iterator it = loop_to_func_ids.begin();
+      it != loop_to_func_ids.end();
+      it++){
+        L        = it->first;
+        func_ids = it->second;
+
+        // instrument the loop begin.
+        preHeaderBB = L->getLoopPreheader();
+        if(preHeaderBB){
+            vector<Value *> ArgsV;
+            Type *int32Ty;
+            inst_before = preHeaderBB->getTerminator();
+            IRBuilder<> builder(inst_before);
+            int32Ty = IntegerType::getInt32Ty(inst_before->getModule()->getContext());
+            ArgsV.push_back(llvm::ConstantInt::get(int32Ty, func_ids->size(), false));
+            for(set<int>::iterator itt = func_ids->begin();
+              itt != func_ids->end();
+              itt++){
+                func_id = *itt;
+                ArgsV.push_back(llvm::ConstantInt::get(int32Ty, func_id, false));
+            }
+            Value *callinstr = builder.CreateCall(debrt_protect_loop_func, ArgsV);
+            LLVM_DEBUG(dbgs() << "callinstr(loop)::" << *callinstr << "\n");
+        }else{
+            // TODO
+        }
+
+        // instrument the loop end.
+        uniqueExitBB = L->getUniqueExitBlock();
+        if(uniqueExitBB){
+            vector<Value *> ArgsV;
+            Type *int32Ty;
+            inst_before = uniqueExitBB->getTerminator();
+            IRBuilder<> builder(inst_before);
+            int32Ty = IntegerType::getInt32Ty(inst_before->getModule()->getContext());
+            ArgsV.push_back(llvm::ConstantInt::get(int32Ty, func_ids->size(), false));
+            for(set<int>::iterator itt = func_ids->begin();
+              itt != func_ids->end();
+              itt++){
+                func_id = *itt;
+                ArgsV.push_back(llvm::ConstantInt::get(int32Ty, func_id, false));
+            }
+            Value *callinstr = builder.CreateCall(debrt_protect_loop_end_func, ArgsV);
+            LLVM_DEBUG(dbgs() << "callinstr(loop)::" << *callinstr << "\n");
+        }else{
+            // TODO : look at getExitBlocks(), etc.
+            // https://llvm.org/doxygen/LoopInfoImpl_8h_source.html#l00062
+        }
+    }
+}
+
+
 bool run_on_function(bool is_profiling,
                      Function &F,
                      Function *debloat_func,
@@ -344,7 +406,7 @@ bool run_on_function(bool is_profiling,
                      unsigned int *call_inst_count,
                      unsigned int *func_count,
                      deb_stats_t *stats,
-                     map<Loop *, vector<int> *> &loop_to_func_ids,
+                     map<Loop *, set<int> *> &loop_to_func_ids,
                      unordered_set<Function *> &app_funcs,
                      map<string, unsigned int> &func_name_to_id)
 {
@@ -500,6 +562,13 @@ bool run_on_function(bool is_profiling,
             }
         }
     }
+
+    if(!is_profiling){
+        _instrument_protect_loop(loop_to_func_ids,
+                                 debrt_protect_loop_func,
+                                 debrt_protect_loop_end_func);
+    }
+
     return true;
 }
 

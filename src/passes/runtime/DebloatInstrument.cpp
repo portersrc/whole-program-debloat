@@ -64,7 +64,6 @@ namespace {
         unsigned int call_inst_count;
         unsigned int func_count;
         deb_stats_t stats;
-        map<Loop *, vector<int> *> loop_to_func_ids;
         set<Instruction *> jump_phi_nodes;
         Type *int32Ty;
         Type *int64Ty;
@@ -132,6 +131,7 @@ bool DebloatInstrument::doFinalization(Module &M)
 bool DebloatInstrument::runOnFunction(Function &F)
 {
     LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+    map<Loop *, set<int> *> loop_to_func_ids;
     return run_on_function(false,
                            F,
                            debrt_protect_func,
@@ -191,7 +191,7 @@ void DebloatInstrument::init_debrt_funcs(Module &M)
                        M);
 
     debrt_protect_loop_end_func =
-      Function::Create(FunctionType::get(int32Ty, false),
+      Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
                        Function::ExternalLinkage,
                        "debrt_protect_loop_end",
                        &M);
