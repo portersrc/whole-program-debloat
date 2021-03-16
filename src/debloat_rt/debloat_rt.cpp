@@ -175,13 +175,13 @@ void _remap_permissions(long long addr, long long size, int perm)
     DEBRT_PRINTF("  aligned_addr_base: %p\n", aligned_addr_base);
     DEBRT_PRINTF("  aligned_addr_end:  %p\n", aligned_addr_end);
     DEBRT_PRINTF("  size_to_remap:     0x%x\n", size_to_remap);
-    DEBRT_PRINTF("  permissions:       ");
-    switch(perm){
-    case RX_PERM: DEBRT_PRINTF("RX_PERM\n"); break;
-    case RO_PERM: DEBRT_PRINTF("RO_PERM\n"); break;
-    case NO_PERM: DEBRT_PRINTF("NO_PERM\n"); break;
-    default: assert(0); break;
-    }
+    //DEBRT_PRINTF("  permissions:       ");
+    //switch(perm){
+    //case RX_PERM: DEBRT_PRINTF("RX_PERM\n"); break;
+    //case RO_PERM: DEBRT_PRINTF("RO_PERM\n"); break;
+    //case NO_PERM: DEBRT_PRINTF("NO_PERM\n"); break;
+    //default: assert(0); break;
+    //}
 
     if(mprotect(aligned_addr_base, size_to_remap, perm) == -1){
         DEBRT_PRINTF("mprotect error\n");
