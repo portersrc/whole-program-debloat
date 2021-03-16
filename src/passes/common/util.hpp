@@ -27,6 +27,12 @@ typedef struct{
     unsigned int num_loops_no_preheader;
 }deb_stats_t;
 
+typedef enum{
+    DEB_PROFILE = 0,
+    DEB_MONITOR,
+    DEB_PROTECT
+}deb_pass_e;
+
 
 
 string getDemangledName(const Function &F);
@@ -65,7 +71,7 @@ void instrument_outside_loop_basic(Instruction *call_inst,
 
 void instrument_return(Instruction *inst_before, unsigned int func_id);
 
-bool run_on_function(bool is_profiling,
+bool run_on_function(deb_pass_e which_pass,
                      Function &F,
                      Function *debloat_func,
                      set<Instruction *> &jump_phi_nodes,
@@ -74,6 +80,7 @@ bool run_on_function(bool is_profiling,
                      Function *debrt_return_func_intrinsic,
                      Function *debrt_protect_loop_func,
                      Function *debrt_protect_loop_end_func,
+                     Function *debrt_monitor_func,
                      map<CallInst *, unsigned int> &call_inst_to_id,
                      unsigned int *call_inst_count,
                      unsigned int *func_count,

@@ -112,11 +112,12 @@ bool DebloatProfile::runOnFunction(Function &F)
 {
     LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     map<Loop *, set<int> *> loop_to_func_ids;
-    return run_on_function(true,
+    return run_on_function(DEB_PROFILE,
                            F,
                            debprof_print_args_func,
                            jump_phi_nodes,
                            LI,
+                           NULL,
                            NULL,
                            NULL,
                            NULL,

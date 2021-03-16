@@ -132,7 +132,7 @@ bool DebloatInstrument::runOnFunction(Function &F)
 {
     LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
     map<Loop *, set<int> *> loop_to_func_ids;
-    return run_on_function(false,
+    return run_on_function(DEB_PROTECT,
                            F,
                            debrt_protect_func,
                            jump_phi_nodes,
@@ -141,6 +141,7 @@ bool DebloatInstrument::runOnFunction(Function &F)
                            debrt_return_func_intrinsic,
                            debrt_protect_loop_func,
                            debrt_protect_loop_end_func,
+                           debrt_monitor_func,
                            call_inst_to_id,
                            &call_inst_count,
                            &func_count,
@@ -161,11 +162,11 @@ void DebloatInstrument::init_debrt_funcs(Module &M)
     Type *ArgTypes64[]  = { int64Ty };
     Type *ArgTypesPtr[] = { ptr_i8 };
 
-    //debrt_monitor_func =
-    //  Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
-    //                   Function::ExternalLinkage,
-    //                   "debrt_monitor",
-    //                   M);
+    debrt_monitor_func =
+      Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+                       Function::ExternalLinkage,
+                       "debrt_monitor",
+                       M);
 
     debrt_protect_func =
       Function::Create(FunctionType::get(int32Ty, ArgTypes, true),

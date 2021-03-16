@@ -393,7 +393,7 @@ void _instrument_protect_loop(map<Loop *, set<int> *> &loop_to_func_ids,
 }
 
 
-bool run_on_function(bool is_profiling,
+bool run_on_function(deb_pass_e which_pass,
                      Function &F,
                      Function *debloat_func,
                      set<Instruction *> &jump_phi_nodes,
@@ -402,6 +402,7 @@ bool run_on_function(bool is_profiling,
                      Function *debrt_return_func_intrinsic,
                      Function *debrt_protect_loop_func,
                      Function *debrt_protect_loop_end_func,
+                     Function *debrt_monitor_func,
                      map<CallInst *, unsigned int> &call_inst_to_id,
                      unsigned int *call_inst_count,
                      unsigned int *func_count,
@@ -459,7 +460,7 @@ bool run_on_function(bool is_profiling,
                 //LLVM_DEBUG(dbgs() <<"\ninstrument_profile call_inst_count:"<<(*call_inst_count));
                 //LLVM_DEBUG(dbgs() << " CallPredictionTrain: got call instr "<<*call_inst<<"\n");
                 if(func_name_to_id.find(called_func_name) == func_name_to_id.end()){
-                    if(is_profiling){
+                    if(which_pass == DEB_PROFILE){
                         func_name_to_id[called_func_name] = (*func_count)++;
                     }else{
                         //if(called_func_name == "debrt_monitor"){
@@ -551,7 +552,7 @@ bool run_on_function(bool is_profiling,
                 }
             }
 
-            if(!is_profiling){
+            if(which_pass == DEB_PROTECT){
                 ret_inst = dyn_cast<ReturnInst>(&*it_inst);
                 if(ret_inst){
                     instrument_return(ret_inst,
@@ -563,7 +564,7 @@ bool run_on_function(bool is_profiling,
         }
     }
 
-    if(!is_profiling){
+    if(which_pass == DEB_PROTECT){
         _instrument_protect_loop(loop_to_func_ids,
                                  debrt_protect_loop_func,
                                  debrt_protect_loop_end_func);
