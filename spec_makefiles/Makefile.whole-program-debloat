@@ -342,13 +342,13 @@ $(EXEBASE): $(OBJS)
 # Normal, non-ONESTEP build
 ifndef NEEDATFILE
 	#
-	#$(LD) $^ $(LDOUT)
+	$(LD) $^ $(LDOUT)
 	#
 	# optimize O3
-	#mv $(NUMBER).$(NAME)_linked.bc $(NUMBER).$(NAME)_linked_no_O3.bc
-	#opt -O3 \
-    #  < $(NUMBER).$(NAME)_linked_no_O3.bc \
-    #  > $(NUMBER).$(NAME)_linked.bc
+	mv $(NUMBER).$(NAME)_linked.bc $(NUMBER).$(NAME)_linked_no_O3.bc
+	opt -O3 \
+      < $(NUMBER).$(NAME)_linked_no_O3.bc \
+      > $(NUMBER).$(NAME)_linked.bc
 
 base: $(EXEBASE)
 	# optimize O3 and 1K inline thresh (before any instrumentation)
