@@ -923,8 +923,8 @@ void _set_addr_of_main_mapping(void)
                     *c = '\0';
                     c++;
                     state++;
-                    //if(strstr(binary_name, getenv("_")+2) != NULL){
-                    if(strstr(binary_name, "401.bzip2_debrt") != NULL){
+                    if(strstr(binary_name, getenv("_")+2) != NULL){
+                    //if(strstr(binary_name, "401.bzip2_debrt") != NULL){
                         num_executable_binary_lines++;
                         executable_addr_base = addr_base;
                         executable_addr_end  = addr_end;
