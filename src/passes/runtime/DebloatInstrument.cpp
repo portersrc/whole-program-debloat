@@ -169,6 +169,9 @@ void DebloatInstrument::init_debrt_funcs(Module &M)
     Type *ArgTypes64[]  = { int64Ty };
     Type *ArgTypesPtr[] = { ptr_i8 };
 
+    // FIXME: FunctionType::get(..., ..., true) is for isVarArg.
+    // misused throughout here. fix and re-test.
+
     debrt_monitor_func =
       Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
                        Function::ExternalLinkage,
