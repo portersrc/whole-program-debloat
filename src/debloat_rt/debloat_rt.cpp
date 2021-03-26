@@ -56,6 +56,7 @@ const int CALLED_FUNC_ID_IDX = 1;
 const char *DEFAULT_OUTPUT_FILENAME = "debrt.out";
 FILE *fp_out;
 
+int total_mapped_pages = 0; // FIXME ? will help me get a quick measurement of security
 
 vector<set<int> > func_sets;
 set<int> *pred_set_p;
@@ -268,6 +269,8 @@ void update_page_counts(int func_id, int addend)
     for(i = 0; i < pages.size(); i++){
         addr = pages[i];
         page_to_count[addr] += addend;
+        total_mapped_pages += addend;
+        DEBRT_PRINTF("total_mapped_pages: %d\n", total_mapped_pages);
         assert(page_to_count[addr] >= 0);
         // FIXME: revisit this. do as blocks, rather than
         // as individual pages.
