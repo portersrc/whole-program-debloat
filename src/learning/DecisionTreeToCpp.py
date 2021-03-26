@@ -1,3 +1,11 @@
+#
+# cporter:
+# grabbed from here:
+#   https://github.com/papkov/DecisionTreeToCpp/blob/master/DecisionTreeToCpp.py
+# adjusted a few things, including tips from paulkernfeld here:
+#   https://stackoverflow.com/questions/20224526/how-to-extract-the-decision-rules-from-scikit-learn-decision-tree
+#
+
 # -*- coding: utf-8 -*-
 # 
 # DecisionTreeToCpp converter allows you to export and use sklearn decision tree in your C++ projects
@@ -8,7 +16,7 @@
 # http://stackoverflow.com/questions/20224526/how-to-extract-the-decision-rules-from-scikit-learn-decision-tree
 # http://stackoverflow.com/users/1885917/daniele
 #
-
+from sklearn.tree import _tree
 
 def get_code(tree, function_name="debrt_decision_tree"):
     left = tree.tree_.children_left
@@ -19,18 +27,16 @@ def get_code(tree, function_name="debrt_decision_tree"):
 
     def recurse(left, right, threshold, features, node, tabs):
         code = ''
-        if threshold[node] != -2:
+        if tree.tree_.feature[node] != _tree.TREE_UNDEFINED:
             code += '%sif (feature_vector[%s] <= %s) {\n' % (tabs * '\t', features[node], int(threshold[node]))
             tabs += 1
 
-            if left[node] != -1:
-                code += recurse(left, right, threshold, features, left[node], tabs)
+            code += recurse(left, right, threshold, features, left[node], tabs)
             tabs -= 1
             code += '%s}\n%selse {\n' % (tabs * '\t', tabs * '\t')
 
             tabs += 1
-            if right[node] != -1:
-                code += recurse(left, right, threshold, features, right[node], tabs)
+            code += recurse(left, right, threshold, features, right[node], tabs)
             tabs -= 1
             code += '%s}\n' % (tabs * '\t')
 
