@@ -14,6 +14,8 @@ from sklearn.externals import joblib
 
 import DecisionTreeToCpp as to_cpp
 
+IS_CGPPROF = True
+
 
 func_sets = []
 
@@ -45,6 +47,8 @@ def read_func_sets(func_sets_filename):
         # a set of function IDs
         f.readline() # parse out the header
         i = 0;
+        if IS_CGPPROF:
+            i = 1
         for line in f:
             line = line.strip()
             elems = line.split()
@@ -195,8 +199,6 @@ if __name__ == '__main__' :
     test_dataset = None
     if do_accuracy:
         test_dataset = read_csv_get_dataframe(test_csvFileName)
-    
-
-    read_func_sets(func_sets_filename)
+        read_func_sets(func_sets_filename)
 
     train_and_test(training_dataset, test_dataset)
