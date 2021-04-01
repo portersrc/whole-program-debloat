@@ -1,15 +1,15 @@
 
-#include "CGPredictProfile.hpp"
+#include "CGPredict.hpp"
 #include "../common/backslice.hpp"
 #include "../common/util.hpp"
 
 
-
+//struct CGPredict;
 
 
 namespace {
 
-    struct CGPredictProfile : public FunctionPass {
+    struct CGPredictProfile : public CGPredict, public FunctionPass {
 
       public:
         static char ID;
@@ -20,10 +20,6 @@ namespace {
         bool doInitialization(Module &) override;
         bool runOnFunction(Function &) override;
         bool doFinalization(Module &) override;
-        void instrument_func_start(Instruction *inst_before,
-                                   unsigned int func_id);
-        void instrument_func_end(Instruction *inst_before,
-                                 unsigned int func_id);
 
         void getAnalysisUsage(AnalysisUsage &au) const override
         {
@@ -33,21 +29,6 @@ namespace {
             au.addPreserved<GlobalsAAWrapperPass>();
         }
 
-      private:
-        Function *debprof_print_args_func;
-        Function *debprof_print_func_end;
-        unordered_set<Function *> app_funcs;
-        map<CallInst *, unsigned int> call_inst_to_id;
-        map<string, unsigned int> func_name_to_id;
-        unsigned int call_inst_count;
-        unsigned int func_count;
-        set<Instruction *> jump_phi_nodes;
-        Type *int32Ty;
-
-        void init_debprof_print_func(Module &);
-        void dump_func_name_to_id(void);
-        void dump_stats(void);
-
     };
 }
 
@@ -55,7 +36,10 @@ namespace {
 bool CGPredictProfile::doInitialization(Module &M)
 {
     call_inst_count = 0;
-    func_count = 0;
+
+    // Start at 1. func_count == 0 could be called the "the null function",
+    // i.e. when we want to predict that no function call will happen.
+    func_count = 1;
 
     int32Ty = IntegerType::getInt32Ty(M.getContext());
 
@@ -87,23 +71,6 @@ bool CGPredictProfile::doFinalization(Module &M)
 }
 
 
-void CGPredictProfile::dump_stats(void)
-{
-    FILE *fp = fopen("cgpprof_pass_stats.txt", "w");
-    fclose(fp);
-}
-
-
-void CGPredictProfile::dump_func_name_to_id(void)
-{
-    FILE *fp = fopen("cgpprof_func_name_to_id.txt", "w");
-    for(auto it = func_name_to_id.begin(); it != func_name_to_id.end(); it++){
-        fprintf(fp, "%s %u\n", it->first.c_str(), it->second);
-    }
-    fclose(fp);
-}
-
-
 bool CGPredictProfile::runOnFunction(Function &F)
 {
 
@@ -116,8 +83,7 @@ bool CGPredictProfile::runOnFunction(Function &F)
         func_name_to_id[called_func_name] = func_count++;
     }
 
-    instrument_func_start(F.getEntryBlock().getFirstNonPHI(),
-                          func_name_to_id[called_func_name]);
+    instrument_func_start(F.getEntryBlock().getFirstNonPHI(), func_name_to_id[called_func_name]);
 
     for(Function::iterator it_bb = F.begin();
         it_bb != F.end();
@@ -135,46 +101,6 @@ bool CGPredictProfile::runOnFunction(Function &F)
         }
     }
 }
-
-
-void CGPredictProfile::init_debprof_print_func(Module &M)
-{
-    Type *ArgTypes[] = { int32Ty  };
-    string custom_instr_func_name("debprof_print_args");
-
-    debprof_print_args_func =
-      Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
-                       Function::ExternalLinkage,
-                       "debprof_print_args",
-                       M);
-
-    debprof_print_func_end =
-      Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
-                       Function::ExternalLinkage,
-                       "debprof_print_func_end",
-                       M);
-
-}
-
-void CGPredictProfile::instrument_func_start(Instruction *inst_before,
-                                             unsigned int func_id)
-{
-    IRBuilder<> builder(inst_before);
-    vector<Value *> ArgsV;
-    ArgsV.push_back(llvm::ConstantInt::get(int32Ty, func_id, false));
-    LLVM_DEBUG(dbgs() << "Instrumenting ret-inst::" << inst_before << "\n");
-    CallInst *debprof_call = builder.CreateCall(debprof_print_args_func, ArgsV);
-}
-void CGPredictProfile::instrument_func_end(Instruction *inst_before,
-                                           unsigned int func_id)
-{
-    IRBuilder<> builder(inst_before);
-    vector<Value *> ArgsV;
-    ArgsV.push_back(llvm::ConstantInt::get(int32Ty, func_id, false));
-    LLVM_DEBUG(dbgs() << "Instrumenting ret-inst::" << inst_before << "\n");
-    CallInst *debprof_call = builder.CreateCall(debprof_print_func_end, ArgsV);
-}
-
 
 
 char CGPredictProfile::ID = 0;

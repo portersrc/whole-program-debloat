@@ -1,4 +1,5 @@
 add_library(CGPredictProfile MODULE
+    CGPredict.cpp
     CGPredictProfile.cpp
 )
 
