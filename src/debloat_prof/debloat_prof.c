@@ -85,7 +85,7 @@ int debprof_print_args(int argc, ...)
 
     va_start(ap, argc);
 
-    fprintf(fp_out, "FUNC_START %d", va_arg(ap, int));
+    fprintf(fp_out, "(,%d", va_arg(ap, int));
     for(i = 1; i < argc; i++){
         fprintf(fp_out, ",%d", va_arg(ap, int));
     }
@@ -102,7 +102,7 @@ int debprof_print_func_end(int func_id)
         _debprof_init(); // ignore return
         lib_initialized = 1;
     }
-    fprintf(fp_out, "FUNC_END %d\n", func_id);
+    fprintf(fp_out, "),%d\n", func_id);
     return 0;
 }
 
