@@ -4,7 +4,6 @@
 #include "../common/util.hpp"
 
 
-//struct CGPredict;
 
 
 namespace {
@@ -20,6 +19,9 @@ namespace {
         bool doInitialization(Module &) override;
         bool runOnFunction(Function &) override;
         bool doFinalization(Module &) override;
+
+        void instrument_func_start(Instruction *inst_before,
+                                   unsigned int func_id);
 
         void getAnalysisUsage(AnalysisUsage &au) const override
         {
@@ -100,6 +102,13 @@ bool CGPredictProfile::runOnFunction(Function &F)
 
         }
     }
+}
+
+
+void CGPredictProfile::instrument_func_start(Instruction *inst_before,
+                                             unsigned int func_id)
+{
+    CGPredict::instrument_func_start(debprof_print_args_func, inst_before, func_id);
 }
 
 
