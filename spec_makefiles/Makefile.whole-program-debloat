@@ -378,7 +378,7 @@ cgpprof: $(EXEBASE)
 	# CGPredictProfile (with debug output)
 	#opt \
     #  -load libCGPredictProfile.so -CGPredictProfile \
-    #  -debug-only=CGPredictProfile \
+    #  -debug-only=CGPredict \
     #  < $(NUMBER).$(NAME)_linked.bc \
     #  > $(NUMBER).$(NAME)_opt.bc
 	opt \
@@ -411,6 +411,28 @@ prof: $(EXEBASE)
 	g++ $(NUMBER).$(NAME)_opt.s \
       -o $(NUMBER).$(NAME)_debprof \
       -L$(DEBLOAT_PROF_LIBPATH) -ldebloat_prof -lm -lrt
+
+cgpinstr: $(EXEBASE)
+	# CGPredictInstrument (with debug output)
+	#opt \
+    #  -load libCGPredictInstrument.so -CGPredictInstrument \
+    #  -debug-only=CGPredict \
+    #  < $(NUMBER).$(NAME)_linked.bc \
+    #  > $(NUMBER).$(NAME)_opt.bc
+	opt \
+      -load libCGPredictInstrument.so -CGPredictInstrument \
+      < $(NUMBER).$(NAME)_linked.bc \
+      > $(NUMBER).$(NAME)_opt.bc
+	llc  \
+      $(NUMBER).$(NAME)_opt.bc \
+      -relocation-model=pic \
+      -o $(NUMBER).$(NAME)_opt.s
+	g++ $(NUMBER).$(NAME)_opt.s \
+      -o $(NUMBER).$(NAME)_debrt \
+      -L$(CG_PREDICT_LIBPATH) -ldebloat_rt -lm -lrt
+	# FIXME redirect with &> wasn't working... tee works for now but is messy
+	readelf -s --wide $(NUMBER).$(NAME)_debrt | tee readelf.out
+	nm $(NUMBER).$(NAME)_debrt | tee nm.out
 
 instr: $(EXEBASE)
 	# DebloatInstrument (with debug output)
