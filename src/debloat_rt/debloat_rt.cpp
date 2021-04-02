@@ -27,6 +27,9 @@ using namespace std;
 
 //#define DEBRT_DEBUG
 
+#define CGPredict
+
+
 #ifdef DEBRT_DEBUG
 #define DEBRT_PRINTF(...) \
     do{ \
@@ -643,6 +646,61 @@ int debrt_protect(int argc, ...)
 }
 }
 
+
+extern "C" {
+int debrt_cgmonitor(int argc, ...)
+{
+    static int lib_initialized = 0;
+    int i;
+    va_list ap;
+    int func_id;
+    int feature_buf[MAX_NUM_FEATURES];
+
+
+    // argc count includes itself, I think. So if argc is 5, it means we'll
+    // need a feature buffer size of 4 or larger.
+    assert((argc-1) <= MAX_NUM_FEATURES);
+
+    // initialize library
+    if(!lib_initialized){
+        _debrt_monitor_init(); // ignore return
+    }
+
+    // XXX can we avoid this memset?
+    memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
+
+    // gather features into a buffer
+    va_start(ap, argc);
+    for(i = 0; i < argc; i++){
+        feature_buf[i] = va_arg(ap, int);
+    }
+    va_end(ap);
+    func_id = feature_buf[0];
+
+    DEBRT_PRINTF("func_id: %d\n", func_id);
+
+    if(lib_initialized){
+        // Check if the function we just entered is in our predicted set
+        if(pred_set_p->find(func_id) == pred_set_p->end()){
+            DEBRT_PRINTF("got mispredict\n");
+            num_mispredictions++;
+        }
+        total_predictions++;
+    }else{
+        lib_initialized = 1;
+    }
+
+    // Get a new prediction
+    next_prediction_func_set_id = debrt_decision_tree(feature_buf);
+    pred_set_p = &func_sets[next_prediction_func_set_id];
+    DEBRT_PRINTF("got next prediction func set id: %d\n", next_prediction_func_set_id);
+
+
+    return 0;
+}
+}
+
+
 extern "C" {
 int debrt_return(long long func_addr)
 {
@@ -701,7 +759,11 @@ void _read_func_sets(void)
     vector<string> elems;
     int func_set_id;
 
+#ifdef CGPredict
+    ifs.open("cgpprof-func-set-ids-to-funcs.out");
+#else
     ifs.open("debprof-func-set-ids-to-funcs.out");
+#endif
     if(!ifs.is_open()) {
         perror("Error open");
         exit(EXIT_FAILURE);
@@ -711,6 +773,11 @@ void _read_func_sets(void)
     // a set of function ID.
     i = 0;
     getline(ifs, line); // parse out the header
+
+#ifdef CGPredict
+    i++;
+    func_sets.push_back(set<int>());
+#endif
     while(getline(ifs, line)){
         vector<string> func_ids_str;
         vector<int> func_ids;
