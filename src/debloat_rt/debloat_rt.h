@@ -12,6 +12,7 @@ int debrt_protect_loop(int argc, ...);
 int debrt_protect_loop_end(int argc, ...);
 
 int debrt_cgmonitor(int argc, ...);
+int debrt_cgreturn(long long);
 
 }
 

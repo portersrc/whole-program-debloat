@@ -10,8 +10,9 @@ function post_process_bmark() {
     echo "benchmark: $BMARK"
     FOLDER=${BMARK_TO_FOLDER[$BMARK]}
     echo "folder:    ${BASE_PATH}/${FOLDER}"
-    ${PARSE_DEBPROF_PY} ${BASE_PATH}/${FOLDER}
+    #${PARSE_DEBPROF_PY} ${BASE_PATH}/${FOLDER}
     #${PARSE_DEBPROF_PY} ${BASE_PATH}/${FOLDER} "process-test-data"
+    ${PARSE_CGPPROF_PY} ${BASE_PATH}/${FOLDER}
 }
 
 

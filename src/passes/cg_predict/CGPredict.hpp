@@ -21,11 +21,10 @@ struct CGPredict {
 
   public:
 
+    void init_aux(Module &M);
     void instrument_func_start(Function *f,
                                Instruction *inst_before,
                                unsigned int func_id);
-    void instrument_func_end(Instruction *inst_before,
-                             unsigned int func_id);
 
     Function *debprof_print_args_func;
     Function *debprof_print_func_end;
@@ -33,14 +32,12 @@ struct CGPredict {
     unordered_set<Function *> app_funcs;
     map<CallInst *, unsigned int> call_inst_to_id;
     map<string, unsigned int> func_name_to_id;
-    unsigned int call_inst_count;
     unsigned int func_count;
     set<Instruction *> jump_phi_nodes;
     Type *int32Ty;
+    Type *int64Ty;
+    Type *ptr_i8;
 
-    void init_debprof_print_func(Module &);
-    void init_debrt_funcs(Module &);
-    void read_func_name_to_id(void);
     void dump_func_name_to_id(void);
     void dump_stats(void);
 

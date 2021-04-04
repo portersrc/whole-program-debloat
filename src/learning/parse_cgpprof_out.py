@@ -73,8 +73,9 @@ def post_process(input_filename):
 
 BASE_PATH=''
 if len(sys.argv) > 1:
-        BASE_PATH = sys.argv[1] + '/'
+    BASE_PATH = sys.argv[1] + '/'
 TRAIN_BASENAME = 'train-cgpprof.out'
+TRAIN_CGPPROF_INPUT_FILENAME  = BASE_PATH + TRAIN_BASENAME
 TRAIN_CGPPROF_OUTPUT_FILENAME = BASE_PATH + 'final-' + TRAIN_BASENAME
 fp_train_out = open(TRAIN_CGPPROF_OUTPUT_FILENAME, 'w')
 
@@ -85,7 +86,7 @@ FUNC_SET_IDS_FILENAME = BASE_PATH + 'cgpprof-func-set-ids-to-funcs.out'
 fp_func_set_ids = open(FUNC_SET_IDS_FILENAME, 'w')
 
 
-post_process(TRAIN_BASENAME)
+post_process(TRAIN_CGPPROF_INPUT_FILENAME)
 
 
 # Write the func set IDs and their corresponding functions to file.

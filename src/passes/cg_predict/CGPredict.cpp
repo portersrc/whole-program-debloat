@@ -1,24 +1,6 @@
 #include "CGPredict.hpp"
 
 
-template<typename Out>
-void split(const string &s, char delim, Out result)
-{
-    stringstream ss(s);
-    string item;
-    while(getline(ss, item, delim)){
-        *(result++) = item;
-    }
-}
-
-vector<string> split(const string &s, char delim)
-{
-    vector<string> elems;
-    split(s, delim, back_inserter(elems));
-    return elems;
-}
-
-
 
 
 void CGPredict::dump_stats(void)
@@ -38,35 +20,14 @@ void CGPredict::dump_func_name_to_id(void)
 }
 
 
-void CGPredict::init_debprof_print_func(Module &M)
+// FIXME move to constructor
+void CGPredict::init_aux(Module &M)
 {
-    Type *ArgTypes[] = { int32Ty  };
-    string custom_instr_func_name("debprof_print_args");
-
-    debprof_print_args_func =
-      Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
-                       Function::ExternalLinkage,
-                       "debprof_print_args",
-                       M);
-
-    debprof_print_func_end =
-      Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
-                       Function::ExternalLinkage,
-                       "debprof_print_func_end",
-                       M);
-
+    int32Ty = IntegerType::getInt32Ty(M.getContext());
+    int64Ty = IntegerType::getInt64Ty(M.getContext());
+    ptr_i8  = PointerType::get(Type::getInt8Ty(M.getContext()), 0);
 }
-void CGPredict::init_debrt_funcs(Module &M)
-{
-    Type *ArgTypes[] = { int32Ty  };
 
-    debrt_cgmonitor_func =
-      Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
-                       Function::ExternalLinkage,
-                       "debrt_cgmonitor",
-                       M);
-
-}
 
 void CGPredict::instrument_func_start(Function *f,
                                       Instruction *inst_before,
@@ -79,25 +40,6 @@ void CGPredict::instrument_func_start(Function *f,
 
     LLVM_DEBUG(dbgs() << "Instrumenting func start: " << inst_before << "\n");
     CallInst *debprof_call = builder.CreateCall(f, ArgsV);
-}
-
-
-void CGPredict::read_func_name_to_id(void)
-{
-    string line;
-    ifstream ifs;
-    vector<string> elems;
-
-    ifs.open("cgpprof_func_name_to_id.txt");
-    if(!ifs.is_open()) {
-        perror("Error opening func name to id file");
-        exit(EXIT_FAILURE);
-    }
-
-    while(getline(ifs, line)){
-        elems = split(line, ' ');
-        func_name_to_id[elems[0]] = atoi(elems[1].c_str());
-    }
 }
 
 

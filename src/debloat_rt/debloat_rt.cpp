@@ -681,7 +681,8 @@ int debrt_cgmonitor(int argc, ...)
 
     if(lib_initialized){
         // Check if the function we just entered is in our predicted set
-        if(pred_set_p->find(func_id) == pred_set_p->end()){
+        if(pred_set_p->find(func_id) == pred_set_p->end()
+              && next_prediction_func_set_id != 0){ // FIXME: just a quick hack to see if this significantly improves the accuracy. Need proper stack of pred-sets with and popping on returns to actually do this right.
             DEBRT_PRINTF("got mispredict\n");
             num_mispredictions++;
         }
@@ -695,6 +696,18 @@ int debrt_cgmonitor(int argc, ...)
     pred_set_p = &func_sets[next_prediction_func_set_id];
     DEBRT_PRINTF("got next prediction func set id: %d\n", next_prediction_func_set_id);
 
+
+    return 0;
+}
+}
+
+
+extern "C" {
+int debrt_cgreturn(long long func_addr)
+{
+    // TODO: May be able to use debrt-return() as a helper function when
+    // we add runtime behavior.
+    //debrt_return(func_addr);
 
     return 0;
 }

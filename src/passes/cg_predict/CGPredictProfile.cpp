@@ -20,8 +20,12 @@ namespace {
         bool runOnFunction(Function &) override;
         bool doFinalization(Module &) override;
 
+        void init_debprof_print_funcs(Module &M);
+
         void instrument_func_start(Instruction *inst_before,
                                    unsigned int func_id);
+        void instrument_func_end(ReturnInst *return_inst,
+                                 unsigned int func_id);
 
         void getAnalysisUsage(AnalysisUsage &au) const override
         {
@@ -37,13 +41,11 @@ namespace {
 
 bool CGPredictProfile::doInitialization(Module &M)
 {
-    call_inst_count = 0;
+    init_aux(M);
 
     // Start at 1. func_count == 0 could be called the "the null function",
     // i.e. when we want to predict that no function call will happen.
     func_count = 1;
-
-    int32Ty = IntegerType::getInt32Ty(M.getContext());
 
     for(auto &f : M){
         LLVM_DEBUG(dbgs() << "seeing: " << getDemangledName(f) << "\n");
@@ -61,7 +63,7 @@ bool CGPredictProfile::doInitialization(Module &M)
         }
     }
 
-    init_debprof_print_func(M);
+    init_debprof_print_funcs(M);
     return false;
 }
 
@@ -104,6 +106,15 @@ bool CGPredictProfile::runOnFunction(Function &F)
     }
 }
 
+void CGPredictProfile::instrument_func_end(ReturnInst *return_inst,
+                                           unsigned int func_id)
+{
+    IRBuilder<> builder(return_inst);
+    vector<Value *> ArgsV;
+    ArgsV.push_back(llvm::ConstantInt::get(int32Ty, func_id, false));
+    CallInst *debprof_call = builder.CreateCall(debprof_print_func_end, ArgsV);
+}
+
 
 void CGPredictProfile::instrument_func_start(Instruction *inst_before,
                                              unsigned int func_id)
@@ -111,6 +122,24 @@ void CGPredictProfile::instrument_func_start(Instruction *inst_before,
     CGPredict::instrument_func_start(debprof_print_args_func, inst_before, func_id);
 }
 
+
+void CGPredictProfile::init_debprof_print_funcs(Module &M)
+{
+    Type *ArgTypes[] = { int32Ty  };
+
+    debprof_print_args_func =
+      Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+                       Function::ExternalLinkage,
+                       "debprof_print_args",
+                       M);
+
+    debprof_print_func_end =
+      Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+                       Function::ExternalLinkage,
+                       "debprof_print_func_end",
+                       M);
+
+}
 
 char CGPredictProfile::ID = 0;
 static RegisterPass<CGPredictProfile>
