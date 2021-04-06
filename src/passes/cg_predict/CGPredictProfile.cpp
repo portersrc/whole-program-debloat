@@ -125,7 +125,7 @@ void CGPredictProfile::instrument_func_start(Instruction *inst_before,
 
 void CGPredictProfile::init_debprof_print_funcs(Module &M)
 {
-    Type *ArgTypes[] = { int32Ty  };
+    Type *ArgTypes[] = { int32Ty };
 
     debprof_print_args_func =
       Function::Create(FunctionType::get(int32Ty, ArgTypes, true),

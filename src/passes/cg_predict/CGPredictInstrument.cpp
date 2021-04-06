@@ -156,7 +156,7 @@ void CGPredictInstrument::read_func_name_to_id(void)
 
 void CGPredictInstrument::init_debrt_funcs(Module &M)
 {
-    Type *ArgTypes[] = { int32Ty  };
+    Type *ArgTypes[] = { int32Ty };
 
     debrt_cgmonitor_func =
       Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
