@@ -23,8 +23,6 @@ namespace {
         void init_debprof_print_funcs(Module &M);
         void dump_func_name_to_id(void);
 
-        void instrument_func_start(Instruction *inst_before,
-                                   unsigned int func_id);
         void instrument_func_end(ReturnInst *return_inst,
                                  unsigned int func_id);
 
@@ -86,7 +84,8 @@ bool CGPredictProfile::runOnFunction(Function &F)
         func_name_to_id[called_func_name] = func_count++;
     }
 
-    instrument_func_start(F.getEntryBlock().getFirstNonPHI(),
+    instrument_func_start(debprof_print_args_func,
+                          F.getEntryBlock().getFirstNonPHI(),
                           func_name_to_id[called_func_name]);
 
     for(Function::iterator it_bb = F.begin();
@@ -113,13 +112,6 @@ void CGPredictProfile::instrument_func_end(ReturnInst *return_inst,
     vector<Value *> ArgsV;
     ArgsV.push_back(llvm::ConstantInt::get(int32Ty, func_id, false));
     CallInst *debprof_call = builder.CreateCall(debprof_print_func_end, ArgsV);
-}
-
-
-void CGPredictProfile::instrument_func_start(Instruction *inst_before,
-                                             unsigned int func_id)
-{
-    CGPredict::instrument_func_start(debprof_print_args_func, inst_before, func_id);
 }
 
 

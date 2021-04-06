@@ -45,8 +45,6 @@ namespace {
         void read_func_name_to_id(void);
         void init_debrt_funcs(Module &M);
 
-        void instrument_func_start(Instruction *inst_before,
-                                   unsigned int func_id);
         void instrument_func_end(Instruction *inst_before,
                                  unsigned int func_id,
                                  Function *debrt_return_func,
@@ -88,18 +86,10 @@ bool CGPredictInstrument::runOnFunction(Function &F)
 
     string called_func_name = F.getName().str();
 
-    instrument_func_start(F.getEntryBlock().getFirstNonPHI(),
+    instrument_func_start(debrt_cgmonitor_func,
+                          F.getEntryBlock().getFirstNonPHI(),
                           func_name_to_id[called_func_name]);
 
-}
-
-
-void CGPredictInstrument::instrument_func_start(Instruction *inst_before,
-                                                unsigned int func_id)
-{
-    CGPredict::instrument_func_start(debrt_cgmonitor_func,
-                                     inst_before,
-                                     func_id);
 }
 
 
