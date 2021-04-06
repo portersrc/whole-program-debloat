@@ -21,6 +21,7 @@ namespace {
         bool doFinalization(Module &) override;
 
         void init_debprof_print_funcs(Module &M);
+        void dump_func_name_to_id(void);
 
         void instrument_func_start(Instruction *inst_before,
                                    unsigned int func_id);
@@ -85,7 +86,8 @@ bool CGPredictProfile::runOnFunction(Function &F)
         func_name_to_id[called_func_name] = func_count++;
     }
 
-    instrument_func_start(F.getEntryBlock().getFirstNonPHI(), func_name_to_id[called_func_name]);
+    instrument_func_start(F.getEntryBlock().getFirstNonPHI(),
+                          func_name_to_id[called_func_name]);
 
     for(Function::iterator it_bb = F.begin();
         it_bb != F.end();
@@ -138,6 +140,18 @@ void CGPredictProfile::init_debprof_print_funcs(Module &M)
                        M);
 
 }
+
+
+void CGPredictProfile::dump_func_name_to_id(void)
+{
+    FILE *fp = fopen("cgpprof_func_name_to_id.txt", "w");
+    for(auto it = func_name_to_id.begin(); it != func_name_to_id.end(); it++){
+        fprintf(fp, "%s %u\n", it->first.c_str(), it->second);
+    }
+    fclose(fp);
+}
+
+
 
 char CGPredictProfile::ID = 0;
 static RegisterPass<CGPredictProfile>

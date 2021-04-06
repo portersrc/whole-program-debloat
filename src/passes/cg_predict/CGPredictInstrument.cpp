@@ -74,10 +74,9 @@ bool CGPredictInstrument::doInitialization(Module &M)
     return false;
 }
 
+
 bool CGPredictInstrument::doFinalization(Module &M)
 {
-    dump_stats();
-    dump_func_name_to_id();
     return false;
 }
 

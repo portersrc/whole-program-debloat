@@ -10,16 +10,6 @@ void CGPredict::dump_stats(void)
 }
 
 
-void CGPredict::dump_func_name_to_id(void)
-{
-    FILE *fp = fopen("cgpprof_func_name_to_id.txt", "w");
-    for(auto it = func_name_to_id.begin(); it != func_name_to_id.end(); it++){
-        fprintf(fp, "%s %u\n", it->first.c_str(), it->second);
-    }
-    fclose(fp);
-}
-
-
 // FIXME move to constructor
 void CGPredict::init_aux(Module &M)
 {

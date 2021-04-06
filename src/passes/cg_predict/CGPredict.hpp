@@ -38,7 +38,6 @@ struct CGPredict {
     Type *int64Ty;
     Type *ptr_i8;
 
-    void dump_func_name_to_id(void);
     void dump_stats(void);
 
 };
