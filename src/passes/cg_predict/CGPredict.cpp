@@ -10,8 +10,7 @@ void CGPredict::dump_stats(void)
 }
 
 
-// FIXME move to constructor
-void CGPredict::init_aux(Module &M)
+void CGPredict::init_types(Module &M)
 {
     int32Ty = IntegerType::getInt32Ty(M.getContext());
     int64Ty = IntegerType::getInt64Ty(M.getContext());

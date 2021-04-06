@@ -62,7 +62,7 @@ namespace {
 
 bool CGPredictInstrument::doInitialization(Module &M)
 {
-    init_aux(M);
+    init_types(M);
 
     init_debrt_funcs(M);
 

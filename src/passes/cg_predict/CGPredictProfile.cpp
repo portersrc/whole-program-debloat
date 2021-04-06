@@ -39,7 +39,7 @@ namespace {
 
 bool CGPredictProfile::doInitialization(Module &M)
 {
-    init_aux(M);
+    init_types(M);
 
     // Start at 1. func_count == 0 could be called the "the null function",
     // i.e. when we want to predict that no function call will happen.

@@ -21,7 +21,7 @@ struct CGPredict {
 
   public:
 
-    void init_aux(Module &M);
+    void init_types(Module &M);
     void instrument_func_start(Function *f,
                                Instruction *inst_before,
                                unsigned int func_id);
