@@ -648,18 +648,6 @@ int debrt_protect(int argc, ...)
 }
 }
 
-static inline
-void _push_prediction(set<int> *psp)
-{
-    pred_set_stack.push(psp);
-}
-static inline
-void _pop_prediction(void)
-{
-    pred_set_stack.pop();
-    pred_set_p = pred_set_stack.top();
-    return;
-}
 
 
 
@@ -697,13 +685,9 @@ int debrt_cgmonitor(int argc, ...)
     DEBRT_PRINTF("func_id: %d\n", func_id);
 
     if(lib_initialized){
+        pred_set_p = pred_set_stack.top();
         // Check if the function we just entered is in our predicted set
-        if(pred_set_p->find(func_id) == pred_set_p->end()
-           // FIXME: just a quick hack to see if this significantly improves
-           // the accuracy. Need proper stack of pred-sets with and popping on
-           // returns to actually do this right.
-           //&& next_prediction_func_set_id != 0)
-           ){
+        if(pred_set_p->find(func_id) == pred_set_p->end()){
             DEBRT_PRINTF("got mispredict\n");
             num_mispredictions++;
         }
@@ -717,7 +701,7 @@ int debrt_cgmonitor(int argc, ...)
     pred_set_p = &func_sets[next_prediction_func_set_id];
     DEBRT_PRINTF("got next prediction func set id: %d\n", next_prediction_func_set_id);
 
-    _push_prediction(pred_set_p);
+    pred_set_stack.push(pred_set_p);
 
     return 0;
 }
@@ -731,7 +715,7 @@ int debrt_cgreturn(long long func_addr)
     // we add runtime behavior.
     //debrt_return(func_addr);
 
-    _pop_prediction();
+    pred_set_stack.pop();
 
     return 0;
 }
