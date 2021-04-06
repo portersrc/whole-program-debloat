@@ -148,4 +148,4 @@ void CGPredictProfile::dump_func_name_to_id(void)
 
 char CGPredictProfile::ID = 0;
 static RegisterPass<CGPredictProfile>
-Y("CGPredictProfile", "Add profiling support for callgraph prediction");
+Y("CGPredictProfile", "Profiling instrumentation pass for callgraph prediction");

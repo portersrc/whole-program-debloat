@@ -190,4 +190,4 @@ void CGPredictInstrument::init_debrt_funcs(Module &M)
 
 char CGPredictInstrument::ID = 0;
 static RegisterPass<CGPredictInstrument>
-Y("CGPredictInstrument", "Add profiling support for callgraph prediction");
+Y("CGPredictInstrument", "Instrumentation pass for callgraph prediction");
