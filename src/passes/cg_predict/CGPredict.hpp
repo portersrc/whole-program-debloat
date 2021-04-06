@@ -33,7 +33,6 @@ struct CGPredict {
     map<CallInst *, unsigned int> call_inst_to_id;
     map<string, unsigned int> func_name_to_id;
     unsigned int func_count;
-    set<Instruction *> jump_phi_nodes;
     Type *int32Ty;
     Type *int64Ty;
     Type *ptr_i8;
