@@ -19,7 +19,7 @@ void CGPredict::init_aux(Module &M)
 }
 
 
-void CGPredict::instrument_func_start(Function *f,
+void CGPredict::instrument_func_start(Function *call_me,
                                       Instruction *inst_before,
                                       unsigned int func_id)
 {
@@ -29,7 +29,5 @@ void CGPredict::instrument_func_start(Function *f,
     ArgsV.push_back(llvm::ConstantInt::get(int32Ty, func_id, false));
 
     LLVM_DEBUG(dbgs() << "Instrumenting func start: " << inst_before << "\n");
-    CallInst *debprof_call = builder.CreateCall(f, ArgsV);
+    CallInst *debprof_call = builder.CreateCall(call_me, ArgsV);
 }
-
-

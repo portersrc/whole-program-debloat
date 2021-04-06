@@ -45,10 +45,8 @@ namespace {
         void read_func_name_to_id(void);
         void init_debrt_funcs(Module &M);
 
-        void instrument_func_end(Instruction *inst_before,
-                                 unsigned int func_id,
-                                 Function *debrt_return_func,
-                                 Function *debrt_return_func_intrinsic);
+        void instrument_func_end(Function &F);
+        void instrument_func_end_aux(Instruction *inst_before);
 
         void getAnalysisUsage(AnalysisUsage &au) const override
         {
@@ -89,14 +87,31 @@ bool CGPredictInstrument::runOnFunction(Function &F)
     instrument_func_start(debrt_cgmonitor_func,
                           F.getEntryBlock().getFirstNonPHI(),
                           func_name_to_id[called_func_name]);
-
+    instrument_func_end(F);
 }
 
 
-void CGPredictInstrument::instrument_func_end(Instruction *inst_before,
-                                              unsigned int func_id,
-                                              Function *debrt_return_func,
-                                              Function *debrt_return_func_intrinsic)
+void CGPredictInstrument::instrument_func_end(Function &F)
+{
+    for(Function::iterator it_bb = F.begin();
+        it_bb != F.end();
+        ++it_bb){
+
+        BasicBlock *bb = &*it_bb;
+        for(BasicBlock::iterator it_inst = bb->begin();
+            it_inst != bb->end();
+            ++it_inst){
+
+            if(ReturnInst *RI = dyn_cast<ReturnInst>(&*it_inst)){
+                instrument_func_end_aux(RI);
+            }
+
+        }
+    }
+}
+
+
+void CGPredictInstrument::instrument_func_end_aux(Instruction *inst_before)
 {
     Value *retinstrIntrinsic;
     vector<Value *> ArgsVIntrinsic;
@@ -105,8 +120,7 @@ void CGPredictInstrument::instrument_func_end(Instruction *inst_before,
     ArgsVIntrinsic.push_back(llvm::ConstantInt::get(int32Ty, 0, false));
     LLVM_DEBUG(dbgs() << "Instrumenting ret-inst::" << inst_before << "\n");
     retinstrIntrinsic =
-      builderIntrinsic.CreateCall(debrt_return_func_intrinsic, ArgsVIntrinsic);
-      //builderIntrinsic.CreateCall(debrt_return_func_intrinsic);
+      builderIntrinsic.CreateCall(debrt_cgreturn_func_intrinsic, ArgsVIntrinsic);
     LLVM_DEBUG(dbgs() << "retinstrIntrinsic::" << *retinstrIntrinsic << "\n");
 
 
@@ -120,7 +134,7 @@ void CGPredictInstrument::instrument_func_end(Instruction *inst_before,
     castedArg = builder.CreatePtrToInt(retinstrIntrinsic, int64Ty);
     ArgsV.push_back(castedArg);
     LLVM_DEBUG(dbgs() << "Instrumenting ret-inst::" << inst_before << "\n");
-    CallInst *retinstr = builder.CreateCall(debrt_return_func, ArgsV);
+    CallInst *retinstr = builder.CreateCall(debrt_cgreturn_func, ArgsV);
     LLVM_DEBUG(dbgs() << "retinstr::" << *retinstr << "\n");
 }
 
@@ -146,7 +160,9 @@ void CGPredictInstrument::read_func_name_to_id(void)
 
 void CGPredictInstrument::init_debrt_funcs(Module &M)
 {
-    Type *ArgTypes[] = { int32Ty };
+    Type *ArgTypes[]    = { int32Ty };
+    Type *ArgTypes64[]  = { int64Ty };
+    Type *ArgTypesPtr[] = { ptr_i8 };
 
     debrt_cgmonitor_func =
       Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
@@ -154,6 +170,18 @@ void CGPredictInstrument::init_debrt_funcs(Module &M)
                        "debrt_cgmonitor",
                        M);
 
+    // FIXME ? Why ArgTypes64
+    debrt_cgreturn_func =
+      Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
+                       Function::ExternalLinkage,
+                       "debrt_cgreturn",
+                       M);
+
+    debrt_cgreturn_func_intrinsic =
+      Function::Create(FunctionType::get(ptr_i8, ArgTypes, false),
+                       Function::ExternalLinkage,
+                       "llvm.returnaddress",
+                       &M);
 }
 
 

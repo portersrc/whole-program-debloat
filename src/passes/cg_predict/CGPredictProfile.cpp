@@ -23,8 +23,7 @@ namespace {
         void init_debprof_print_funcs(Module &M);
         void dump_func_name_to_id(void);
 
-        void instrument_func_end(ReturnInst *return_inst,
-                                 unsigned int func_id);
+        void instrument_func_end(Function &F, unsigned int func_id);
 
         void getAnalysisUsage(AnalysisUsage &au) const override
         {
@@ -76,7 +75,7 @@ bool CGPredictProfile::doFinalization(Module &M)
 
 bool CGPredictProfile::runOnFunction(Function &F)
 {
-
+    unsigned int func_id;
     LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
     string called_func_name = F.getName().str();
@@ -84,10 +83,18 @@ bool CGPredictProfile::runOnFunction(Function &F)
         func_name_to_id[called_func_name] = func_count++;
     }
 
+    func_id = func_name_to_id[called_func_name];
+
     instrument_func_start(debprof_print_args_func,
                           F.getEntryBlock().getFirstNonPHI(),
-                          func_name_to_id[called_func_name]);
+                          func_id);
 
+    instrument_func_end(F, func_id);
+}
+
+
+void CGPredictProfile::instrument_func_end(Function &F, unsigned int func_id)
+{
     for(Function::iterator it_bb = F.begin();
         it_bb != F.end();
         ++it_bb){
@@ -98,20 +105,14 @@ bool CGPredictProfile::runOnFunction(Function &F)
             ++it_inst){
 
             if(ReturnInst *RI = dyn_cast<ReturnInst>(&*it_inst)){
-                instrument_func_end(RI, func_name_to_id[called_func_name]);
+                IRBuilder<> builder(RI);
+                vector<Value *> ArgsV;
+                ArgsV.push_back(llvm::ConstantInt::get(int32Ty, func_id, false));
+                CallInst *deb_call = builder.CreateCall(debprof_print_func_end, ArgsV);
             }
 
         }
     }
-}
-
-void CGPredictProfile::instrument_func_end(ReturnInst *return_inst,
-                                           unsigned int func_id)
-{
-    IRBuilder<> builder(return_inst);
-    vector<Value *> ArgsV;
-    ArgsV.push_back(llvm::ConstantInt::get(int32Ty, func_id, false));
-    CallInst *debprof_call = builder.CreateCall(debprof_print_func_end, ArgsV);
 }
 
 
