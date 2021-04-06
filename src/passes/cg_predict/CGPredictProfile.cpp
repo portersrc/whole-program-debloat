@@ -80,8 +80,6 @@ bool CGPredictProfile::runOnFunction(Function &F)
 
     LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
 
-    //BasicBlock &entry_block = F.getEntryBlock();
-
     string called_func_name = F.getName().str();
     if(func_name_to_id.find(called_func_name) == func_name_to_id.end()){
         func_name_to_id[called_func_name] = func_count++;
