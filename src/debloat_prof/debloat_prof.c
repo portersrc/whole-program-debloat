@@ -19,6 +19,8 @@ FILE *fp_out;
 int _debprof_init(void);
 void _debprof_destroy(void);
 
+int lib_initialized = 0;
+
 //int function_set_id_counter = 0;
 
 //int last_funcs_seen[PREDICTED_FUNCS_SET_SIZE];
@@ -37,7 +39,6 @@ void _debprof_destroy(void);
 // 
 /*int debprof_print_args(int argc, ...)
 {
-    static int lib_initialized = 0;
     static int funcs_seen_count = 0;
     int i;
     int curr_func_id;
@@ -74,7 +75,6 @@ void _debprof_destroy(void);
 }*/
 int debprof_print_args(int argc, ...)
 {
-    static int lib_initialized = 0;
     int i;
     va_list ap;
 
@@ -97,7 +97,6 @@ int debprof_print_args(int argc, ...)
 
 int debprof_print_func_end(int func_id)
 {
-    static int lib_initialized = 0;
     if(!lib_initialized){
         _debprof_init(); // ignore return
         lib_initialized = 1;
