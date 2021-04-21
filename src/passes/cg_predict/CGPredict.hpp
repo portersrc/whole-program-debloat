@@ -25,6 +25,11 @@ struct CGPredict {
     void instrument_func_start(Function *f,
                                Instruction *inst_before,
                                unsigned int func_id);
+    void identify_calls(Function &F);
+    void instrument_func_start_with_args(Function &F,
+                                         Function *call_me,
+                                         Instruction *inst_before,
+                                         unsigned int func_id);
 
     Function *debprof_print_args_func;
     Function *debprof_print_func_end;
