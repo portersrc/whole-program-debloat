@@ -55,9 +55,9 @@ namespace {
 void LoopPages::find_other_nonloop_funcs(Function *F)
 {
     // Go through each instruction not within a loop and check if there is a function call so we can go through its loops
-    for(auto& B : *F){
+    for(auto &B : *F){
         if(LI && !LI->getLoopFor(&B)){
-            for(auto& I : B){
+            for(auto &I : B){
                 CallInst *CI = dyn_cast<CallInst>(&I);
                 if(CI){
                     Function *newF = CI->getCalledFunction();
@@ -146,7 +146,7 @@ bool LoopPages::runOnModule(Module &M)
 {
     // errs() << "Find Main\n";
     // Start with the main funciton
-    for(auto& F : M){
+    for(auto &F : M){
         if(F.getName() == "main"){
             funcs_outside_loops.push(&F);
         }
@@ -189,7 +189,7 @@ bool LoopPages::doInitialization(Module &M)
     // Give each application function an ID and write it to a file
     FILE *fp = fopen("debprof_func_name_to_id.txt", "w");
     int count = 0 ;
-    for(auto& F : M){
+    for(auto &F : M){
         if(F.hasName() && !F.isDeclaration()){
             fprintf(fp, "%s %u\n", F.getName().str().c_str(), count);
             function_map[&F] = count;
