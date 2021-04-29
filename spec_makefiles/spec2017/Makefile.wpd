@@ -352,13 +352,13 @@ base: $(EXEBASE)
 	opt \
       -O3 \
       < $(NUMBER).$(NAME)_linked.bc \
-      > $(NUMBER).$(NAME)_opt.bc
+      > $(NUMBER).$(NAME)_baseline_opt.bc
 	llc  \
-      $(NUMBER).$(NAME)_opt.bc \
+      $(NUMBER).$(NAME)_baseline_opt.bc \
       -relocation-model=pic \
-      -o $(NUMBER).$(NAME)_opt.s
+      -o $(NUMBER).$(NAME)_baseline_opt.s
 	g++ \
-      $(NUMBER).$(NAME)_opt.s \
+      $(NUMBER).$(NAME)_baseline_opt.s \
       -o $(NUMBER).$(NAME)_baseline \
       -lm -lrt
 wpd: $(EXEBASE)
@@ -366,14 +366,14 @@ wpd: $(EXEBASE)
       -O3 \
       -load libWholeProgramDebloat.so -WholeProgramDebloat \
       < $(NUMBER).$(NAME)_linked.bc \
-      > $(NUMBER).$(NAME)_opt.bc
+      > $(NUMBER).$(NAME)_wpd_opt.bc
 	llc  \
-      $(NUMBER).$(NAME)_opt.bc \
+      $(NUMBER).$(NAME)_wpd_opt.bc \
       -relocation-model=pic \
-      -o $(NUMBER).$(NAME)_opt.s
+      -o $(NUMBER).$(NAME)_wpd_opt.s
 	g++ \
-      $(NUMBER).$(NAME)_opt.s \
-      -o $(NUMBER).$(NAME)_cga \
+      $(NUMBER).$(NAME)_wpd_opt.s \
+      -o $(NUMBER).$(NAME)_wpd \
       -lm -lrt
 else
 	$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) @$(OBJNAMES) $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
