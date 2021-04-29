@@ -50,9 +50,6 @@ using namespace std;
 int lib_initialized = 0;
 
 
-// FIXME: need to fix all functions that have static version of this var
-int lib_initialized = 0;
-
 // XXX this could be read in? It varies based on the benchmark. we have
 // an assert in case this is violated. Could double size or fix properly
 // if that happens
