@@ -22,10 +22,10 @@ using namespace llvm;
 using namespace std;
 
 namespace {
-    struct LoopPages : public ModulePass {
+    struct WholeProgramDebloat : public ModulePass {
         static char ID;
 
-        LoopPages() : ModulePass(ID) {}
+        WholeProgramDebloat() : ModulePass(ID) {}
 
         map<Function *, int> function_map;
         queue<Function *> funcs_outside_loops;
@@ -52,7 +52,7 @@ namespace {
     };
 }
 
-void LoopPages::find_other_nonloop_funcs(Function *F)
+void WholeProgramDebloat::find_other_nonloop_funcs(Function *F)
 {
     // Go through each instruction not within a loop and check if there is a function call so we can go through its loops
     for(auto &B : *F){
@@ -71,7 +71,7 @@ void LoopPages::find_other_nonloop_funcs(Function *F)
     }
 }
 
-void LoopPages::instrument_loop(Loop *loop)
+void WholeProgramDebloat::instrument_loop(Loop *loop)
 {
     // Find preheader
     // FIXME This looks sus.
@@ -147,7 +147,7 @@ void LoopPages::instrument_loop(Loop *loop)
 
 }
 
-bool LoopPages::runOnModule(Module &M)
+bool WholeProgramDebloat::runOnModule(Module &M)
 {
     // errs() << "Find Main\n";
     // Start with the main funciton
@@ -189,7 +189,7 @@ bool LoopPages::runOnModule(Module &M)
     return true;
 }
 
-bool LoopPages::doInitialization(Module &M)
+bool WholeProgramDebloat::doInitialization(Module &M)
 {
     // errs() << "Write Function to IDs map to a file\n";
     // Give each application function an ID and write it to a file
@@ -216,10 +216,10 @@ bool LoopPages::doInitialization(Module &M)
     return false;
 }
 
-bool LoopPages::doFinalization(Module &M)
+bool WholeProgramDebloat::doFinalization(Module &M)
 {
     return false;
 }
 
-char LoopPages::ID = 0;
-static RegisterPass<LoopPages> Y("LoopPages", "Fixing initialization pass");
+char WholeProgramDebloat::ID = 0;
+static RegisterPass<WholeProgramDebloat> Y("WholeProgramDebloat", "Fixing initialization pass");
