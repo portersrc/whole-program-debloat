@@ -74,6 +74,11 @@ void LoopPages::find_other_nonloop_funcs(Function *F)
 void LoopPages::instrument_loop(Loop *loop)
 {
     // Find preheader
+    // FIXME This looks sus.
+    // Consider checking LLVM doxygen on getLoopPreheader. The fix could be to
+    // walk incoming edges to the first BB of the loop. Another option
+    // if needed is to run loop-simplify beforehand.
+    // see also https://llvm.org/docs/LoopTerminology.html
     BasicBlock *preheader = loop->getLoopPreheader();
     BasicBlock *header = *(loop->block_begin());
     if(!preheader){
@@ -149,6 +154,7 @@ bool LoopPages::runOnModule(Module &M)
     for(auto &F : M){
         if(F.getName() == "main"){
             funcs_outside_loops.push(&F);
+            break;
         }
     }
 
