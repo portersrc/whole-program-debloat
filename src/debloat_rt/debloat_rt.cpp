@@ -985,7 +985,7 @@ void _set_addr_of_main_mapping(void)
         state = GET_BASE_ADDR;
         while(*c){
             if(state == GET_BASE_ADDR && *c == '-'){
-		//printf("state was GET_BASE_ADDR\n");
+                //printf("state was GET_BASE_ADDR\n");
                 *c = '\0';
                 addr_base = strtoll(line, NULL, 16);
                 c++;
@@ -994,20 +994,20 @@ void _set_addr_of_main_mapping(void)
                 continue;
             }
             if(state == GET_IS_EXECUTABLE && *c == ' '){
-		//printf("state was GET_IS_EXECUTABLE\n");
+                //printf("state was GET_IS_EXECUTABLE\n");
                 num_spaces++;
                 c++;
                 //printf("c[0,1,2,3] is %c%c%c%c\n", c[0],c[1],c[2],c[3]);
                 if(c[2] == 'x'){
-		    //printf("found executable\n");
+                    //printf("found executable\n");
                     state++;
                     c += 4;
                     continue;
                 }
-		break;
+                break;
             }
             if(state == GET_BINARY_NAME && *c == ' '){
-		//printf("state was GET_BINARY_NAME\n");
+                //printf("state was GET_BINARY_NAME\n");
                 num_spaces++;
                 if(num_spaces == 5){
                     while(*c == ' '){

@@ -183,7 +183,7 @@ namespace {
             LI = &getAnalysis<LoopInfoWrapperPass>(*curr).getLoopInfo();            
             // errs() << "Go through all outer loops" << "\n";
             for (auto loop = LI->begin(), e = LI->end(); loop != e; ++loop ) 
-            {	 
+            {
                instrumentLoop(*loop);
             }
 
