@@ -47,6 +47,7 @@ using namespace std;
 #define RO_PERM   (PROT_READ)
 
 
+int lib_initialized = 0;
 
 
 // FIXME: need to fix all functions that have static version of this var
@@ -371,7 +372,6 @@ void _update_mapped_pages(int func_id)
 extern "C" {
 int debrt_monitor_orig(int argc, ...)
 {
-    static int lib_initialized = 0;
     int i;
     va_list ap;
     int feature_buf[MAX_NUM_FEATURES];
@@ -453,7 +453,6 @@ int debrt_monitor_orig(int argc, ...)
 extern "C" {
 int debrt_monitor(int argc, ...)
 {
-    static int lib_initialized = 0;
     static int buf_elems = 0;
     int i;
     va_list ap;
@@ -542,7 +541,6 @@ int debrt_monitor(int argc, ...)
 extern "C" {
 int debrt_protect(int argc, ...)
 {
-    static int lib_initialized = 0;
     static int buf_elems = 0;
     static int first_prediction = 1;
     int i;
@@ -658,7 +656,6 @@ int debrt_protect(int argc, ...)
 extern "C" {
 int debrt_cgmonitor(int argc, ...)
 {
-    static int lib_initialized = 0;
     int i;
     va_list ap;
     int func_id;
