@@ -205,7 +205,7 @@ bool LoopPages::doInitialization(Module &M)
 
     debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
             Function::ExternalLinkage,
-            "debrt_protect_onr",
+            "debrt_protect",
             M);
     return false;
 }

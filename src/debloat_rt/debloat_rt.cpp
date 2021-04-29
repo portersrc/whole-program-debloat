@@ -536,7 +536,7 @@ int debrt_monitor(int argc, ...)
 }
 
 extern "C" {
-int debrt_protect(int argc, ...)
+int debrt_protect_sequence(int argc, ...)
 {
     static int buf_elems = 0;
     static int first_prediction = 1;
@@ -1232,7 +1232,7 @@ void _debrt_protect_destroy(void)
 
 
 extern "C" {
-int debrt_protect_onr(int argc, ...)
+int debrt_protect(int argc, ...)
 {
     int i;
     va_list ap;
