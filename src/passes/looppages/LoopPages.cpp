@@ -27,13 +27,13 @@ namespace {
 
         LoopPages() : ModulePass(ID) {}
 
-        map<Function *, int> functionMap;
-        queue<Function *> functionOutsideLoops;
+        map<Function *, int> function_map;
+        queue<Function *> funcs_outside_loops;
         Function *debrt_protect_func;
         Type *int32Ty;
         LoopInfo *LI;
 
-        map<BasicBlock *, int> bbMap;
+        map<BasicBlock *, int> bb_map;
 
         void getAnalysisUsage(AnalysisUsage &AU) const
         {
@@ -47,12 +47,12 @@ namespace {
         bool doFinalization(Module &) override;
 
 
-        void findOtherNonLoopFunctions(Function *F);
-        void instrumentLoop(Loop *loop);
+        void find_other_nonloop_funcs(Function *F);
+        void instrument_loop(Loop *loop);
     };
 }
 
-void LoopPages::findOtherNonLoopFunctions(Function *F)
+void LoopPages::find_other_nonloop_funcs(Function *F)
 {
     // Go through each instruction not within a loop and check if there is a function call so we can go through its loops
     for(auto& B : *F){
@@ -61,9 +61,9 @@ void LoopPages::findOtherNonLoopFunctions(Function *F)
                 CallInst *CI = dyn_cast<CallInst>(&I);
                 if(CI){
                     Function *newF = CI->getCalledFunction();
-                    if(functionMap.count(newF) > 0){
+                    if(function_map.count(newF) > 0){
                         //errs() << "Function(" << newF->getName().str() << ") also is not within a loop nest so check loop nest functions within it\n";
-                        functionOutsideLoops.push(newF);
+                        funcs_outside_loops.push(newF);
                     }
                 }
             }
@@ -71,15 +71,15 @@ void LoopPages::findOtherNonLoopFunctions(Function *F)
     }
 }
 
-void LoopPages::instrumentLoop(Loop *loop)
+void LoopPages::instrument_loop(Loop *loop)
 {
     // Find preheader
     BasicBlock *preheader = loop->getLoopPreheader();
     BasicBlock *header = *(loop->block_begin());
     if(!preheader){
         for(BasicBlock *pred : predecessors(header)){
-            int idH = bbMap[header];
-            int idP = bbMap[pred];
+            int idH = bb_map[header];
+            int idP = bb_map[pred];
             if(idP < idH){
                 preheader = pred;
                 break;
@@ -96,7 +96,7 @@ void LoopPages::instrumentLoop(Loop *loop)
             CallInst *CI = dyn_cast<CallInst>(&I);
             if(CI){
                 Function *newF = CI->getCalledFunction();
-                if(functionMap.count(newF) > 0){
+                if(function_map.count(newF) > 0){
                     // errs() << "Function(" << newF->getName().str() << ") is within loop nest\n";
                     queueFunctions.push(newF);
                     setFunctions.insert(newF);
@@ -115,7 +115,7 @@ void LoopPages::instrumentLoop(Loop *loop)
                 CallInst *CI = dyn_cast<CallInst>(&I);
                 if(CI){
                     Function *newF = CI->getCalledFunction();
-                    if(functionMap.count(newF) > 0){
+                    if(function_map.count(newF) > 0){
                         if(setFunctions.find(newF) == setFunctions.end()){
                             // errs() << "Function(" << newF->getName().str() << ") is within loop nest\n";
                             queueFunctions.push(newF);
@@ -132,7 +132,7 @@ void LoopPages::instrumentLoop(Loop *loop)
     vector<Value *> ArgsV;
     ArgsV.push_back(ConstantInt::get(int32Ty, setFunctions.size(), false));
     for(auto F : setFunctions){
-        ArgsV.push_back(ConstantInt::get(int32Ty, functionMap[F], false));
+        ArgsV.push_back(ConstantInt::get(int32Ty, function_map[F], false));
     }
 
     Instruction *TI = preheader->getTerminator();
@@ -148,21 +148,21 @@ bool LoopPages::runOnModule(Module &M)
     // Start with the main funciton
     for(auto& F : M){
         if(F.getName() == "main"){
-            functionOutsideLoops.push(&F);
+            funcs_outside_loops.push(&F);
         }
     }
 
     int bb = 0;
-    while(!functionOutsideLoops.empty()){
-        Function *curr = functionOutsideLoops.front();
-        functionOutsideLoops.pop();
+    while(!funcs_outside_loops.empty()){
+        Function *curr = funcs_outside_loops.front();
+        funcs_outside_loops.pop();
         // errs() << "Found Function(" << curr->getName().str() << ") that is not within loop nest" << "\n";
 
 
         // errs() << "Label Basicblocks\n";
         // Label each Basicblock within the funciton with a unique id
         for(auto &B : *curr){
-            bbMap[&B] = bb;
+            bb_map[&B] = bb;
             bb += 1;
         }
 
@@ -170,16 +170,16 @@ bool LoopPages::runOnModule(Module &M)
         LI = &getAnalysis<LoopInfoWrapperPass>(*curr).getLoopInfo();
         // errs() << "Go through all outer loops" << "\n";
         for(auto loop = LI->begin(), e = LI->end(); loop != e; ++loop ){
-            instrumentLoop(*loop);
+            instrument_loop(*loop);
         }
 
         // errs() << "Find Other Functions not within loop nests" << "\n";
         // Otherwise, go to the loops not within loop nests and check if they have loops with function calls
-        findOtherNonLoopFunctions(curr);
+        find_other_nonloop_funcs(curr);
     }
 
-    bbMap.clear();
-    functionMap.clear();
+    bb_map.clear();
+    function_map.clear();
     return true;
 }
 
@@ -192,7 +192,7 @@ bool LoopPages::doInitialization(Module &M)
     for(auto& F : M){
         if(F.hasName() && !F.isDeclaration()){
             fprintf(fp, "%s %u\n", F.getName().str().c_str(), count);
-            functionMap[&F] = count;
+            function_map[&F] = count;
             count += 1;
         }
     }
