@@ -49,6 +49,9 @@ using namespace std;
 
 
 
+// FIXME: need to fix all functions that have static version of this var
+int lib_initialized = 0;
+
 // XXX this could be read in? It varies based on the benchmark. we have
 // an assert in case this is violated. Could double size or fix properly
 // if that happens
@@ -985,6 +988,7 @@ void _set_addr_of_main_mapping(void)
         state = GET_BASE_ADDR;
         while(*c){
             if(state == GET_BASE_ADDR && *c == '-'){
+		//printf("state was GET_BASE_ADDR\n");
                 *c = '\0';
                 addr_base = strtoll(line, NULL, 16);
                 c++;
@@ -993,15 +997,20 @@ void _set_addr_of_main_mapping(void)
                 continue;
             }
             if(state == GET_IS_EXECUTABLE && *c == ' '){
+		//printf("state was GET_IS_EXECUTABLE\n");
                 num_spaces++;
                 c++;
+                //printf("c[0,1,2,3] is %c%c%c%c\n", c[0],c[1],c[2],c[3]);
                 if(c[2] == 'x'){
+		    //printf("found executable\n");
                     state++;
+                    c += 4;
+                    continue;
                 }
-                c += 4;
-                continue;
+		break;
             }
             if(state == GET_BINARY_NAME && *c == ' '){
+		//printf("state was GET_BINARY_NAME\n");
                 num_spaces++;
                 if(num_spaces == 5){
                     while(*c == ' '){
@@ -1020,7 +1029,7 @@ void _set_addr_of_main_mapping(void)
                         executable_addr_base = addr_base;
                         executable_addr_end  = addr_end;
                     }
-                    continue;
+                    //continue;
                     //cout << "my pid is " << getpid() << endl;
                     //cout << "getenv is " << getenv("_") << endl;
                     //while(1){
@@ -1030,16 +1039,21 @@ void _set_addr_of_main_mapping(void)
             }
             c++;
         }
-        // If this assertion happens, I may need to handle more than one
-        // executable mapping for the binary, which makes it a little more
-        // complicated when determining the page address for a given function.
-        // XXX Also, executing with gdb causes this assert to hit, because
-        // getenv("_") ends up returning "gdb" instead of the binary name.
-        // If that happens, the strstr commented code above can be a workaround
-        // during debugging
-        //DEBRT_PRINTF("num exec lines: %d\n", num_executable_binary_lines);
-        assert(num_executable_binary_lines == 1);
     }
+    // If this assertion happens, I may need to handle more than one
+    // executable mapping for the binary, which makes it a little more
+    // complicated when determining the page address for a given function.
+    // XXX Also, executing with gdb causes this assert to hit, because
+    // getenv("_") ends up returning "gdb" instead of the binary name.
+    // If that happens, the strstr commented code above can be a workaround
+    // during debugging
+    //DEBRT_PRINTF("num exec lines: %d\n", num_executable_binary_lines);
+    //cout << "2 my pid is " << getpid() << endl;
+    //cout << "2 getenv is " << getenv("_") << endl;
+    //while(1){
+    //    sleep(10);
+    //}
+    assert(num_executable_binary_lines == 1);
 
 
     fclose(fp);
@@ -1222,3 +1236,71 @@ void _debrt_protect_destroy(void)
                         "(errno: %d)\n", e);
     }
 }
+
+
+
+int _debrt_protect_init_onr(void)
+{
+    int e;
+    const char *output_filename;
+
+    output_filename = getenv("DEBRT_OUT");
+    if(!output_filename){
+        output_filename = DEFAULT_OUTPUT_FILENAME;
+    }
+    fp_out = fopen(output_filename, "w");
+    if(!fp_out){
+        e = errno;
+        fprintf(stderr, "_debrt_monitor_init failed to open %s (errno: %d)\n",
+                        output_filename, e);
+        return e;
+    }
+
+    _set_addr_of_main_mapping();
+    DEBRT_PRINTF("executable_addr_base: 0x%llx\n", executable_addr_base);
+    DEBRT_PRINTF("executable_addr_end:  0x%llx\n", executable_addr_end);
+    _read_func_name_to_id();
+    _dump_func_name_to_id();
+    _read_nm();
+    _read_readelf();
+
+    _dump_func_id_to_pages();
+    _dump_func_id_to_addr_and_size();
+
+    _init_page_to_count();
+
+    //cout << "my pid is " << getpid() << endl;
+    //while(1){
+    //    sleep(10);
+    //}
+
+    atexit(_debrt_protect_destroy);
+
+    return 0;
+}
+
+extern "C" {
+int debrt_protect_onr(int argc, ...)
+{
+    int i;
+    va_list ap;
+    int func_id;
+
+    // initialize library
+    if(!lib_initialized){
+        _debrt_protect_init_onr(); // ignore return
+        lib_initialized = 1;
+    }
+
+    // gather func ids into a buffer
+    va_start(ap, argc);
+    for(i = 0; i < argc; i++){
+        func_id = va_arg(ap, int);
+        _update_mapped_pages(func_id);
+    }
+    va_end(ap);
+
+    return 0;
+}
+}
+
