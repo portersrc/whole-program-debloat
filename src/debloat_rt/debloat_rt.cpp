@@ -75,7 +75,7 @@ int  _debrt_monitor_init(void);
 void _debrt_monitor_destroy(void);
 void _init_page_to_count(void);
 
-int  _debrt_protect_init(void);
+int  _debrt_protect_init(int);
 void _debrt_protect_destroy(void);
 void _debrt_protect_all_pages(void);
 void _debrt_protect_no_pages(void); // for debugging
@@ -551,7 +551,7 @@ int debrt_protect(int argc, ...)
 
     // initialize library
     if(!lib_initialized){
-        _debrt_protect_init(); // ignore return
+        _debrt_protect_init(1/*read-func-sets*/); // ignore return
         lib_initialized = 1;
     }
 
@@ -1173,7 +1173,7 @@ void _init_page_to_count(void)
 }
 
 
-int _debrt_protect_init(void)
+int _debrt_protect_init(int please_read_func_sets)
 {
     int e;
     const char *output_filename;
@@ -1190,7 +1190,9 @@ int _debrt_protect_init(void)
         return e;
     }
 
-    _read_func_sets();
+    if(please_read_func_sets){
+        _read_func_sets();
+    }
 
 
     _set_addr_of_main_mapping();
@@ -1205,11 +1207,6 @@ int _debrt_protect_init(void)
     _dump_func_id_to_addr_and_size();
 
     _init_page_to_count();
-
-    //cout << "my pid is " << getpid() << endl;
-    //while(1){
-    //    sleep(10);
-    //}
 
     atexit(_debrt_protect_destroy);
 
@@ -1233,45 +1230,6 @@ void _debrt_protect_destroy(void)
 
 
 
-int _debrt_protect_init_onr(void)
-{
-    int e;
-    const char *output_filename;
-
-    output_filename = getenv("DEBRT_OUT");
-    if(!output_filename){
-        output_filename = DEFAULT_OUTPUT_FILENAME;
-    }
-    fp_out = fopen(output_filename, "w");
-    if(!fp_out){
-        e = errno;
-        fprintf(stderr, "_debrt_monitor_init failed to open %s (errno: %d)\n",
-                        output_filename, e);
-        return e;
-    }
-
-    _set_addr_of_main_mapping();
-    DEBRT_PRINTF("executable_addr_base: 0x%llx\n", executable_addr_base);
-    DEBRT_PRINTF("executable_addr_end:  0x%llx\n", executable_addr_end);
-    _read_func_name_to_id();
-    _dump_func_name_to_id();
-    _read_nm();
-    _read_readelf();
-
-    _dump_func_id_to_pages();
-    _dump_func_id_to_addr_and_size();
-
-    _init_page_to_count();
-
-    //cout << "my pid is " << getpid() << endl;
-    //while(1){
-    //    sleep(10);
-    //}
-
-    atexit(_debrt_protect_destroy);
-
-    return 0;
-}
 
 extern "C" {
 int debrt_protect_onr(int argc, ...)
@@ -1282,11 +1240,10 @@ int debrt_protect_onr(int argc, ...)
 
     // initialize library
     if(!lib_initialized){
-        _debrt_protect_init_onr(); // ignore return
+        _debrt_protect_init(0 /*dont read func sets*/); // ignore return
         lib_initialized = 1;
     }
 
-    // gather func ids into a buffer
     va_start(ap, argc);
     for(i = 0; i < argc; i++){
         func_id = va_arg(ap, int);
