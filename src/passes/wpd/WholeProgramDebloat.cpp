@@ -193,7 +193,7 @@ bool WholeProgramDebloat::doInitialization(Module &M)
 {
     // errs() << "Write Function to IDs map to a file\n";
     // Give each application function an ID and write it to a file
-    FILE *fp = fopen("debprof_func_name_to_id.txt", "w");
+    FILE *fp = fopen("wpd_func_name_to_id.txt", "w");
     int count = 0 ;
     for(auto &F : M){
         if(F.hasName() && !F.isDeclaration()){

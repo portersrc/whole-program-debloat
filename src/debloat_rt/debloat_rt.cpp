@@ -1062,7 +1062,7 @@ void _read_func_name_to_id(void)
     ifstream ifs;
     vector<string> elems;
 
-    ifs.open("debprof_func_name_to_id.txt");
+    ifs.open("wpd_func_name_to_id.txt");
     if(!ifs.is_open()){
         perror("Error openening func-name-to-id file");
         exit(EXIT_FAILURE);
