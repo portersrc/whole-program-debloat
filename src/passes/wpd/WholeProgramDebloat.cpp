@@ -35,6 +35,7 @@ namespace {
         map<Function *, int> function_map;
         queue<Function *> funcs_outside_loops;
         Type *int32Ty;
+        Type *ArgTypes[1];
         LoopInfo *LI;
 
         map<BasicBlock *, int> bb_map;
@@ -141,7 +142,6 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Module &M)
     if(debrt_protect_func == NULL){
         // errs() << "Create library function\n";
         // Create library function
-        Type *ArgTypes[]    = { int32Ty };
         debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
                 Function::ExternalLinkage,
                 "debrt_protect",
@@ -225,8 +225,7 @@ bool WholeProgramDebloat::doInitialization(Module &M)
     // errs() << "Create library function\n";
     // Create library function
     int32Ty = IntegerType::getInt32Ty(M.getContext());
-    //Type *ArgTypes[]    = { int32Ty };
-
+    ArgTypes[0]    = int32Ty;
     //debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
     //        Function::ExternalLinkage,
     //        "debrt_protect",
