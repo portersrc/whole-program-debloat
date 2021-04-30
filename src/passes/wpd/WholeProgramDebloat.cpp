@@ -149,12 +149,12 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Module &M)
     // Create arguments for the library function
     // errs() << "Make arguments\n";
     vector<Value *> ArgsV;
-    //ArgsV.push_back(ConstantInt::get(int32Ty, setFunctions.size(), false));
-    //for(auto F : setFunctions){
-    //    ArgsV.push_back(ConstantInt::get(int32Ty, function_map[F], false));
-    //}
-    ArgsV.push_back(ConstantInt::get(int32Ty, 1, false));
-    ArgsV.push_back(ConstantInt::get(int32Ty, 2, false));
+    ArgsV.push_back(ConstantInt::get(int32Ty, setFunctions.size(), false));
+    for(auto F : setFunctions){
+        ArgsV.push_back(ConstantInt::get(int32Ty, function_map[F], false));
+    }
+    //ArgsV.push_back(ConstantInt::get(int32Ty, 1, false));
+    //ArgsV.push_back(ConstantInt::get(int32Ty, 2, false));
     //ArgsV.push_back(llvm::ConstantInt::get(int64Ty, 1, false));
     //ArgsV.push_back(llvm::ConstantInt::get(int64Ty, 2, false));
 
