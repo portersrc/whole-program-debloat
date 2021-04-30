@@ -21,6 +21,11 @@
 using namespace llvm;
 using namespace std;
 
+// FIXME: When debrt_protect_func is a member of WholeProgramDebloat and I
+// try to use IRBuilder's CreateCall(), I get some isa<X>(Val) type error.
+// No clue. 8-hr bug. Leaving in global as a workaround for now.
+Function *debrt_protect_func = NULL;
+
 namespace {
     struct WholeProgramDebloat : public ModulePass {
         static char ID;
@@ -29,8 +34,9 @@ namespace {
 
         map<Function *, int> function_map;
         queue<Function *> funcs_outside_loops;
-        Function *debrt_protect_func;
+        //Function *debrt_protect_func;
         Type *int32Ty;
+        Type *int64Ty;
         LoopInfo *LI;
 
         map<BasicBlock *, int> bb_map;
@@ -48,7 +54,7 @@ namespace {
 
 
         void find_other_nonloop_funcs(Function *F);
-        void instrument_loop(Loop *loop);
+        void instrument_loop(Loop *loop, Module &M);
     };
 }
 
@@ -71,7 +77,7 @@ void WholeProgramDebloat::find_other_nonloop_funcs(Function *F)
     }
 }
 
-void WholeProgramDebloat::instrument_loop(Loop *loop)
+void WholeProgramDebloat::instrument_loop(Loop *loop, Module &M)
 {
     // Find preheader
     // FIXME This looks sus.
@@ -86,6 +92,7 @@ void WholeProgramDebloat::instrument_loop(Loop *loop)
             int idH = bb_map[header];
             int idP = bb_map[pred];
             if(idP < idH){
+                errs() << "hit case where preader gets assigned to pred\n";
                 preheader = pred;
                 break;
             }
@@ -131,18 +138,117 @@ void WholeProgramDebloat::instrument_loop(Loop *loop)
             }
         }
     }
+    /* This block worked.
+    // errs() << "Create library function\n";
+    // Create library function
+    int32Ty = IntegerType::getInt32Ty(M.getContext());
+    Type *ArgTypes[]    = { int32Ty };
+
+    int64Ty = IntegerType::getInt64Ty(M.getContext());
+    Type *ArgTypes64[]    = { int64Ty };
 
     // Create arguments for the library function
     // errs() << "Make arguments\n";
     vector<Value *> ArgsV;
-    ArgsV.push_back(ConstantInt::get(int32Ty, setFunctions.size(), false));
-    for(auto F : setFunctions){
-        ArgsV.push_back(ConstantInt::get(int32Ty, function_map[F], false));
-    }
+    //ArgsV.push_back(ConstantInt::get(int32Ty, setFunctions.size(), false));
+    //for(auto F : setFunctions){
+    //    ArgsV.push_back(ConstantInt::get(int32Ty, function_map[F], false));
+    //}
+    //ArgsV.push_back(ConstantInt::get(int32Ty, 1, false));
+    //ArgsV.push_back(ConstantInt::get(int32Ty, 2, false));
+    ArgsV.push_back(llvm::ConstantInt::get(int64Ty, 1, false));
+    ArgsV.push_back(llvm::ConstantInt::get(int64Ty, 2, false));
+
+
+
+    //debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+    //debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+    //debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
+    debrt_protect_func = Function::Create(FunctionType::get(int32Ty, false),
+    //debrt_protect_func = Function::Create(FunctionType::get(int64Ty, false),
+            Function::ExternalLinkage,
+            "debrt_protect",
+            M);
+
+
 
     Instruction *TI = preheader->getTerminator();
-    IRBuilder<> IRB(TI);
-    IRB.CreateCall(debrt_protect_func, ArgsV);
+    //Instruction *TI = preheader->getFirstNonPHI(); // FIXME DONT USE THIS AFTER DEBUGGIN IS DONE
+    if(TI == NULL){
+        errs() << "seeing null\n";
+    }else{
+        errs() << "NO null\n";
+    }
+    assert(TI);
+    assert(debrt_protect_func);
+    IRBuilder<> builder(TI);
+    //CallInst *some_call = builder.CreateCall(debrt_protect_func, ArgsV);
+    CallInst *some_call = builder.CreateCall(debrt_protect_func);
+    //CallInst *some_call = builder.CreateCall(debrt_protect_func, ConstantInt::get(int32Ty, 1, false));
+    // errs() << "Inserted library function within preheader(" << preheader->getName().str() << "\n";
+    */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // errs() << "Create library function\n";
+    // Create library function
+    int32Ty = IntegerType::getInt32Ty(M.getContext());
+    Type *ArgTypes[]    = { int32Ty };
+
+    int64Ty = IntegerType::getInt64Ty(M.getContext());
+    Type *ArgTypes64[]    = { int64Ty };
+
+    // Create arguments for the library function
+    // errs() << "Make arguments\n";
+    vector<Value *> ArgsV;
+    //ArgsV.push_back(ConstantInt::get(int32Ty, setFunctions.size(), false));
+    //for(auto F : setFunctions){
+    //    ArgsV.push_back(ConstantInt::get(int32Ty, function_map[F], false));
+    //}
+    ArgsV.push_back(ConstantInt::get(int32Ty, 1, false));
+    ArgsV.push_back(ConstantInt::get(int32Ty, 2, false));
+    //ArgsV.push_back(llvm::ConstantInt::get(int64Ty, 1, false));
+    //ArgsV.push_back(llvm::ConstantInt::get(int64Ty, 2, false));
+
+
+
+    if(debrt_protect_func == NULL){
+    debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+    //debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+    //debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
+    //debrt_protect_func = Function::Create(FunctionType::get(int32Ty, false),
+    //debrt_protect_func = Function::Create(FunctionType::get(int64Ty, false),
+            Function::ExternalLinkage,
+            "debrt_protect",
+            M);
+    }
+
+
+
+    Instruction *TI = preheader->getTerminator();
+    //Instruction *TI = preheader->getFirstNonPHI(); // FIXME DONT USE THIS AFTER DEBUGGIN IS DONE
+    if(TI == NULL){
+        errs() << "seeing null\n";
+    }else{
+        errs() << "NO null\n";
+    }
+    assert(TI);
+    assert(debrt_protect_func);
+    IRBuilder<> builder(TI);
+    CallInst *some_call = builder.CreateCall(debrt_protect_func, ArgsV);
+    //CallInst *some_call = builder.CreateCall(debrt_protect_func);
+    //CallInst *some_call = builder.CreateCall(debrt_protect_func, ConstantInt::get(int32Ty, 1, false));
     // errs() << "Inserted library function within preheader(" << preheader->getName().str() << "\n";
 
 }
@@ -176,7 +282,7 @@ bool WholeProgramDebloat::runOnModule(Module &M)
         LI = &getAnalysis<LoopInfoWrapperPass>(*curr).getLoopInfo();
         // errs() << "Go through all outer loops" << "\n";
         for(auto loop = LI->begin(), e = LI->end(); loop != e; ++loop ){
-            instrument_loop(*loop);
+            instrument_loop(*loop, M);
         }
 
         // errs() << "Find Other Functions not within loop nests" << "\n";
@@ -204,15 +310,22 @@ bool WholeProgramDebloat::doInitialization(Module &M)
     }
     fclose(fp);
 
-    // errs() << "Create library function\n";
-    // Create library function
-    int32Ty = IntegerType::getInt32Ty(M.getContext());
-    Type *ArgTypes[]    = { int32Ty };
+    //// errs() << "Create library function\n";
+    //// Create library function
+    //int32Ty = IntegerType::getInt32Ty(M.getContext());
+    //Type *ArgTypes[]    = { int32Ty };
 
-    debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
-            Function::ExternalLinkage,
-            "debrt_protect",
-            M);
+    //int64Ty = IntegerType::getInt64Ty(M.getContext());
+    //Type *ArgTypes64[]    = { int64Ty };
+
+    ////debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+    ////debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+    ////debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
+    ////debrt_protect_func = Function::Create(FunctionType::get(int32Ty, false),
+    //debrt_protect_func = Function::Create(FunctionType::get(int64Ty, false),
+    //        Function::ExternalLinkage,
+    //        "debrt_protect",
+    //        M);
     return false;
 }
 
@@ -222,4 +335,4 @@ bool WholeProgramDebloat::doFinalization(Module &M)
 }
 
 char WholeProgramDebloat::ID = 0;
-static RegisterPass<WholeProgramDebloat> Y("WholeProgramDebloat", "Fixing initialization pass");
+static RegisterPass<WholeProgramDebloat> Y("WholeProgramDebloat", "Whole program debloat pass");
