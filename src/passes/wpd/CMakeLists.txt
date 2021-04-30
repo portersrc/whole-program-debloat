@@ -1,3 +1,4 @@
+set(CMAKE_BUILD_TYPE Debug)
 add_library(WholeProgramDebloat MODULE
     # List your source files here.
     WholeProgramDebloat.cpp
