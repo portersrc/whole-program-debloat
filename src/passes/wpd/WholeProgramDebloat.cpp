@@ -153,37 +153,21 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Module &M)
     for(auto F : setFunctions){
         ArgsV.push_back(ConstantInt::get(int32Ty, function_map[F], false));
     }
-    //ArgsV.push_back(ConstantInt::get(int32Ty, 1, false));
-    //ArgsV.push_back(ConstantInt::get(int32Ty, 2, false));
-    //ArgsV.push_back(llvm::ConstantInt::get(int64Ty, 1, false));
-    //ArgsV.push_back(llvm::ConstantInt::get(int64Ty, 2, false));
-
 
 
     if(debrt_protect_func == NULL){
-    debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
-    //debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
-    //debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
-    //debrt_protect_func = Function::Create(FunctionType::get(int32Ty, false),
-    //debrt_protect_func = Function::Create(FunctionType::get(int64Ty, false),
-            Function::ExternalLinkage,
-            "debrt_protect",
-            M);
+        debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+                Function::ExternalLinkage,
+                "debrt_protect",
+                M);
     }
-
 
 
     Instruction *TI = preheader->getTerminator();
-    //Instruction *TI = preheader->getFirstNonPHI(); // FIXME DONT USE THIS AFTER DEBUGGIN IS DONE
-    if(TI == NULL){
-        errs() << "seeing null\n";
-    }else{
-        errs() << "NO null\n";
-    }
     assert(TI);
     assert(debrt_protect_func);
     IRBuilder<> builder(TI);
-    CallInst *some_call = builder.CreateCall(debrt_protect_func, ArgsV);
+    builder.CreateCall(debrt_protect_func, ArgsV);
     //CallInst *some_call = builder.CreateCall(debrt_protect_func);
     //CallInst *some_call = builder.CreateCall(debrt_protect_func, ConstantInt::get(int32Ty, 1, false));
     // errs() << "Inserted library function within preheader(" << preheader->getName().str() << "\n";
