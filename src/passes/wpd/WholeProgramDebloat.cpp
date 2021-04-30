@@ -168,8 +168,6 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Module &M)
     assert(debrt_protect_func);
     IRBuilder<> builder(TI);
     builder.CreateCall(debrt_protect_func, ArgsV);
-    //CallInst *some_call = builder.CreateCall(debrt_protect_func);
-    //CallInst *some_call = builder.CreateCall(debrt_protect_func, ConstantInt::get(int32Ty, 1, false));
     // errs() << "Inserted library function within preheader(" << preheader->getName().str() << "\n";
 
 }
@@ -239,11 +237,7 @@ bool WholeProgramDebloat::doInitialization(Module &M)
     //int64Ty = IntegerType::getInt64Ty(M.getContext());
     //Type *ArgTypes64[]    = { int64Ty };
 
-    ////debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
-    ////debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
-    ////debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
-    ////debrt_protect_func = Function::Create(FunctionType::get(int32Ty, false),
-    //debrt_protect_func = Function::Create(FunctionType::get(int64Ty, false),
+    //debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
     //        Function::ExternalLinkage,
     //        "debrt_protect",
     //        M);
