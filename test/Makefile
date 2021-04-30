@@ -5,7 +5,6 @@ all:
       -c main.c \
       -o main.bc
 	opt \
-      -enable-new-pm=0 \
       -load libWholeProgramDebloat.so -WholeProgramDebloat \
       < main.bc \
       > main_mod.bc
