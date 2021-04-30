@@ -458,6 +458,21 @@ instr: $(EXEBASE)
 	readelf -s --wide $(NUMBER).$(NAME)_debrt | tee readelf.out
 	nm $(NUMBER).$(NAME)_debrt | tee nm.out
 
+wpd: $(EXEBASE)
+	opt \
+      -O3 \
+      -load libWholeProgramDebloat.so -WholeProgramDebloat \
+      < $(NUMBER).$(NAME)_linked.bc \
+      > $(NUMBER).$(NAME)_wpd_opt.bc
+	llc  \
+      $(NUMBER).$(NAME)_wpd_opt.bc \
+      -relocation-model=pic \
+      -o $(NUMBER).$(NAME)_wpd_opt.s
+	g++ \
+      $(NUMBER).$(NAME)_wpd_opt.s \
+      -o $(NUMBER).$(NAME)_wpd \
+      -ldebloat_rt -lm -lrt
+
 else
 	# cporter: IGNORE BEGIN
 	@echo "see makefile whole-program-debloat. print 2"
