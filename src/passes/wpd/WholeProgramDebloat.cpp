@@ -35,7 +35,6 @@ namespace {
         map<Function *, int> function_map;
         queue<Function *> funcs_outside_loops;
         Type *int32Ty;
-        Type *int64Ty;
         LoopInfo *LI;
 
         map<BasicBlock *, int> bb_map;
@@ -138,13 +137,16 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Module &M)
         }
     }
 
-    // errs() << "Create library function\n";
-    // Create library function
-    int32Ty = IntegerType::getInt32Ty(M.getContext());
-    Type *ArgTypes[]    = { int32Ty };
 
-    int64Ty = IntegerType::getInt64Ty(M.getContext());
-    Type *ArgTypes64[]    = { int64Ty };
+    if(debrt_protect_func == NULL){
+        // errs() << "Create library function\n";
+        // Create library function
+        Type *ArgTypes[]    = { int32Ty };
+        debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+                Function::ExternalLinkage,
+                "debrt_protect",
+                M);
+    }
 
     // Create arguments for the library function
     // errs() << "Make arguments\n";
@@ -153,15 +155,6 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Module &M)
     for(auto F : setFunctions){
         ArgsV.push_back(ConstantInt::get(int32Ty, function_map[F], false));
     }
-
-
-    if(debrt_protect_func == NULL){
-        debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
-                Function::ExternalLinkage,
-                "debrt_protect",
-                M);
-    }
-
 
     Instruction *TI = preheader->getTerminator();
     assert(TI);
@@ -229,13 +222,10 @@ bool WholeProgramDebloat::doInitialization(Module &M)
     }
     fclose(fp);
 
-    //// errs() << "Create library function\n";
-    //// Create library function
-    //int32Ty = IntegerType::getInt32Ty(M.getContext());
+    // errs() << "Create library function\n";
+    // Create library function
+    int32Ty = IntegerType::getInt32Ty(M.getContext());
     //Type *ArgTypes[]    = { int32Ty };
-
-    //int64Ty = IntegerType::getInt64Ty(M.getContext());
-    //Type *ArgTypes64[]    = { int64Ty };
 
     //debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
     //        Function::ExternalLinkage,
