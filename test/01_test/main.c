@@ -2,25 +2,25 @@
 
 void D(void)
 {
-	printf("D\n");
+    printf("D\n");
 }
 
 void C(void)
 {
     printf("C\n");
-	int i;
-	for(i = 0; i < 3; i++){
-		D();
-	}
+    int i;
+    for(i = 0; i < 3; i++){
+        D();
+    }
 }
 
 void B(void)
 {
     printf("B\n");
     int i;
-	for(i = 0; i < 2; i++){
-		C();
-	}
+    for(i = 0; i < 2; i++){
+        C();
+    }
 }
 void A(void)
 {
@@ -30,7 +30,7 @@ void A(void)
 
 int main(void)
 {
-	A();
+    A();
     B();
-	return 0;
+    return 0;
 }

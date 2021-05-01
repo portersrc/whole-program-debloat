@@ -2,49 +2,49 @@
 
 void E(void)
 {
-	printf("E\n");
+    printf("E\n");
 }
 void D(void)
 {
-	E();
+    E();
 }
 void C(void)
 {
-	D();
+    D();
 }
 void B(void)
 {
-	int i;
-	for(i = 0; i < 2; i++){
-		C();
-	}
+    int i;
+    for(i = 0; i < 2; i++){
+        C();
+    }
 }
 
 void G(void)
 {
-	printf("G\n");
+    printf("G\n");
 }
 
 void F(void)
 {
-	int i;
-	for(i = 0; i < 2; i++)
-	{
-		G();
-	}
-	
+    int i;
+    for(i = 0; i < 2; i++)
+    {
+        G();
+    }
+    
 }
 void A(void)
 {
-	int i;
-	for(i = 0; i < 2; i++){
-		B();
-	}
-	F();
+    int i;
+    for(i = 0; i < 2; i++){
+        B();
+    }
+    F();
 }
 
 int main(void)
 {
-	A();
-	return 0;
+    A();
+    return 0;
 }
