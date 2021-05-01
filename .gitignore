@@ -7,3 +7,11 @@ results
 all_pass_stats.txt
 *.pyc
 src/debloat_rt/debrt_decision_tree.h
+test/a.out
+test/main.bc
+test/main_mod.bc
+test/main_mod.s
+test/nm.out
+test/readelf.out
+test/wpd_func_name_to_id.txt
+
