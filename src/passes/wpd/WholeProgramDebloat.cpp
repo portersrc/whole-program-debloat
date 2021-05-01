@@ -21,17 +21,14 @@
 using namespace llvm;
 using namespace std;
 
-// FIXME: When debrt_protect_func is a member of WholeProgramDebloat and I
-// try to use IRBuilder's CreateCall(), I get some isa<X>(Val) type error.
-// No clue. 8-hr bug. Leaving in global as a workaround for now.
-Function *debrt_protect_func = NULL;
 
 namespace {
     struct WholeProgramDebloat : public ModulePass {
         static char ID;
 
-        WholeProgramDebloat() : ModulePass(ID) {}
+        WholeProgramDebloat() : ModulePass(ID), debrt_protect_func(NULL) {}
 
+        Function *debrt_protect_func;
         map<Function *, int> function_map;
         queue<Function *> funcs_outside_loops;
         Type *int32Ty;
@@ -142,6 +139,9 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Module &M)
     if(debrt_protect_func == NULL){
         // errs() << "Create library function\n";
         // Create library function
+        // FIXME: When I try to initialize debrt_protect_func in
+        // doInitialization, I get some isa<X>(Val) type error.
+        // No clue. 8-hr bug. Initializating it here as a workaround for now.
         debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
                 Function::ExternalLinkage,
                 "debrt_protect",
