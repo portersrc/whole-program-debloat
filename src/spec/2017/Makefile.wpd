@@ -382,6 +382,9 @@ wpd: $(EXEBASE)
       $(NUMBER).$(NAME)_wpd_opt.s \
       -o $(NUMBER).$(NAME)_wpd \
       -ldebloat_rt -lm -lrt
+	readelf -s --wide $(NUMBER).$(NAME)_wpd > readelf.out
+	nm $(NUMBER).$(NAME)_wpd > nm.out
+
 else
 	$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) @$(OBJNAMES) $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
 endif
