@@ -17,6 +17,7 @@
 #include <queue>
 #include <string>
 #include <map>
+#include <algorithm>
 
 using namespace llvm;
 using namespace std;
@@ -33,24 +34,35 @@ namespace {
         queue<Function *> funcs_outside_loops;
         Type *int32Ty;
         LoopInfo *LI;
-
         map<BasicBlock *, int> bb_map;
+        map<Function *, set<Function *> > adj_list;
+        set<Function *> all_funcs;
+        // "no instrument funcs" is a set of functions that we aren't
+        // allowed to instrument _inside of_, because they are either
+        // called inside of a loop, or they are called by a function
+        // that's called inside of a loop.
+        set<Function *> no_instrument_funcs;
+
 
         void getAnalysisUsage(AnalysisUsage &AU) const
         {
             AU.addRequired<LoopInfoWrapperPass>();
-            //AU.addRequired<ScalarEvolutionWrapperPass>();
             AU.setPreservesAll();
         }
 
         void wpd_init(Module &M);
+        void mark_no_instrument_callees_in_loop(Module &M);
+        void mark_no_instrument_reachable_funcs(void);
+        void instrument(void);
+
         bool doInitialization(Module &) override;
         bool runOnModule(Module &) override;
+        bool runOnModuleOld(Module &M);
         bool doFinalization(Module &) override;
 
 
         void find_other_nonloop_funcs(Function *F);
-        void instrument_loop(Loop *loop, Module &M);
+        void instrument_loop(Loop *loop);
     };
 }
 
@@ -73,7 +85,7 @@ void WholeProgramDebloat::find_other_nonloop_funcs(Function *F)
     }
 }
 
-void WholeProgramDebloat::instrument_loop(Loop *loop, Module &M)
+void WholeProgramDebloat::instrument_loop(Loop *loop)
 {
     // Find preheader
     // FIXME This looks sus.
@@ -153,10 +165,97 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Module &M)
 
 }
 
+
+void WholeProgramDebloat::mark_no_instrument_callees_in_loop(Module &M)
+{
+    LoopInfo *li;
+    CallInst *ci;
+    for(auto &F : M){
+        if(F.hasName() && !F.isDeclaration()){
+            all_funcs.insert(&F);
+            li = &getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+            for(auto &B : F){
+                for(auto &I : B){
+                    ci = dyn_cast<CallInst>(&I);
+                    if(ci){
+                        Function *callee = ci->getCalledFunction();
+                        adj_list[&F].insert(callee);
+                        if(li && li->getLoopFor(&B)){
+                            no_instrument_funcs.insert(callee);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+void WholeProgramDebloat::mark_no_instrument_reachable_funcs(void)
+{
+
+    queue<Function *> q;
+    set<Function *> visited;
+    for(auto F : no_instrument_funcs){
+        q.push(F);
+    }
+
+    while(!q.empty()){
+        Function *f = q.front();
+        q.pop();
+        visited.insert(f);
+        for(auto callee : adj_list[f]){
+            if(visited.find(callee) == visited.end()){
+                q.push(callee);
+                no_instrument_funcs.insert(callee);
+            }
+        }
+    }
+}
+
+void WholeProgramDebloat::instrument(void)
+{
+    set<Function *> instrument_funcs;
+    set_difference(all_funcs.begin(),
+                   all_funcs.end(),
+                   no_instrument_funcs.begin(),
+                   no_instrument_funcs.end(),
+                   inserter(instrument_funcs, instrument_funcs.end()));
+    for(auto f : instrument_funcs){
+        // errs() << "Label Basicblocks\n";
+        // Label each Basicblock within the funciton with a unique id
+        int bb = 0;
+        for(auto &b : *f){
+            bb_map[&b] = bb;
+            bb += 1;
+        }
+        errs() << "Instrumenting " << f->getName().str() << "\n";
+
+        // Instrument outer loops
+        LI = &getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
+        // errs() << "Go through all outer loops" << "\n";
+        for(auto loop = LI->begin(), e = LI->end(); loop != e; ++loop ){
+            instrument_loop(*loop);
+        }
+
+    }
+}
+
 bool WholeProgramDebloat::runOnModule(Module &M)
 {
     wpd_init(M);
 
+    // mark as no-instrument any functions that are called inside a loop
+    mark_no_instrument_callees_in_loop(M);
+
+    // mark as no-instrument any functions that are reachable from a function
+    // that is no-instrument
+    mark_no_instrument_reachable_funcs();
+
+    instrument();
+}
+
+bool WholeProgramDebloat::runOnModuleOld(Module &M)
+{
     // errs() << "Find Main\n";
     // Start with the main funciton
     for(auto &F : M){
@@ -184,7 +283,7 @@ bool WholeProgramDebloat::runOnModule(Module &M)
         LI = &getAnalysis<LoopInfoWrapperPass>(*curr).getLoopInfo();
         // errs() << "Go through all outer loops" << "\n";
         for(auto loop = LI->begin(), e = LI->end(); loop != e; ++loop ){
-            instrument_loop(*loop, M);
+            instrument_loop(*loop);
         }
 
         // errs() << "Find Other Functions not within loop nests" << "\n";
