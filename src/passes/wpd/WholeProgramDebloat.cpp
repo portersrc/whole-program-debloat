@@ -26,13 +26,12 @@ namespace {
     struct WholeProgramDebloat : public ModulePass {
         static char ID;
 
-        WholeProgramDebloat() : ModulePass(ID), debrt_protect_func(NULL) {}
+        WholeProgramDebloat() : ModulePass(ID) {}
 
         Function *debrt_protect_func;
         map<Function *, int> function_map;
         queue<Function *> funcs_outside_loops;
         Type *int32Ty;
-        Type *ArgTypes[1];
         LoopInfo *LI;
 
         map<BasicBlock *, int> bb_map;
@@ -44,6 +43,7 @@ namespace {
             AU.setPreservesAll();
         }
 
+        void wpd_init(Module &M);
         bool doInitialization(Module &) override;
         bool runOnModule(Module &) override;
         bool doFinalization(Module &) override;
@@ -88,7 +88,7 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Module &M)
             int idH = bb_map[header];
             int idP = bb_map[pred];
             if(idP < idH){
-                errs() << "hit case where preader gets assigned to pred\n";
+                //errs() << "hit case where preader gets assigned to pred\n";
                 preheader = pred;
                 break;
             }
@@ -136,18 +136,6 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Module &M)
     }
 
 
-    if(debrt_protect_func == NULL){
-        // errs() << "Create library function\n";
-        // Create library function
-        // FIXME: When I try to initialize debrt_protect_func in
-        // doInitialization, I get some isa<X>(Val) type error.
-        // No clue. 8-hr bug. Initializating it here as a workaround for now.
-        debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
-                Function::ExternalLinkage,
-                "debrt_protect",
-                M);
-    }
-
     // Create arguments for the library function
     // errs() << "Make arguments\n";
     vector<Value *> ArgsV;
@@ -167,6 +155,8 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Module &M)
 
 bool WholeProgramDebloat::runOnModule(Module &M)
 {
+    wpd_init(M);
+
     // errs() << "Find Main\n";
     // Start with the main funciton
     for(auto &F : M){
@@ -207,7 +197,7 @@ bool WholeProgramDebloat::runOnModule(Module &M)
     return true;
 }
 
-bool WholeProgramDebloat::doInitialization(Module &M)
+void WholeProgramDebloat::wpd_init(Module &M)
 {
     // errs() << "Write Function to IDs map to a file\n";
     // Give each application function an ID and write it to a file
@@ -225,11 +215,16 @@ bool WholeProgramDebloat::doInitialization(Module &M)
     // errs() << "Create library function\n";
     // Create library function
     int32Ty = IntegerType::getInt32Ty(M.getContext());
-    ArgTypes[0]    = int32Ty;
-    //debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
-    //        Function::ExternalLinkage,
-    //        "debrt_protect",
-    //        M);
+    Type *ArgTypes[] = { int32Ty };
+    debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+            Function::ExternalLinkage,
+            "debrt_protect",
+            M);
+}
+
+bool WholeProgramDebloat::doInitialization(Module &M)
+{
+    // XXX don't use this to initialize shit unless you want it to wig out
     return false;
 }
 
