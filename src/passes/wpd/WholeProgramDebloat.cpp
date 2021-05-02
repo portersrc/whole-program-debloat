@@ -262,7 +262,34 @@ void WholeProgramDebloat::instrument(void)
                         if(no_instrument_funcs.find(callee) != no_instrument_funcs.end()){
                             // Case: callee is no-instrument
 
-                            // TODO find static reachability, instrument that.
+                            // find statically reachable funcs of the callee
+                            queue<Function *> q;
+                            set<Function *> reachable_funcs;
+                            q.push(callee);
+                            while(!q.empty()){
+                                Function *qf = q.front();
+                                q.pop();
+                                reachable_funcs.insert(qf);
+                                for(auto qcallee : adj_list[qf]){
+                                    if(reachable_funcs.find(qcallee) == reachable_funcs.end()){
+                                        q.push(qcallee);
+                                    }
+                                }
+                            }
+
+                            // instrument before callee
+                            vector<Value *> ArgsV;
+                            ArgsV.push_back(ConstantInt::get(int32Ty, reachable_funcs.size(), false));
+                            for(auto rf : reachable_funcs){
+                                ArgsV.push_back(ConstantInt::get(int32Ty, function_map[rf], false));
+                            }
+                            IRBuilder<> builder(CI);
+                            builder.CreateCall(debrt_protect_func, ArgsV);
+
+                            // instrument after callee
+                            IRBuilder<> builder_end(CI);
+                            builder_end.SetInsertPoint(CI->getNextNode());
+                            builder_end.CreateCall(debrt_protect_end_func, ArgsV);
 
                         }else{
                             // Case: callee can be instrumented.
