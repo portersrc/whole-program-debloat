@@ -1247,7 +1247,7 @@ int debrt_protect(int argc, ...)
     va_start(ap, argc);
     for(i = 0; i < argc; i++){
         func_id = va_arg(ap, int);
-        _update_mapped_pages(func_id);
+        update_page_counts(func_id, 1);
     }
     va_end(ap);
 
@@ -1255,11 +1255,7 @@ int debrt_protect(int argc, ...)
 }
 }
 
-// FIXME
-// FIXME
-// FIXME just a copy-paste of debrt-protect for now.
-// FIXME
-// FIXME
+
 extern "C" {
 int debrt_protect_end(int argc, ...)
 {
@@ -1269,6 +1265,7 @@ int debrt_protect_end(int argc, ...)
 
     // initialize library
     if(!lib_initialized){
+        DEBRT_PRINTF("WARNING: debrt-protect-end hit before debrt-protect\n");
         _debrt_protect_init(0 /*dont read func sets*/); // ignore return
         lib_initialized = 1;
     }
@@ -1276,7 +1273,7 @@ int debrt_protect_end(int argc, ...)
     va_start(ap, argc);
     for(i = 0; i < argc; i++){
         func_id = va_arg(ap, int);
-        _update_mapped_pages(func_id);
+        update_page_counts(func_id, -1);
     }
     va_end(ap);
 
