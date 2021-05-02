@@ -1255,3 +1255,32 @@ int debrt_protect(int argc, ...)
 }
 }
 
+// FIXME
+// FIXME
+// FIXME just a copy-paste of debrt-protect for now.
+// FIXME
+// FIXME
+extern "C" {
+int debrt_protect_end(int argc, ...)
+{
+    int i;
+    va_list ap;
+    int func_id;
+
+    // initialize library
+    if(!lib_initialized){
+        _debrt_protect_init(0 /*dont read func sets*/); // ignore return
+        lib_initialized = 1;
+    }
+
+    va_start(ap, argc);
+    for(i = 0; i < argc; i++){
+        func_id = va_arg(ap, int);
+        _update_mapped_pages(func_id);
+    }
+    va_end(ap);
+
+    return 0;
+}
+}
+
