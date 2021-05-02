@@ -30,6 +30,7 @@ namespace {
         WholeProgramDebloat() : ModulePass(ID) {}
 
         Function *debrt_protect_func;
+        Function *debrt_protect_end_func;
         map<Function *, int> function_map;
         queue<Function *> funcs_outside_loops;
         Type *int32Ty;
@@ -156,12 +157,24 @@ void WholeProgramDebloat::instrument_loop(Loop *loop)
         ArgsV.push_back(ConstantInt::get(int32Ty, function_map[F], false));
     }
 
+    // instrument the preheader of the loop
     Instruction *TI = preheader->getTerminator();
     assert(TI);
     assert(debrt_protect_func);
     IRBuilder<> builder(TI);
     builder.CreateCall(debrt_protect_func, ArgsV);
     // errs() << "Inserted library function within preheader(" << preheader->getName().str() << "\n";
+
+    // instrument the exit(s) block(s) of the loop
+    SmallVector<BasicBlock *, 8> exit_blocks;
+    loop->getUniqueExitBlocks(exit_blocks);
+    assert(exit_blocks.size() > 0);
+    for(auto exit_block : exit_blocks){
+        Instruction *ebt = exit_block->getTerminator();
+        assert(ebt);
+        IRBuilder<> builder_exit(ebt);
+        builder_exit.CreateCall(debrt_protect_end_func, ArgsV);
+    }
 
 }
 
@@ -179,9 +192,11 @@ void WholeProgramDebloat::mark_no_instrument_callees_in_loop(Module &M)
                     ci = dyn_cast<CallInst>(&I);
                     if(ci){
                         Function *callee = ci->getCalledFunction();
-                        adj_list[&F].insert(callee);
-                        if(li && li->getLoopFor(&B)){
-                            no_instrument_funcs.insert(callee);
+                        if(function_map.count(callee) > 0){
+                            adj_list[&F].insert(callee);
+                            if(li && li->getLoopFor(&B)){
+                                no_instrument_funcs.insert(callee);
+                            }
                         }
                     }
                 }
@@ -235,6 +250,39 @@ void WholeProgramDebloat::instrument(void)
         // errs() << "Go through all outer loops" << "\n";
         for(auto loop = LI->begin(), e = LI->end(); loop != e; ++loop ){
             instrument_loop(*loop);
+        }
+
+        // instrument call sites
+        for(auto &b : *f){
+            for(auto &I : b){
+                CallInst *CI = dyn_cast<CallInst>(&I);
+                if(CI){
+                    Function *callee = CI->getCalledFunction();
+                    if(function_map.count(callee) > 0){
+                        if(no_instrument_funcs.find(callee) != no_instrument_funcs.end()){
+                            // Case: callee is no-instrument
+
+                            // TODO find static reachability, instrument that.
+
+                        }else{
+                            // Case: callee can be instrumented.
+
+                            // instrument before callee
+                            vector<Value *> ArgsV;
+                            ArgsV.push_back(ConstantInt::get(int32Ty, 1, false));
+                            ArgsV.push_back(ConstantInt::get(int32Ty, function_map[callee], false));
+                            IRBuilder<> builder(CI);
+                            builder.CreateCall(debrt_protect_func, ArgsV);
+
+
+                            // instrument after callee
+                            IRBuilder<> builder_end(CI);
+                            builder_end.SetInsertPoint(CI->getNextNode());
+                            builder_end.CreateCall(debrt_protect_end_func, ArgsV);
+                        }
+                    }
+                }
+            }
         }
 
     }
@@ -318,6 +366,10 @@ void WholeProgramDebloat::wpd_init(Module &M)
     debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
             Function::ExternalLinkage,
             "debrt_protect",
+            M);
+    debrt_protect_end_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+            Function::ExternalLinkage,
+            "debrt_protect_end",
             M);
 }
 
