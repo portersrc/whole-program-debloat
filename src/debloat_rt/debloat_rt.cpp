@@ -293,8 +293,11 @@ void update_page_counts(int func_id, int addend)
         }else if(page_to_count[addr] == 0){
             assert(addend == -1);
             DEBRT_PRINTF("went from 1 to 0, remap RO\n");
-            // FIXME: mark RX until bugs are sorted out
-            _remap_permissions(addr, 1, RO_PERM);
+            if(addr < executable_addr_base + 0x1000){
+                DEBRT_PRINTF("addr is beneath executable addr base. probably part of PLT. ignoring mapping RO\n");
+            }else{
+                _remap_permissions(addr, 1, RO_PERM);
+            }
             //_remap_permissions(addr, 1, RX_PERM);
             DEBRT_PRINTF("done RO\n");
             //total_mapped_pages -= 1;
