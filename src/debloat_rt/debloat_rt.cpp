@@ -296,8 +296,8 @@ void update_page_counts(int func_id, int addend)
             // FIXME: This is a hacky fix for PLT. linker script or some
             // other solution needs to put .text at a page boundary (and
             // not in the same page as part of the plt.
-            if(addr < executable_addr_base + 0x1000){
-                DEBRT_PRINTF("addr is beneath executable addr base. probably part of PLT. ignoring mapping RO\n");
+            if( addr < ((executable_addr_base + 0x1000) & ~(0x1000-1)) ){
+                DEBRT_PRINTF("addr is beneath executable addr base or part of first page. probably part of PLT. ignoring mapping RO\n");
             }else{
                 _remap_permissions(addr, 1, RO_PERM);
             }
