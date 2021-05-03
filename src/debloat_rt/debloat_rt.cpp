@@ -26,7 +26,7 @@
 
 using namespace std;
 
-//#define DEBRT_DEBUG
+#define DEBRT_DEBUG
 
 #define CGPredict
 
@@ -61,7 +61,8 @@ const int CALLED_FUNC_ID_IDX = 1;
 const char *DEFAULT_OUTPUT_FILENAME = "debrt.out";
 FILE *fp_out;
 
-int total_mapped_pages = 0; // FIXME ? will help me get a quick measurement of security
+int total_mapped_pages = 0; // FIXME ? currently commented out
+                            // could help me get a quick measurement of security
 
 vector<set<int> > func_sets;
 set<int> *pred_set_p;
@@ -182,13 +183,13 @@ void _remap_permissions(long long addr, long long size, int perm)
     DEBRT_PRINTF("  aligned_addr_base: %p\n", aligned_addr_base);
     DEBRT_PRINTF("  aligned_addr_end:  %p\n", aligned_addr_end);
     DEBRT_PRINTF("  size_to_remap:     0x%x\n", size_to_remap);
-    //DEBRT_PRINTF("  permissions:       ");
-    //switch(perm){
-    //case RX_PERM: DEBRT_PRINTF("RX_PERM\n"); break;
-    //case RO_PERM: DEBRT_PRINTF("RO_PERM\n"); break;
-    //case NO_PERM: DEBRT_PRINTF("NO_PERM\n"); break;
-    //default: assert(0); break;
-    //}
+    DEBRT_PRINTF("  permissions:       ");
+    switch(perm){
+    case RX_PERM: DEBRT_PRINTF("RX_PERM\n"); break;
+    case RO_PERM: DEBRT_PRINTF("RO_PERM\n"); break;
+    case NO_PERM: DEBRT_PRINTF("NO_PERM\n"); break;
+    default: assert(0); break;
+    }
 
     if(mprotect(aligned_addr_base, size_to_remap, perm) == -1){
         DEBRT_PRINTF("mprotect error\n");
@@ -271,22 +272,32 @@ void update_page_counts(int func_id, int addend)
     long long addr;
     vector<long long> &pages = func_id_to_pages[func_id];
 
+    //
+    // FIXME
+    // FIXME
+    // FIXME: revisit this. do as blocks, rather than
+    // as individual pages.
+    //
+
     DEBRT_PRINTF("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("pages.size(): %lu\n", pages.size());
     for(i = 0; i < pages.size(); i++){
         addr = pages[i];
         page_to_count[addr] += addend;
-        total_mapped_pages += addend;
-        DEBRT_PRINTF("total_mapped_pages: %d\n", total_mapped_pages);
         assert(page_to_count[addr] >= 0);
-        // FIXME: revisit this. do as blocks, rather than
-        // as individual pages.
         if((page_to_count[addr] == 1) && (addend == 1)){
+            DEBRT_PRINTF("went from 0 to 1, remap RX\n");
             _remap_permissions(addr, 1, RX_PERM);
-        }
-        if(page_to_count[addr] == 0){
+            DEBRT_PRINTF("done RX\n");
+            //total_mapped_pages += 1;
+        }else if(page_to_count[addr] == 0){
+            assert(addend == -1);
+            DEBRT_PRINTF("went from 1 to 2, remap RO\n");
             // FIXME: mark RX until bugs are sorted out
-            //_remap_permissions(addr, 1, RO_PERM);
-            _remap_permissions(addr, 1, RX_PERM);
+            _remap_permissions(addr, 1, RO_PERM);
+            DEBRT_PRINTF("done RO\n");
+            //_remap_permissions(addr, 1, RX_PERM);
+            //total_mapped_pages -= 1;
         }
     }
 }
@@ -1019,6 +1030,7 @@ void _set_addr_of_main_mapping(void)
                     state++;
                     if(strstr(binary_name, getenv("_")+2) != NULL){
                     //if(strstr(binary_name, "401.bzip2_debrt") != NULL){
+                    //if(strstr(binary_name, "a.out") != NULL){
                         num_executable_binary_lines++;
                         executable_addr_base = addr_base;
                         executable_addr_end  = addr_end;
@@ -1237,6 +1249,7 @@ int debrt_protect(int argc, ...)
     int i;
     va_list ap;
     int func_id;
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
 
     // initialize library
     if(!lib_initialized){
@@ -1247,9 +1260,34 @@ int debrt_protect(int argc, ...)
     va_start(ap, argc);
     for(i = 0; i < argc; i++){
         func_id = va_arg(ap, int);
+        DEBRT_PRINTF("INC page count for func_id %d\n", func_id);
         update_page_counts(func_id, 1);
     }
     va_end(ap);
+
+    // if this is the first protect call, we need to make sure the caller's page
+    // executable.
+    // FIXME copy-pasted into debrt-protect-end.
+    // FIXME this doesn't map the return function properly. It just maps
+    // the first page associated with the return address (but the function
+    // we return to could be multiple pages)
+    if(lib_initialized == 1){
+        // TODO: need to protect all pages.
+        DEBRT_PRINTF("ensuring first protect caller is still RX\n");
+        // FIXME This is garbage. it's copying some code from
+        // update_page_counts(). But worse, it assumes the first caller of
+        // debrt-protect is a function that only sits in 1 page. Not sure
+        // of a quick fix for this, because we only have the return address.
+        // I'd rather not pass the func id of the caller... maybe we
+        // have to sort the base addresses of functions and figure out where
+        // this return address' base is. Then we'd know the function and thus
+        // how many pages it spans.
+        long long addr = (long long) __builtin_return_address(0);
+        addr &= ~(0x1000 - 1);
+        page_to_count[addr] += 1;
+        _remap_permissions(addr, 1, RX_PERM);
+        lib_initialized = 2;
+    }
 
     return 0;
 }
@@ -1262,6 +1300,7 @@ int debrt_protect_end(int argc, ...)
     int i;
     va_list ap;
     int func_id;
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
 
     // initialize library
     if(!lib_initialized){
@@ -1273,9 +1312,34 @@ int debrt_protect_end(int argc, ...)
     va_start(ap, argc);
     for(i = 0; i < argc; i++){
         func_id = va_arg(ap, int);
+        DEBRT_PRINTF("DEC page count for func_id %d\n", func_id);
         update_page_counts(func_id, -1);
     }
     va_end(ap);
+
+    // if this is the first protect call, we need to make sure the caller's page
+    // executable.
+    // FIXME copy-pasted into debrt-protect.
+    // FIXME this doesn't map the return function properly. It just maps
+    // the first page associated with the return address (but the function
+    // we return to could be multiple pages)
+    if(lib_initialized == 1){
+        // TODO: need to protect all pages.
+        DEBRT_PRINTF("ensuring first protect caller is still RX\n");
+        // FIXME This is garbage. it's copying some code from
+        // update_page_counts(). But worse, it assumes the first caller of
+        // debrt-protect is a function that only sits in 1 page. Not sure
+        // of a quick fix for this, because we only have the return address.
+        // I'd rather not pass the func id of the caller... maybe we
+        // have to sort the base addresses of functions and figure out where
+        // this return address' base is. Then we'd know the function and thus
+        // how many pages it spans.
+        long long addr = (long long) __builtin_return_address(0);
+        addr &= ~(0x1000 - 1);
+        page_to_count[addr] += 1;
+        _remap_permissions(addr, 1, RX_PERM);
+        lib_initialized = 2;
+    }
 
     return 0;
 }
