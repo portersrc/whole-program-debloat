@@ -383,6 +383,7 @@ wpd: $(EXEBASE)
       -o $(NUMBER).$(NAME)_wpd \
       -ldebloat_rt -lm -lrt
 	readelf -s --wide $(NUMBER).$(NAME)_wpd > readelf.out
+	readelf --sections $(NUMBER).$(NAME)_wpd > readelf-sections.out
 	nm $(NUMBER).$(NAME)_wpd > nm.out
 
 else

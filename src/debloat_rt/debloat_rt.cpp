@@ -23,7 +23,6 @@
 
 
 
-
 using namespace std;
 
 #define DEBRT_DEBUG
@@ -91,9 +90,14 @@ int feature_buf_big[NUM_FEATURE_BUF_BIG_ELEMS];
 int fb_idx = FP_IDX_BASE;
 
 
-// The base and end addresses of our executable. Gotten from /proc/<pid>/maps.
+// The base and end addresses of our executable.
+// Gotten from /proc/<pid>/maps.
 long long executable_addr_base = 0;
 long long executable_addr_end  = 0;
+// The .text section's offset address from the base address, and its size.
+// Gotten from readelf --section output.
+long long text_offset = 0;
+long long text_size   = 0;
 
 
 map<string, int> func_name_to_id;
@@ -117,11 +121,30 @@ void split(const string &s, char delim, Out result)
         *(result++) = item;
     }
 }
-
 vector<string> split(const string &s, char delim)
 {
     vector<string> elems;
     split(s, delim, back_inserter(elems));
+    return elems;
+}
+
+// don't insert elements that are empty (so for example split(' ') on
+// "a     b" will do the expected thing and return on ['a', 'b'])
+template<typename Out>
+void split_nonempty(const string &s, char delim, Out result)
+{
+    stringstream ss(s);
+    string item;
+    while(getline(ss, item, delim)){
+        if(!item.empty()){
+            *(result++) = item;
+        }
+    }
+}
+vector<string> split_nonempty(const string &s, char delim)
+{
+    vector<string> elems;
+    split_nonempty(s, delim, back_inserter(elems));
     return elems;
 }
 
@@ -296,12 +319,21 @@ void update_page_counts(int func_id, int addend)
             // FIXME: This is a hacky fix for PLT. linker script or some
             // other solution needs to put .text at a page boundary (and
             // not in the same page as part of the plt.
-            if( addr < ((executable_addr_base + 0x1000) & ~(0x1000-1)) ){
-                DEBRT_PRINTF("addr is beneath executable addr base or part of first page. probably part of PLT. ignoring mapping RO\n");
+            //if( addr < ((executable_addr_base + 0x1000) & ~(0x1000-1)) ){
+            if( addr < ((executable_addr_base + text_offset + 0x1000) & ~(0x1000-1)) ){
+                DEBRT_PRINTF("addr is beneath executable addr base or part of first page. possibly part of .plt. ignoring mapping RO\n");
+            //}else if( addr >= (executable_addr_end & ~(0x1000-1)) ){
+            }else if( addr >= ((executable_addr_base + text_offset + text_size) & ~(0x1000-1)) ){
+                DEBRT_PRINTF("addr is above text end or part of last page. possibly part of .fini. ignoring mapping RO\n");
             }else{
                 _remap_permissions(addr, 1, RO_PERM);
             }
             //_remap_permissions(addr, 1, RX_PERM);
+
+            printf("exec addr end: 0x%llx\n", executable_addr_end);
+            printf("exec addr end aligned: 0x%llx\n", executable_addr_end & ~(0x1000-1));
+
+
             DEBRT_PRINTF("done RO\n");
             //total_mapped_pages -= 1;
         }
@@ -827,6 +859,8 @@ void _read_func_sets(void)
         func_sets.push_back(func_id_set);
         i++;
     }
+
+    ifs.close();
 }
 
 
@@ -858,6 +892,7 @@ void _read_nm(void)
             func_name_to_offset[func_name] = offset;
         }
     }
+    ifs.close();
 }
 
 
@@ -890,7 +925,7 @@ void _read_readelf(void)
 
     ifs.open("readelf.out");
     if(!ifs.is_open()){
-        perror("Error opening nm file");
+        perror("Error opening readelf file");
         exit(EXIT_FAILURE);
     }
 
@@ -944,6 +979,33 @@ void _read_readelf(void)
         }
         //cout << endl;
     }
+    ifs.close();
+}
+
+
+void _read_readelf_sections(void)
+{
+    ifstream ifs;
+    string line;
+    vector<string> elems;
+    ifs.open("readelf-sections.out");
+    if(!ifs.is_open()){
+        perror("Error openening readelf-sections file");
+        exit(EXIT_FAILURE);
+    }
+    while(getline(ifs, line)){
+        elems = split_nonempty(line, ' ');
+        if(elems.size() >= 2 && (elems[1].compare(".text") == 0)){
+            text_offset = stoll(elems[3], 0, 16);
+            getline(ifs, line);
+            elems = split_nonempty(line, ' ');
+            text_size = stoll(elems[0], 0, 16);
+            printf("text_offset is: 0x%llx\n", text_offset);
+            printf("text_size is:   0x%llx\n", text_size);
+            break;
+        }
+    }
+    ifs.close();
 }
 
 
@@ -1080,7 +1142,7 @@ void _read_func_name_to_id(void)
 
     ifs.open("wpd_func_name_to_id.txt");
     if(!ifs.is_open()){
-        perror("Error openening func-name-to-id file");
+        perror("Error openening wpd-func-name-to-id file");
         exit(EXIT_FAILURE);
     }
 
@@ -1090,6 +1152,7 @@ void _read_func_name_to_id(void)
         func_name_to_id[elems[0]] = atoi(elems[1].c_str());
         func_id_to_name[atoi(elems[1].c_str())] = elems[0];
     }
+    ifs.close();
 }
 
 
@@ -1150,15 +1213,27 @@ void _debrt_monitor_destroy(void)
 
 void _debrt_protect_all_pages(void)
 {
-    // FIXME - reinstate some of this after we test with hard-coded values
-    //long long size;
-    //size = executable_addr_end - executable_addr_base;
-    //size = size - 1; // XXX avoids mapping the end page itself, which causes segfault
-    ////_remap_permissions(executable_addr_base, size, NO_PERM);
-    //_remap_permissions(executable_addr_base, size, RO_PERM);
-    long long first_page = executable_addr_base + 0x1000;
-    long long size = 0x14000 - 1;
-    _remap_permissions(first_page, size, RO_PERM);
+    // FIXME ? not tested, dont trust this code yet
+    long long text_start = executable_addr_base + text_offset;
+    long long text_end   = text_start + text_size;
+    long long text_start_aligned = text_start & ~(0x1000-1);
+    long long text_end_aligned   = text_end   & ~(0x1000-1);
+    if(text_start_aligned == text_end_aligned){
+        // probably need to remove this assert. It means the text section is
+        // so small that we can't zero out any pages.
+        assert(0 && "text start and end are equal. test case is too small for a page-based technique\n");
+    }
+    // FIXME we assume text was never aligned to begin with, but we should check.
+    // We go up by 1 page, b/c o/w we'd mark shit that's not in .text when marking the starting page.
+    // ... do similarly for the end
+    text_start_aligned += 0x1000;
+    text_end_aligned   -= 0x1000;
+    assert(text_start_aligned < text_end_aligned && "text start and end are too close (maybe just 2 diffrent pages... test case is too small for a page-based technique\n");
+    if(mprotect((void *)text_start_aligned, text_end_aligned - text_start_aligned, RO_PERM) == -1){
+        DEBRT_PRINTF("mprotect error\n");
+        assert(0 && "mprotect error");
+    }
+    DEBRT_PRINTF("  mprotect succeeded\n");
 }
 void _debrt_protect_no_pages(void)
 {
@@ -1218,6 +1293,7 @@ int _debrt_protect_init(int please_read_func_sets)
     //_dump_func_name_to_id();
     _read_nm();
     _read_readelf();
+    _read_readelf_sections();
 
     _dump_func_id_to_pages();
     _dump_func_id_to_addr_and_size();
