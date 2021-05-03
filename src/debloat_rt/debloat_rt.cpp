@@ -292,7 +292,7 @@ void update_page_counts(int func_id, int addend)
             //total_mapped_pages += 1;
         }else if(page_to_count[addr] == 0){
             assert(addend == -1);
-            DEBRT_PRINTF("went from 1 to 2, remap RO\n");
+            DEBRT_PRINTF("went from 1 to 0, remap RO\n");
             // FIXME: mark RX until bugs are sorted out
             _remap_permissions(addr, 1, RO_PERM);
             //_remap_permissions(addr, 1, RX_PERM);
