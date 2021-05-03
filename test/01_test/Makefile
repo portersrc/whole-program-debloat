@@ -1,5 +1,6 @@
 all:
 	clang \
+      -g \
       -emit-llvm \
       -fPIC \
       -c main.c \
