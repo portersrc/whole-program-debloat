@@ -293,6 +293,9 @@ void update_page_counts(int func_id, int addend)
         }else if(page_to_count[addr] == 0){
             assert(addend == -1);
             DEBRT_PRINTF("went from 1 to 0, remap RO\n");
+            // FIXME: This is a hacky fix for PLT. linker script or some
+            // other solution needs to put .text at a page boundary (and
+            // not in the same page as part of the plt.
             if(addr < executable_addr_base + 0x1000){
                 DEBRT_PRINTF("addr is beneath executable addr base. probably part of PLT. ignoring mapping RO\n");
             }else{
