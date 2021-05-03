@@ -295,8 +295,8 @@ void update_page_counts(int func_id, int addend)
             DEBRT_PRINTF("went from 1 to 2, remap RO\n");
             // FIXME: mark RX until bugs are sorted out
             _remap_permissions(addr, 1, RO_PERM);
-            DEBRT_PRINTF("done RO\n");
             //_remap_permissions(addr, 1, RX_PERM);
+            DEBRT_PRINTF("done RO\n");
             //total_mapped_pages -= 1;
         }
     }
@@ -1029,36 +1029,28 @@ void _set_addr_of_main_mapping(void)
                     c++;
                     state++;
                     if(strstr(binary_name, getenv("_")+2) != NULL){
-                    //if(strstr(binary_name, "401.bzip2_debrt") != NULL){
-                    //if(strstr(binary_name, "a.out") != NULL){
                         num_executable_binary_lines++;
                         executable_addr_base = addr_base;
                         executable_addr_end  = addr_end;
                     }
-                    //continue;
-                    //cout << "my pid is " << getpid() << endl;
-                    //cout << "getenv is " << getenv("_") << endl;
-                    //while(1){
-                    //    sleep(10);
-                    //}
+                    // XXX hacky fix. Seems that this complicated parsing code
+                    // wasn't necessary , b/c the executable section seems to
+                    // always be the first line. If that assumption is wrong,
+                    // the above code will still work, though, and this GDB
+                    // workaround here is broken... which is bad but better
+                    // than the opposite.
+                    if(strstr("/usr/bin/gdb", getenv("_"))){
+                        num_executable_binary_lines++;
+                        executable_addr_base = addr_base;
+                        executable_addr_end  = addr_end;
+                        goto gdb_workaround;
+                    }
                 }
             }
             c++;
         }
     }
-    // If this assertion happens, I may need to handle more than one
-    // executable mapping for the binary, which makes it a little more
-    // complicated when determining the page address for a given function.
-    // XXX Also, executing with gdb causes this assert to hit, because
-    // getenv("_") ends up returning "gdb" instead of the binary name.
-    // If that happens, the strstr commented code above can be a workaround
-    // during debugging
-    //DEBRT_PRINTF("num exec lines: %d\n", num_executable_binary_lines);
-    //cout << "2 my pid is " << getpid() << endl;
-    //cout << "2 getenv is " << getenv("_") << endl;
-    //while(1){
-    //    sleep(10);
-    //}
+gdb_workaround:
     assert(num_executable_binary_lines == 1);
 
 
