@@ -1051,6 +1051,12 @@ void _set_addr_of_main_mapping(void)
         }
     }
 gdb_workaround:
+    //DEBRT_PRINTF("num exec lines: %d\n", num_executable_binary_lines);
+    //cout << "2 my pid is " << getpid() << endl;
+    //cout << "2 getenv is " << getenv("_") << endl;
+    //while(1){
+    //    sleep(10);
+    //}
     assert(num_executable_binary_lines == 1);
 
 
