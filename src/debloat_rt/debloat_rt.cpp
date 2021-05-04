@@ -1261,11 +1261,16 @@ void _debrt_protect_all_pages(void)
         // so small that we can't zero out any pages.
         assert(0 && "text start and end are equal. test case is too small for a page-based technique\n");
     }
-    // FIXME we assume text was never aligned to begin with, but we should
-    // check. We go up by 1 page, b/c o/w we'd mark shit that's not in .text
-    // when marking the starting page.  ... do similarly for the end
-    text_start_aligned += 0x1000;
-    text_end_aligned   -= 0x1000;
+    // Check if text_start was already aligned. If it wasn't we need to bump
+    // our starting (aligned) page. We go up by 1 page, b/c o/w we'd mark shit
+    // that's not in .text when marking the starting page.... do similarly
+    // for the end
+    if(text_start & (0x1000-1)){ // if not orignially aligned
+        text_start_aligned += 0x1000; // bump the starting (aligned) page by 1
+    }
+    if(text_end & (0x1000-1)){
+        text_end_aligned   -= 0x1000;
+    }
     assert(text_start_aligned < text_end_aligned && "text start and end are too close (maybe just 2 diffrent pages... test case is too small for a page-based technique\n");
     if(mprotect((void *)text_start_aligned, text_end_aligned - text_start_aligned, RO_PERM) == -1){
         DEBRT_PRINTF("mprotect error\n");
