@@ -407,6 +407,16 @@ void _update_mapped_pages(int func_id)
     }
 }
 
+void _assert_return_addr_in_main(long long return_addr)
+{
+    int func_id;
+    assert(func_name_to_id.find("main") != func_name_to_id.end());
+    func_id = func_name_to_id["main"];
+    pair<long long, long> addr_and_size = func_id_to_addr_and_size[func_id];
+    assert(return_addr >= executable_addr_base + addr_and_size.first);
+    assert(return_addr  < executable_addr_base + addr_and_size.first + addr_and_size.second);
+}
+
 
 
 
@@ -1364,6 +1374,7 @@ void _debrt_protect_destroy(void)
 
 
 
+
 extern "C" {
 int debrt_protect(int argc, ...)
 {
@@ -1406,6 +1417,8 @@ int debrt_protect(int argc, ...)
         //addr &= ~(0x1000 - 1);
         //page_to_count[addr] += 1;
         //_remap_permissions(addr, 1, RX_PERM);
+        long long return_addr = (long long) __builtin_return_address(0);
+        _assert_return_addr_in_main(return_addr);
         update_page_counts(func_name_to_id["main"], 1);
         lib_initialized = 2;
     }
@@ -1425,7 +1438,7 @@ int debrt_protect_end(int argc, ...)
 
     // initialize library
     if(!lib_initialized){
-        DEBRT_PRINTF("WARNING: debrt-protect-end hit before debrt-protect\n");
+        assert(0 && "ERROR: debrt-protect-end hit before debrt-protect\n");
         _debrt_protect_init(0 /*dont read func sets*/); // ignore return
         lib_initialized = 1;
     }
