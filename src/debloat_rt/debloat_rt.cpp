@@ -1014,8 +1014,8 @@ void _read_readelf_sections(void)
             getline(ifs, line);
             elems = split_nonempty(line, ' ');
             text_size = stoll(elems[0], 0, 16);
-            printf("text_offset is: 0x%llx\n", text_offset);
-            printf("text_size is:   0x%llx\n", text_size);
+            DEBRT_PRINTF("text_offset is: 0x%llx\n", text_offset);
+            DEBRT_PRINTF("text_size is:   0x%llx\n", text_size);
             break;
         }
     }
