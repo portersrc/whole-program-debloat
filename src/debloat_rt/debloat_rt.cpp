@@ -1252,19 +1252,18 @@ void _debrt_monitor_destroy(void)
 void _debrt_protect_all_pages(void)
 {
     DEBRT_PRINTF("PROTECTING ALL PAGES\n");
-    // FIXME ? not tested, dont trust this code yet
     long long text_start = executable_addr_base + text_offset;
     long long text_end   = text_start + text_size;
     long long text_start_aligned = text_start & ~(0x1000-1);
     long long text_end_aligned   = text_end   & ~(0x1000-1);
     if(text_start_aligned == text_end_aligned){
-        // probably need to remove this assert. It means the text section is
+        // FIXME ? may need to remove this assert. It means the text section is
         // so small that we can't zero out any pages.
         assert(0 && "text start and end are equal. test case is too small for a page-based technique\n");
     }
-    // FIXME we assume text was never aligned to begin with, but we should check.
-    // We go up by 1 page, b/c o/w we'd mark shit that's not in .text when marking the starting page.
-    // ... do similarly for the end
+    // FIXME we assume text was never aligned to begin with, but we should
+    // check. We go up by 1 page, b/c o/w we'd mark shit that's not in .text
+    // when marking the starting page.  ... do similarly for the end
     text_start_aligned += 0x1000;
     text_end_aligned   -= 0x1000;
     assert(text_start_aligned < text_end_aligned && "text start and end are too close (maybe just 2 diffrent pages... test case is too small for a page-based technique\n");
