@@ -1402,10 +1402,11 @@ int debrt_protect(int argc, ...)
         // have to sort the base addresses of functions and figure out where
         // this return address' base is. Then we'd know the function and thus
         // how many pages it spans.
-        long long addr = (long long) __builtin_return_address(0);
-        addr &= ~(0x1000 - 1);
-        page_to_count[addr] += 1;
-        _remap_permissions(addr, 1, RX_PERM);
+        //long long addr = (long long) __builtin_return_address(0);
+        //addr &= ~(0x1000 - 1);
+        //page_to_count[addr] += 1;
+        //_remap_permissions(addr, 1, RX_PERM);
+        update_page_counts(func_name_to_id["main"], 1);
         lib_initialized = 2;
     }
 
@@ -1453,10 +1454,11 @@ int debrt_protect_end(int argc, ...)
         // have to sort the base addresses of functions and figure out where
         // this return address' base is. Then we'd know the function and thus
         // how many pages it spans.
-        long long addr = (long long) __builtin_return_address(0);
-        addr &= ~(0x1000 - 1);
-        page_to_count[addr] += 1;
-        _remap_permissions(addr, 1, RX_PERM);
+        //long long addr = (long long) __builtin_return_address(0);
+        //addr &= ~(0x1000 - 1);
+        //page_to_count[addr] += 1;
+        //_remap_permissions(addr, 1, RX_PERM);
+        update_page_counts(func_name_to_id["main"], 1);
         lib_initialized = 2;
     }
 
