@@ -1398,25 +1398,9 @@ int debrt_protect(int argc, ...)
     va_end(ap);
 
     // if this is the first protect call, we need to make sure the caller's page
-    // executable.
-    // FIXME copy-pasted into debrt-protect-end.
-    // FIXME this doesn't map the return function properly. It just maps
-    // the first page associated with the return address (but the function
-    // we return to could be multiple pages)
+    // is still executable.
     if(lib_initialized == 1){
         DEBRT_PRINTF("ensuring first protect caller is still RX\n");
-        // FIXME This is garbage. it's copying some code from
-        // update_page_counts(). But worse, it assumes the first caller of
-        // debrt-protect is a function that only sits in 1 page. Not sure
-        // of a quick fix for this, because we only have the return address.
-        // I'd rather not pass the func id of the caller... maybe we
-        // have to sort the base addresses of functions and figure out where
-        // this return address' base is. Then we'd know the function and thus
-        // how many pages it spans.
-        //long long addr = (long long) __builtin_return_address(0);
-        //addr &= ~(0x1000 - 1);
-        //page_to_count[addr] += 1;
-        //_remap_permissions(addr, 1, RX_PERM);
         long long return_addr = (long long) __builtin_return_address(0);
         _assert_return_addr_in_main(return_addr);
         update_page_counts(func_name_to_id["main"], 1);
@@ -1436,12 +1420,7 @@ int debrt_protect_end(int argc, ...)
     int func_id;
     DEBRT_PRINTF("%s\n", __FUNCTION__);
 
-    // initialize library
-    if(!lib_initialized){
-        assert(0 && "ERROR: debrt-protect-end hit before debrt-protect\n");
-        _debrt_protect_init(0 /*dont read func sets*/); // ignore return
-        lib_initialized = 1;
-    }
+    assert(lib_initialized && "ERROR: debrt-protect-end hit before debrt-protect\n");
 
     va_start(ap, argc);
     for(i = 0; i < argc; i++){
@@ -1450,30 +1429,6 @@ int debrt_protect_end(int argc, ...)
         update_page_counts(func_id, -1);
     }
     va_end(ap);
-
-    // if this is the first protect call, we need to make sure the caller's page
-    // executable.
-    // FIXME copy-pasted into debrt-protect.
-    // FIXME this doesn't map the return function properly. It just maps
-    // the first page associated with the return address (but the function
-    // we return to could be multiple pages)
-    if(lib_initialized == 1){
-        DEBRT_PRINTF("ensuring first protect caller is still RX\n");
-        // FIXME This is garbage. it's copying some code from
-        // update_page_counts(). But worse, it assumes the first caller of
-        // debrt-protect is a function that only sits in 1 page. Not sure
-        // of a quick fix for this, because we only have the return address.
-        // I'd rather not pass the func id of the caller... maybe we
-        // have to sort the base addresses of functions and figure out where
-        // this return address' base is. Then we'd know the function and thus
-        // how many pages it spans.
-        //long long addr = (long long) __builtin_return_address(0);
-        //addr &= ~(0x1000 - 1);
-        //page_to_count[addr] += 1;
-        //_remap_permissions(addr, 1, RX_PERM);
-        update_page_counts(func_name_to_id["main"], 1);
-        lib_initialized = 2;
-    }
 
     return 0;
 }
