@@ -376,15 +376,21 @@ void WholeProgramDebloat::wpd_init(Module &M)
     // errs() << "Write Function to IDs map to a file\n";
     // Give each application function an ID and write it to a file
     FILE *fp = fopen("wpd_func_name_to_id.txt", "w");
+    FILE *fp_funcptrs = fopen("wpd_func_ptrs.txt", "w");
     int count = 0 ;
     for(auto &F : M){
         if(F.hasName() && !F.isDeclaration()){
             fprintf(fp, "%s %u\n", F.getName().str().c_str(), count);
             function_map[&F] = count;
             count += 1;
+            if(F.hasAddressTaken()){
+                //errs() << "F.hasAddressTaken() is: " << F.getName() << "\n";
+                fprintf(fp_funcptrs, "%s\n", F.getName().str().c_str());
+            }
         }
     }
     fclose(fp);
+    fclose(fp_funcptrs);
 
     // errs() << "Create library function\n";
     // Create library function
