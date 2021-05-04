@@ -15,6 +15,7 @@ all:
       -o main_mod.s
 	g++ main_mod.s -o a.out -ldebloat_rt
 	readelf -s --wide a.out > readelf.out
+	readelf --sections a.out > readelf-sections.out
 	nm a.out > nm.out
 	llvm-dis main_mod.bc -o main_mod.ll
 .PHONY: all
