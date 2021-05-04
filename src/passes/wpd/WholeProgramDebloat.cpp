@@ -168,7 +168,12 @@ void WholeProgramDebloat::instrument_loop(Loop *loop)
     // instrument the exit(s) block(s) of the loop
     SmallVector<BasicBlock *, 8> exit_blocks;
     loop->getUniqueExitBlocks(exit_blocks);
-    assert(exit_blocks.size() > 0);
+
+    // dont assert. can refer to https://llvm.org/docs/LoopTerminology.html
+    // statically infinite loop is possible. we just won't instrument exits in
+    // that case
+    //assert(exit_blocks.size() > 0);
+
     for(auto exit_block : exit_blocks){
         Instruction *ebt = exit_block->getTerminator();
         assert(ebt);
