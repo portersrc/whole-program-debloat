@@ -104,7 +104,8 @@ map<string, int> func_name_to_id;
 map<int, string> func_id_to_name; // convenience
 map<string, long long> func_name_to_offset;
 map<int, pair<long long, long> > func_id_to_addr_and_size;
-
+set<string> ptd_to_funcs;
+set<int> ptd_to_func_ids;
 
 map<int, vector<long long> > func_id_to_pages;
 map<long long, int> page_to_count;
@@ -326,7 +327,11 @@ void update_page_counts(int func_id, int addend)
             }else if( addr >= ((executable_addr_base + text_offset + text_size) & ~(0x1000-1)) ){
                 DEBRT_PRINTF("addr is above text end or part of last page. possibly part of .fini. ignoring mapping RO\n");
             }else{
-                _remap_permissions(addr, 1, RO_PERM);
+                if(ptd_to_func_ids.find(func_id) != ptd_to_func_ids.end()){
+                    DEBRT_PRINTF("NOT UNMAPPING page for func id %d (%s) b/c it is pointed to\n", func_id, func_id_to_name[func_id].c_str());
+                }else{
+                    _remap_permissions(addr, 1, RO_PERM);
+                }
             }
             //_remap_permissions(addr, 1, RX_PERM);
 
@@ -1155,6 +1160,30 @@ void _read_func_name_to_id(void)
     ifs.close();
 }
 
+void _read_func_ptrs(void)
+{
+    string line;
+    ifstream ifs;
+    vector<string> elems;
+
+    ifs.open("wpd_func_ptrs.txt");
+    if(!ifs.is_open()){
+        perror("Error openening wpd-func-name-to-id file");
+        exit(EXIT_FAILURE);
+    }
+
+    while(getline(ifs, line)){
+        ptd_to_funcs.insert(line);
+        assert(func_name_to_id.find(line) != func_name_to_id.end());
+        ptd_to_func_ids.insert(func_name_to_id[line]);
+    }
+    ifs.close();
+
+    for(auto ptf : ptd_to_funcs) {
+        DEBRT_PRINTF("pointed to func: %s\n", ptf.c_str());
+    }
+}
+
 
 
 int _debrt_monitor_init(void)
@@ -1244,6 +1273,13 @@ void _debrt_protect_no_pages(void)
     _remap_permissions(executable_addr_base, size, RX_PERM);
 }
 
+void _debrt_map_ptd_to_funcs(void)
+{
+    DEBRT_PRINTF("mapping RX any pages of ptd-to funcs\n");
+    for(auto func_id : ptd_to_func_ids){
+        update_page_counts(func_id, 1);
+    }
+}
 
 void _init_page_to_count(void)
 {
@@ -1292,6 +1328,7 @@ int _debrt_protect_init(int please_read_func_sets)
     DEBRT_PRINTF("executable_addr_end:  0x%llx\n", executable_addr_end);
     _read_func_name_to_id();
     //_dump_func_name_to_id();
+    _read_func_ptrs(); // XXX has to happen after read-func-name-to-id
     _read_nm();
     _read_readelf();
     _read_readelf_sections();
@@ -1304,6 +1341,7 @@ int _debrt_protect_init(int please_read_func_sets)
     atexit(_debrt_protect_destroy);
 
     _debrt_protect_all_pages();
+    _debrt_map_ptd_to_funcs();
 
     return 0;
 }
