@@ -60,7 +60,8 @@ const int CALLED_FUNC_ID_IDX = 1;
 const char *DEFAULT_OUTPUT_FILENAME = "debrt.out";
 FILE *fp_out;
 
-int total_mapped_pages = 0; // FIXME ? currently commented out
+int total_mapped_pages = 0; // FIXME ? probably doesn't take into account main
+                            // or pointed-to funcs that are left always-on.
                             // could help me get a quick measurement of security
 
 vector<set<int> > func_sets;
@@ -312,35 +313,33 @@ void update_page_counts(int func_id, int addend)
         if((page_to_count[addr] == 1) && (addend == 1)){
             DEBRT_PRINTF("went from 0 to 1, remap RX\n");
             _remap_permissions(addr, 1, RX_PERM);
+            total_mapped_pages += 1;
             DEBRT_PRINTF("done RX\n");
-            //total_mapped_pages += 1;
         }else if(page_to_count[addr] == 0){
             assert(addend == -1);
             DEBRT_PRINTF("went from 1 to 0, remap RO\n");
             // FIXME: This is a hacky fix for PLT. linker script or some
             // other solution needs to put .text at a page boundary (and
             // not in the same page as part of the plt.
-            //if( addr < ((executable_addr_base + 0x1000) & ~(0x1000-1)) ){
             if( addr < ((executable_addr_base + text_offset + 0x1000) & ~(0x1000-1)) ){
-                DEBRT_PRINTF("addr is beneath executable addr base or part of first page. possibly part of .plt. ignoring mapping RO\n");
-            //}else if( addr >= (executable_addr_end & ~(0x1000-1)) ){
+                DEBRT_PRINTF("addr is beneath executable addr base or part of " \
+                             "first page. possibly part of .plt. ignoring " \
+                             "mapping RO\n");
             }else if( addr >= ((executable_addr_base + text_offset + text_size) & ~(0x1000-1)) ){
-                DEBRT_PRINTF("addr is above text end or part of last page. possibly part of .fini. ignoring mapping RO\n");
+                DEBRT_PRINTF("addr is above text end or part of last page. " \
+                             "possibly part of .fini. ignoring mapping RO\n");
             }else{
                 if(ptd_to_func_ids.find(func_id) != ptd_to_func_ids.end()){
-                    DEBRT_PRINTF("NOT UNMAPPING page for func id %d (%s) b/c it is pointed to\n", func_id, func_id_to_name[func_id].c_str());
+                    DEBRT_PRINTF("NOT UNMAPPING page for func id %d (%s) b/c " \
+                                 "it is pointed to\n",
+                                 func_id,
+                                 func_id_to_name[func_id].c_str());
                 }else{
                     _remap_permissions(addr, 1, RO_PERM);
+                    total_mapped_pages -= 1;
                 }
             }
-            //_remap_permissions(addr, 1, RX_PERM);
-
-            printf("exec addr end: 0x%llx\n", executable_addr_end);
-            printf("exec addr end aligned: 0x%llx\n", executable_addr_end & ~(0x1000-1));
-
-
             DEBRT_PRINTF("done RO\n");
-            //total_mapped_pages -= 1;
         }
     }
 }
