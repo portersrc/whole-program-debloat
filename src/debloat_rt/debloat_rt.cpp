@@ -1213,6 +1213,7 @@ void _debrt_monitor_destroy(void)
 
 void _debrt_protect_all_pages(void)
 {
+    DEBRT_PRINTF("PROTECTING ALL PAGES\n");
     // FIXME ? not tested, dont trust this code yet
     long long text_start = executable_addr_base + text_offset;
     long long text_end   = text_start + text_size;
@@ -1302,6 +1303,8 @@ int _debrt_protect_init(int please_read_func_sets)
 
     atexit(_debrt_protect_destroy);
 
+    _debrt_protect_all_pages();
+
     return 0;
 }
 
@@ -1352,7 +1355,6 @@ int debrt_protect(int argc, ...)
     // the first page associated with the return address (but the function
     // we return to could be multiple pages)
     if(lib_initialized == 1){
-        // TODO: need to protect all pages.
         DEBRT_PRINTF("ensuring first protect caller is still RX\n");
         // FIXME This is garbage. it's copying some code from
         // update_page_counts(). But worse, it assumes the first caller of
@@ -1404,7 +1406,6 @@ int debrt_protect_end(int argc, ...)
     // the first page associated with the return address (but the function
     // we return to could be multiple pages)
     if(lib_initialized == 1){
-        // TODO: need to protect all pages.
         DEBRT_PRINTF("ensuring first protect caller is still RX\n");
         // FIXME This is garbage. it's copying some code from
         // update_page_counts(). But worse, it assumes the first caller of
