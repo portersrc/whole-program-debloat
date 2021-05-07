@@ -25,7 +25,7 @@
 
 using namespace std;
 
-#define DEBRT_DEBUG
+//#define DEBRT_DEBUG
 
 #define CGPredict
 
@@ -336,6 +336,7 @@ void update_page_counts(int func_id, int addend)
                                  func_id_to_name[func_id].c_str());
                 }else{
                     _remap_permissions(addr, 1, RO_PERM);
+                    //_remap_permissions(addr, 1, RX_PERM);
                     total_mapped_pages -= 1;
                 }
             }
@@ -411,6 +412,7 @@ void _assert_return_addr_in_main(long long return_addr)
     int func_id;
     assert(func_name_to_id.find("main") != func_name_to_id.end());
     func_id = func_name_to_id["main"];
+    DEBRT_PRINTF("return_addr of first debrt-protect call 0x%llx\n", return_addr);
     pair<long long, long> addr_and_size = func_id_to_addr_and_size[func_id];
     assert(return_addr >= executable_addr_base + addr_and_size.first);
     assert(return_addr  < executable_addr_base + addr_and_size.first + addr_and_size.second);
@@ -1383,17 +1385,22 @@ int debrt_protect(int argc, ...)
 {
     int i;
     va_list ap;
+    int caller_func_id;
     int func_id;
     DEBRT_PRINTF("%s\n", __FUNCTION__);
 
     // initialize library
     if(!lib_initialized){
+        DEBRT_PRINTF("before init\n");
         _debrt_protect_init(0 /*dont read func sets*/); // ignore return
+        DEBRT_PRINTF("after init\n");
         lib_initialized = 1;
     }
 
+    DEBRT_PRINTF("b/f unpacking args of count %d\n", argc);
     va_start(ap, argc);
-    for(i = 0; i < argc; i++){
+    caller_func_id = va_arg(ap, int);
+    for(i = 1; i < argc; i++){
         func_id = va_arg(ap, int);
         DEBRT_PRINTF("INC page count for func_id %d\n", func_id);
         update_page_counts(func_id, 1);
@@ -1404,9 +1411,7 @@ int debrt_protect(int argc, ...)
     // is still executable.
     if(lib_initialized == 1){
         DEBRT_PRINTF("ensuring first protect caller is still RX\n");
-        long long return_addr = (long long) __builtin_return_address(0);
-        _assert_return_addr_in_main(return_addr);
-        update_page_counts(func_name_to_id["main"], 1);
+        update_page_counts(caller_func_id, 1);
         lib_initialized = 2;
     }
 
@@ -1420,13 +1425,15 @@ int debrt_protect_end(int argc, ...)
 {
     int i;
     va_list ap;
+    int caller_func_id; // FIXME not used. could manage ArgsV better in compiler pass and remove this
     int func_id;
     DEBRT_PRINTF("%s\n", __FUNCTION__);
 
     assert(lib_initialized && "ERROR: debrt-protect-end hit before debrt-protect\n");
 
     va_start(ap, argc);
-    for(i = 0; i < argc; i++){
+    caller_func_id = va_arg(ap, int);
+    for(i = 1; i < argc; i++){
         func_id = va_arg(ap, int);
         DEBRT_PRINTF("DEC page count for func_id %d\n", func_id);
         update_page_counts(func_id, -1);

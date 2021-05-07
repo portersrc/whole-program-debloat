@@ -63,7 +63,7 @@ namespace {
 
 
         void find_other_nonloop_funcs(Function *F);
-        void instrument_loop(Loop *loop);
+        void instrument_loop(Loop *loop, Function *parent_func);
     };
 }
 
@@ -86,7 +86,7 @@ void WholeProgramDebloat::find_other_nonloop_funcs(Function *F)
     }
 }
 
-void WholeProgramDebloat::instrument_loop(Loop *loop)
+void WholeProgramDebloat::instrument_loop(Loop *loop, Function *parent_func)
 {
     // Find preheader
     // FIXME This looks sus.
@@ -148,37 +148,41 @@ void WholeProgramDebloat::instrument_loop(Loop *loop)
         }
     }
 
+    // If there was at least one function call inside the loop, then we
+    // will instrument it.
+    if(setFunctions.size() > 0){
+        // Create arguments for the library function
+        // errs() << "Make arguments\n";
+        vector<Value *> ArgsV;
+        ArgsV.push_back(ConstantInt::get(int32Ty, 1+setFunctions.size(), false));
+        ArgsV.push_back(ConstantInt::get(int32Ty, function_map[parent_func], false));
+        for(auto F : setFunctions){
+            ArgsV.push_back(ConstantInt::get(int32Ty, function_map[F], false));
+        }
 
-    // Create arguments for the library function
-    // errs() << "Make arguments\n";
-    vector<Value *> ArgsV;
-    ArgsV.push_back(ConstantInt::get(int32Ty, setFunctions.size(), false));
-    for(auto F : setFunctions){
-        ArgsV.push_back(ConstantInt::get(int32Ty, function_map[F], false));
-    }
+        // instrument the preheader of the loop
+        Instruction *TI = preheader->getTerminator();
+        assert(TI);
+        assert(debrt_protect_func);
+        IRBuilder<> builder(TI);
+        builder.CreateCall(debrt_protect_func, ArgsV);
+        // errs() << "Inserted library function within preheader(" << preheader->getName().str() << "\n";
 
-    // instrument the preheader of the loop
-    Instruction *TI = preheader->getTerminator();
-    assert(TI);
-    assert(debrt_protect_func);
-    IRBuilder<> builder(TI);
-    builder.CreateCall(debrt_protect_func, ArgsV);
-    // errs() << "Inserted library function within preheader(" << preheader->getName().str() << "\n";
+        // instrument the exit(s) block(s) of the loop
+        SmallVector<BasicBlock *, 8> exit_blocks;
+        loop->getUniqueExitBlocks(exit_blocks);
 
-    // instrument the exit(s) block(s) of the loop
-    SmallVector<BasicBlock *, 8> exit_blocks;
-    loop->getUniqueExitBlocks(exit_blocks);
+        // dont assert. can refer to https://llvm.org/docs/LoopTerminology.html
+        // statically infinite loop is possible. we just won't instrument exits in
+        // that case
+        //assert(exit_blocks.size() > 0);
 
-    // dont assert. can refer to https://llvm.org/docs/LoopTerminology.html
-    // statically infinite loop is possible. we just won't instrument exits in
-    // that case
-    //assert(exit_blocks.size() > 0);
-
-    for(auto exit_block : exit_blocks){
-        Instruction *ebt = exit_block->getTerminator();
-        assert(ebt);
-        IRBuilder<> builder_exit(ebt);
-        builder_exit.CreateCall(debrt_protect_end_func, ArgsV);
+        for(auto exit_block : exit_blocks){
+            Instruction *ebt = exit_block->getTerminator();
+            assert(ebt);
+            IRBuilder<> builder_exit(ebt);
+            builder_exit.CreateCall(debrt_protect_end_func, ArgsV);
+        }
     }
 
 }
@@ -254,11 +258,15 @@ void WholeProgramDebloat::instrument(void)
         LI = &getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
         // errs() << "Go through all outer loops" << "\n";
         for(auto loop = LI->begin(), e = LI->end(); loop != e; ++loop ){
-            instrument_loop(*loop);
+            instrument_loop(*loop, f);
         }
 
         // instrument call sites
         for(auto &b : *f){
+            // ignore basic blocks that are part of any loop. already handled.
+            if(LI && LI->getLoopFor(&b)){
+                continue;
+            }
             for(auto &I : b){
                 CallInst *CI = dyn_cast<CallInst>(&I);
                 if(CI){
@@ -284,7 +292,8 @@ void WholeProgramDebloat::instrument(void)
 
                             // instrument before callee
                             vector<Value *> ArgsV;
-                            ArgsV.push_back(ConstantInt::get(int32Ty, reachable_funcs.size(), false));
+                            ArgsV.push_back(ConstantInt::get(int32Ty, 1+reachable_funcs.size(), false));
+                            ArgsV.push_back(ConstantInt::get(int32Ty, function_map[f], false));
                             for(auto rf : reachable_funcs){
                                 ArgsV.push_back(ConstantInt::get(int32Ty, function_map[rf], false));
                             }
@@ -301,7 +310,8 @@ void WholeProgramDebloat::instrument(void)
 
                             // instrument before callee
                             vector<Value *> ArgsV;
-                            ArgsV.push_back(ConstantInt::get(int32Ty, 1, false));
+                            ArgsV.push_back(ConstantInt::get(int32Ty, 2, false));
+                            ArgsV.push_back(ConstantInt::get(int32Ty, function_map[f], false));
                             ArgsV.push_back(ConstantInt::get(int32Ty, function_map[callee], false));
                             IRBuilder<> builder(CI);
                             builder.CreateCall(debrt_protect_func, ArgsV);
@@ -363,7 +373,7 @@ bool WholeProgramDebloat::runOnModuleOld(Module &M)
         LI = &getAnalysis<LoopInfoWrapperPass>(*curr).getLoopInfo();
         // errs() << "Go through all outer loops" << "\n";
         for(auto loop = LI->begin(), e = LI->end(); loop != e; ++loop ){
-            instrument_loop(*loop);
+            instrument_loop(*loop, curr);
         }
 
         // errs() << "Find Other Functions not within loop nests" << "\n";
