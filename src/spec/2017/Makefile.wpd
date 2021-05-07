@@ -362,6 +362,12 @@ base: $(EXEBASE)
       -o $(NUMBER).$(NAME)_baseline \
       -lm -lrt
 wpd: $(EXEBASE)
+	#opt \
+    #  -O3 \
+    #  -load libWholeProgramDebloat.so \
+    #  -WholeProgramDebloat \
+    #  < $(NUMBER).$(NAME)_linked.bc \
+    #  > $(NUMBER).$(NAME)_wpd_opt.bc
 	opt \
       -O3 \
       -load libWholeProgramDebloat.so \
