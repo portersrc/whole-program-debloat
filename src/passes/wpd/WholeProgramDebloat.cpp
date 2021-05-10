@@ -32,7 +32,6 @@ namespace {
         Function *debrt_protect_func;
         Function *debrt_protect_end_func;
         map<Function *, int> function_map;
-        queue<Function *> funcs_outside_loops;
         Type *int32Ty;
         LoopInfo *LI;
         map<BasicBlock *, int> bb_map;
@@ -58,33 +57,13 @@ namespace {
 
         bool doInitialization(Module &) override;
         bool runOnModule(Module &) override;
-        bool runOnModuleOld(Module &M);
         bool doFinalization(Module &) override;
 
 
-        void find_other_nonloop_funcs(Function *F);
         void instrument_loop(Loop *loop, Function *parent_func);
     };
 }
 
-void WholeProgramDebloat::find_other_nonloop_funcs(Function *F)
-{
-    // Go through each instruction not within a loop and check if there is a function call so we can go through its loops
-    for(auto &B : *F){
-        if(LI && !LI->getLoopFor(&B)){
-            for(auto &I : B){
-                CallInst *CI = dyn_cast<CallInst>(&I);
-                if(CI){
-                    Function *newF = CI->getCalledFunction();
-                    if(function_map.count(newF) > 0){
-                        //errs() << "Function(" << newF->getName().str() << ") also is not within a loop nest so check loop nest functions within it\n";
-                        funcs_outside_loops.push(newF);
-                    }
-                }
-            }
-        }
-    }
-}
 
 void WholeProgramDebloat::instrument_loop(Loop *loop, Function *parent_func)
 {
@@ -344,47 +323,6 @@ bool WholeProgramDebloat::runOnModule(Module &M)
     instrument();
 }
 
-bool WholeProgramDebloat::runOnModuleOld(Module &M)
-{
-    // errs() << "Find Main\n";
-    // Start with the main funciton
-    for(auto &F : M){
-        if(F.getName() == "main"){
-            funcs_outside_loops.push(&F);
-            break;
-        }
-    }
-
-    int bb = 0;
-    while(!funcs_outside_loops.empty()){
-        Function *curr = funcs_outside_loops.front();
-        funcs_outside_loops.pop();
-        // errs() << "Found Function(" << curr->getName().str() << ") that is not within loop nest" << "\n";
-
-
-        // errs() << "Label Basicblocks\n";
-        // Label each Basicblock within the funciton with a unique id
-        for(auto &B : *curr){
-            bb_map[&B] = bb;
-            bb += 1;
-        }
-
-        // For each loop, check if the loop has funcitons calls within
-        LI = &getAnalysis<LoopInfoWrapperPass>(*curr).getLoopInfo();
-        // errs() << "Go through all outer loops" << "\n";
-        for(auto loop = LI->begin(), e = LI->end(); loop != e; ++loop ){
-            instrument_loop(*loop, curr);
-        }
-
-        // errs() << "Find Other Functions not within loop nests" << "\n";
-        // Otherwise, go to the loops not within loop nests and check if they have loops with function calls
-        find_other_nonloop_funcs(curr);
-    }
-
-    bb_map.clear();
-    function_map.clear();
-    return true;
-}
 
 void WholeProgramDebloat::wpd_init(Module &M)
 {
