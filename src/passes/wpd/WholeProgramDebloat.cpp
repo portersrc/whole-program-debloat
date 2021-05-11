@@ -225,25 +225,28 @@ void WholeProgramDebloat::mark_no_instrument_reachable_funcs(void)
 
 void WholeProgramDebloat::instrument_after_invoke(InvokeInst *II, vector<Value *> &ArgsV)
 {
+    if(II->getCalledFunction()){
+        errs() << "function called: " << II->getCalledFunction()->getName() << "\n";
+    }else{
+        errs() << "getCalledFunction() is returning null so perhaps "
+        << "indirect invocations complicate the number of successors.\n";
+    }
     // sanity check num-successors. should have
     // two: normal dest and unwind dest
     if(II->getNumSuccessors() != 2){
         errs()
         << "ERROR: unexpected number of successors. "
         << "expected 2, but got " << II->getNumSuccessors() << "\n";
-        if(II->getCalledFunction()){
-            errs() << "function called: "
-            << II->getCalledFunction()->getName() << "\n";
-        }else{
-            errs() << "getCalledFunction() is returning null "
-            << "so perhaps indirect invocations "
-            << "complicate the number of successors.\n";
-        }
         assert(0);
     }
     Instruction *ndi = II->getNormalDest()->getFirstNonPHI();
+    if(ndi == NULL){
+        // unexpected, though the API allows getFirstNonPHI to be null.
+        // assert 0 for now and handle only if we encounter it.
+        errs() << "ndi is null\n";
+        assert(0);
+    }
     IRBuilder<> builder_end(ndi);
-    builder_end.SetInsertPoint(ndi->getNextNode());
     builder_end.CreateCall(debrt_protect_end_func, ArgsV);
 }
 
