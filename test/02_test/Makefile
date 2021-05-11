@@ -1,0 +1,33 @@
+all:
+	clang++ \
+      -g \
+      -emit-llvm \
+      -fPIC \
+      -c main.cpp \
+      -o main.bc
+	opt \
+      -load libWholeProgramDebloat.so -WholeProgramDebloat \
+      < main.bc \
+      > main_mod.bc
+	llc \
+      -relocation-model=pic \
+      main_mod.bc \
+      -o main_mod.s
+	g++ main_mod.s -o a.out -ldebloat_rt
+	readelf -s --wide a.out > readelf.out
+	readelf --sections a.out > readelf-sections.out
+	nm a.out > nm.out
+	llvm-dis main_mod.bc -o main_mod.ll
+.PHONY: all
+
+clean:
+	rm -f \
+      *.ll *.bc *.s \
+      debrt.out \
+      nm.out \
+      readelf.out \
+      readelf-sections.out \
+      wpd_func_name_to_id.txt \
+      wpd_func_ptrs.txt \
+      a.out
+.PHONY: clean
