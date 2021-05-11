@@ -50,17 +50,16 @@ namespace {
             AU.setPreservesAll();
         }
 
+        bool runOnModule(Module &) override;
+        bool doInitialization(Module &) override;
+        bool doFinalization(Module &) override;
+
         void wpd_init(Module &M);
         void mark_no_instrument_callees_in_loop(Module &M);
         void mark_no_instrument_reachable_funcs(void);
         void instrument(void);
-
-        bool doInitialization(Module &) override;
-        bool runOnModule(Module &) override;
-        bool doFinalization(Module &) override;
-
-
         void instrument_loop(Loop *loop, Function *parent_func);
+        void instrument_after_invoke(InvokeInst *II, vector<Value *> &ArgsV);
     };
 }
 
@@ -224,6 +223,29 @@ void WholeProgramDebloat::mark_no_instrument_reachable_funcs(void)
     }
 }
 
+void WholeProgramDebloat::instrument_after_invoke(InvokeInst *II, vector<Value *> &ArgsV)
+{
+    // sanity check num-successors. should have
+    // two: normal dest and unwind dest
+    if(II->getNumSuccessors() != 2){
+        errs()
+        << "ERROR: unexpected number of successors. "
+        << "expected 2, but got " << II->getNumSuccessors() << "\n";
+        if(II->getCalledFunction()){
+            errs() << "function called: "
+            << II->getCalledFunction()->getName() << "\n";
+        }else{
+            errs() << "getCalledFunction() is returning null "
+            << "so perhaps indirect invocations "
+            << "complicate the number of successors.\n";
+        }
+        assert(0);
+    }
+    Instruction *ndi = II->getNormalDest()->getFirstNonPHI();
+    IRBuilder<> builder_end(ndi);
+    builder_end.SetInsertPoint(ndi->getNextNode());
+    builder_end.CreateCall(debrt_protect_end_func, ArgsV);
+}
 
 void WholeProgramDebloat::instrument(void)
 {
@@ -298,26 +320,7 @@ void WholeProgramDebloat::instrument(void)
                                 builder_end.CreateCall(debrt_protect_end_func, ArgsV);
                             }else if(II){
                                 errs() << "no-instrument invoke case\n";
-                                // sanity check num-successors. should have
-                                // two: normal dest and unwind dest
-                                if(II->getNumSuccessors() != 2){
-                                    errs()
-                                    << "ERROR: unexpected number of successors. "
-                                    << "expected 2, but got " << II->getNumSuccessors() << "\n";
-                                    if(II->getCalledFunction()){
-                                        errs() << "function called: "
-                                        << II->getCalledFunction()->getName() << "\n";
-                                    }else{
-                                        errs() << "getCalledFunction() is returning null "
-                                        << "so perhaps indirect invocations "
-                                        << "complicate the number of successors.\n";
-                                    }
-                                    assert(0);
-                                }
-                                Instruction *ndi = II->getNormalDest()->getFirstNonPHI();
-                                IRBuilder<> builder_end(ndi);
-                                builder_end.SetInsertPoint(ndi->getNextNode());
-                                builder_end.CreateCall(debrt_protect_end_func, ArgsV);
+                                instrument_after_invoke(II, ArgsV);
                             }else{
                                 assert(0);
                             }
@@ -341,26 +344,7 @@ void WholeProgramDebloat::instrument(void)
                                 builder_end.CreateCall(debrt_protect_end_func, ArgsV);
                             }else if(II){
                                 errs() << "yes-instrument invoke case\n";
-                                // sanity check num-successors. should have
-                                // two: normal dest and unwind dest
-                                if(II->getNumSuccessors() != 2){
-                                    errs()
-                                    << "ERROR: unexpected number of successors. "
-                                    << "expected 2, but got " << II->getNumSuccessors() << "\n";
-                                    if(II->getCalledFunction()){
-                                        errs() << "function called: "
-                                        << II->getCalledFunction()->getName() << "\n";
-                                    }else{
-                                        errs() << "getCalledFunction() is returning null "
-                                        << "so perhaps indirect invocations "
-                                        << "complicate the number of successors.\n";
-                                    }
-                                    assert(0);
-                                }
-                                Instruction *ndi = II->getNormalDest()->getFirstNonPHI();
-                                IRBuilder<> builder_end(ndi);
-                                builder_end.SetInsertPoint(ndi->getNextNode());
-                                builder_end.CreateCall(debrt_protect_end_func, ArgsV);
+                                instrument_after_invoke(II, ArgsV);
                             }else{
                                 assert(0);
                             }
