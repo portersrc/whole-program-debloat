@@ -78,8 +78,7 @@ void _init_page_to_count(void);
 
 int  _debrt_protect_init(int);
 void _debrt_protect_destroy(void);
-void _debrt_protect_all_pages(void);
-void _debrt_protect_no_pages(void); // for debugging
+void _debrt_protect_all_pages(int perm);
 
 void _remap_permissions(long long addr, long long size, int perm);
 
@@ -1251,7 +1250,7 @@ void _debrt_monitor_destroy(void)
 }
 
 
-void _debrt_protect_all_pages(void)
+void _debrt_protect_all_pages(int perm)
 {
     DEBRT_PRINTF("PROTECTING ALL PAGES\n");
     long long text_start = executable_addr_base + text_offset;
@@ -1274,19 +1273,11 @@ void _debrt_protect_all_pages(void)
         text_end_aligned   -= 0x1000;
     }
     assert(text_start_aligned < text_end_aligned && "text start and end are too close (maybe just 2 diffrent pages... test case is too small for a page-based technique\n");
-    if(mprotect((void *)text_start_aligned, text_end_aligned - text_start_aligned, RO_PERM) == -1){
-    //if(mprotect((void *)text_start_aligned, text_end_aligned - text_start_aligned, RX_PERM) == -1){
+    if(mprotect((void *)text_start_aligned, text_end_aligned - text_start_aligned, perm) == -1){
         DEBRT_PRINTF("mprotect error\n");
         assert(0 && "mprotect error");
     }
     DEBRT_PRINTF("  mprotect succeeded\n");
-}
-void _debrt_protect_no_pages(void)
-{
-    long long size;
-    size = executable_addr_end - executable_addr_base;
-    size = size - 1; // XXX avoids mapping the end page itself, which causes segfault
-    _remap_permissions(executable_addr_base, size, RX_PERM);
 }
 
 void _debrt_map_ptd_to_funcs(void)
@@ -1356,7 +1347,7 @@ int _debrt_protect_init(int please_read_func_sets)
 
     atexit(_debrt_protect_destroy);
 
-    _debrt_protect_all_pages();
+    _debrt_protect_all_pages(RO_PERM);
     _debrt_map_ptd_to_funcs();
 
     return 0;
@@ -1366,6 +1357,9 @@ void _debrt_protect_destroy(void)
 {
     int e;
     int rc;
+
+    _debrt_protect_all_pages(RX_PERM);
+
     fprintf(fp_out, "num_mispredictions: %d\n", num_mispredictions);
     fprintf(fp_out, "total_predictions:  %d\n", total_predictions);
 
