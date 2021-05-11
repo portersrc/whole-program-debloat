@@ -1275,6 +1275,7 @@ void _debrt_protect_all_pages(void)
     }
     assert(text_start_aligned < text_end_aligned && "text start and end are too close (maybe just 2 diffrent pages... test case is too small for a page-based technique\n");
     if(mprotect((void *)text_start_aligned, text_end_aligned - text_start_aligned, RO_PERM) == -1){
+    //if(mprotect((void *)text_start_aligned, text_end_aligned - text_start_aligned, RX_PERM) == -1){
         DEBRT_PRINTF("mprotect error\n");
         assert(0 && "mprotect error");
     }
@@ -1407,11 +1408,12 @@ int debrt_protect(int argc, ...)
     }
     va_end(ap);
 
-    // if this is the first protect call, we need to make sure the caller's page
-    // is still executable.
+    // if this is the first protect call, we need to make sure the caller's
+    // page and main are still executable.
     if(lib_initialized == 1){
         DEBRT_PRINTF("ensuring first protect caller is still RX\n");
         update_page_counts(caller_func_id, 1);
+        update_page_counts(func_name_to_id["main"], 1);
         lib_initialized = 2;
     }
 
