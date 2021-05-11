@@ -93,9 +93,12 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Function *parent_func)
     set<Function *> setFunctions;
     for(auto bb = loop->block_begin(); bb != loop->block_end(); ++bb){
         for(auto &I : *(*bb)){
-            CallInst *CI = dyn_cast<CallInst>(&I);
-            if(CI){
-                Function *newF = CI->getCalledFunction();
+            CallBase *CB = dyn_cast<CallInst>(&I);
+            if(!CB){
+                CB = dyn_cast<InvokeInst>(&I);
+            }
+            if(CB){
+                Function *newF = CB->getCalledFunction();
                 if(function_map.count(newF) > 0){
                     // errs() << "Function(" << newF->getName().str() << ") is within loop nest\n";
                     queueFunctions.push(newF);
@@ -112,9 +115,12 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Function *parent_func)
 
         for(auto &B : *curr){
             for(auto &I : B){
-                CallInst *CI = dyn_cast<CallInst>(&I);
-                if(CI){
-                    Function *newF = CI->getCalledFunction();
+                CallBase *CB = dyn_cast<CallInst>(&I);
+                if(!CB){
+                    CB = dyn_cast<InvokeInst>(&I);
+                }
+                if(CB){
+                    Function *newF = CB->getCalledFunction();
                     if(function_map.count(newF) > 0){
                         if(setFunctions.find(newF) == setFunctions.end()){
                             // errs() << "Function(" << newF->getName().str() << ") is within loop nest\n";
@@ -170,16 +176,19 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Function *parent_func)
 void WholeProgramDebloat::mark_no_instrument_callees_in_loop(Module &M)
 {
     LoopInfo *li;
-    CallInst *ci;
+    CallBase *cb;
     for(auto &F : M){
         if(F.hasName() && !F.isDeclaration()){
             all_funcs.insert(&F);
             li = &getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
             for(auto &B : F){
                 for(auto &I : B){
-                    ci = dyn_cast<CallInst>(&I);
-                    if(ci){
-                        Function *callee = ci->getCalledFunction();
+                    cb = dyn_cast<CallInst>(&I);
+                    if(!cb){
+                        cb = dyn_cast<InvokeInst>(&I);
+                    }
+                    if(cb){
+                        Function *callee = cb->getCalledFunction();
                         if(function_map.count(callee) > 0){
                             adj_list[&F].insert(callee);
                             if(li && li->getLoopFor(&B)){
@@ -215,6 +224,7 @@ void WholeProgramDebloat::mark_no_instrument_reachable_funcs(void)
     }
 }
 
+
 void WholeProgramDebloat::instrument(void)
 {
     set<Function *> instrument_funcs;
@@ -247,9 +257,11 @@ void WholeProgramDebloat::instrument(void)
                 continue;
             }
             for(auto &I : b){
-                CallInst *CI = dyn_cast<CallInst>(&I);
-                if(CI){
-                    Function *callee = CI->getCalledFunction();
+                CallBase   *CB = dyn_cast<CallBase>(&I);
+                CallInst   *CI = dyn_cast<CallInst>(&I);
+                InvokeInst *II = dyn_cast<InvokeInst>(&I);
+                if(CB){
+                    Function *callee = CB->getCalledFunction();
                     if(function_map.count(callee) > 0){
                         if(no_instrument_funcs.find(callee) != no_instrument_funcs.end()){
                             // Case: callee is no-instrument
@@ -276,13 +288,39 @@ void WholeProgramDebloat::instrument(void)
                             for(auto rf : reachable_funcs){
                                 ArgsV.push_back(ConstantInt::get(int32Ty, function_map[rf], false));
                             }
-                            IRBuilder<> builder(CI);
+                            IRBuilder<> builder(CB);
                             builder.CreateCall(debrt_protect_func, ArgsV);
 
                             // instrument after callee
-                            IRBuilder<> builder_end(CI);
-                            builder_end.SetInsertPoint(CI->getNextNode());
-                            builder_end.CreateCall(debrt_protect_end_func, ArgsV);
+                            if(CI){
+                                IRBuilder<> builder_end(CI);
+                                builder_end.SetInsertPoint(CI->getNextNode());
+                                builder_end.CreateCall(debrt_protect_end_func, ArgsV);
+                            }else if(II){
+                                errs() << "no-instrument invoke case\n";
+                                // sanity check num-successors. should have
+                                // two: normal dest and unwind dest
+                                if(II->getNumSuccessors() != 2){
+                                    errs()
+                                    << "ERROR: unexpected number of successors. "
+                                    << "expected 2, but got " << II->getNumSuccessors() << "\n";
+                                    if(II->getCalledFunction()){
+                                        errs() << "function called: "
+                                        << II->getCalledFunction()->getName() << "\n";
+                                    }else{
+                                        errs() << "getCalledFunction() is returning null "
+                                        << "so perhaps indirect invocations "
+                                        << "complicate the number of successors.\n";
+                                    }
+                                    assert(0);
+                                }
+                                Instruction *ndi = II->getNormalDest()->getFirstNonPHI();
+                                IRBuilder<> builder_end(ndi);
+                                builder_end.SetInsertPoint(ndi->getNextNode());
+                                builder_end.CreateCall(debrt_protect_end_func, ArgsV);
+                            }else{
+                                assert(0);
+                            }
 
                         }else{
                             // Case: callee can be instrumented.
@@ -292,14 +330,40 @@ void WholeProgramDebloat::instrument(void)
                             ArgsV.push_back(ConstantInt::get(int32Ty, 2, false));
                             ArgsV.push_back(ConstantInt::get(int32Ty, function_map[f], false));
                             ArgsV.push_back(ConstantInt::get(int32Ty, function_map[callee], false));
-                            IRBuilder<> builder(CI);
+                            IRBuilder<> builder(CB);
                             builder.CreateCall(debrt_protect_func, ArgsV);
 
 
                             // instrument after callee
-                            IRBuilder<> builder_end(CI);
-                            builder_end.SetInsertPoint(CI->getNextNode());
-                            builder_end.CreateCall(debrt_protect_end_func, ArgsV);
+                            if(CI){
+                                IRBuilder<> builder_end(CI);
+                                builder_end.SetInsertPoint(CI->getNextNode());
+                                builder_end.CreateCall(debrt_protect_end_func, ArgsV);
+                            }else if(II){
+                                errs() << "yes-instrument invoke case\n";
+                                // sanity check num-successors. should have
+                                // two: normal dest and unwind dest
+                                if(II->getNumSuccessors() != 2){
+                                    errs()
+                                    << "ERROR: unexpected number of successors. "
+                                    << "expected 2, but got " << II->getNumSuccessors() << "\n";
+                                    if(II->getCalledFunction()){
+                                        errs() << "function called: "
+                                        << II->getCalledFunction()->getName() << "\n";
+                                    }else{
+                                        errs() << "getCalledFunction() is returning null "
+                                        << "so perhaps indirect invocations "
+                                        << "complicate the number of successors.\n";
+                                    }
+                                    assert(0);
+                                }
+                                Instruction *ndi = II->getNormalDest()->getFirstNonPHI();
+                                IRBuilder<> builder_end(ndi);
+                                builder_end.SetInsertPoint(ndi->getNextNode());
+                                builder_end.CreateCall(debrt_protect_end_func, ArgsV);
+                            }else{
+                                assert(0);
+                            }
                         }
                     }
                 }
