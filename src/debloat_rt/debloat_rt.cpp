@@ -1261,9 +1261,17 @@ void _debrt_protect_all_pages(int perm)
     long long text_end   = text_start + text_size;
     long long text_start_aligned = text_start & ~(0x1000-1);
     long long text_end_aligned   = text_end   & ~(0x1000-1);
-    if(text_start_aligned == text_end_aligned){
+    if(text_start_aligned >= text_end_aligned){
+        // Aligned .text start should never be above end
+        assert(text_start_aligned == text_end_aligned);
+        // ...but they can be equal if it's a small .text section.
+        // Print warning to stdout for now, but continue.
+        // Any remapping attempts to RO are handled elsewhere and
+        // should have a similar treatment (i.e. never map RO any pages
+        // at the boundaries).
         printf("WARNING: text start and end are equal. " \
                "Program is too small for a page-based technique.\n");
+        return;
     }
     // Check if text_start was already aligned. If it wasn't we need to bump
     // our starting (aligned) page. We go up by 1 page, b/c o/w we'd mark shit
@@ -1275,7 +1283,6 @@ void _debrt_protect_all_pages(int perm)
     if(text_end & (0x1000-1)){
         text_end_aligned   -= 0x1000;
     }
-    assert(text_start_aligned < text_end_aligned && "text start and end are too close (maybe just 2 diffrent pages... test case is too small for a page-based technique\n");
     if(mprotect((void *)text_start_aligned, text_end_aligned - text_start_aligned, perm) == -1){
         DEBRT_PRINTF("mprotect error\n");
         assert(0 && "mprotect error");
