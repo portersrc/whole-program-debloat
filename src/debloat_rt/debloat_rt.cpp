@@ -25,7 +25,7 @@
 
 using namespace std;
 
-//#define DEBRT_DEBUG
+#define DEBRT_DEBUG
 
 #define CGPredict
 
@@ -1450,3 +1450,22 @@ int debrt_protect_end(int argc, ...)
 }
 }
 
+
+extern "C" {
+int debrt_protect_indirect(long long fp_value)
+{
+    int i;
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("fp_value is: 0x%llx\n", fp_value);
+    return 0;
+}
+}
+
+extern "C" {
+int debrt_protect_end_indirect(long long fp_value)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("end fp_value is: 0x%llx\n", fp_value);
+    return 0;
+}
+}

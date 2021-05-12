@@ -7,6 +7,9 @@ int debrt_monitor(int argc, ...);
 int debrt_protect(int argc, ...);
 int debrt_protect_end(int argc, ...);
 
+int debrt_protect_indirect(long long fp_value);
+int debrt_protect_end_indirect(long long fp_value);
+
 int debrt_protect_sequence(int argc, ...);
 
 int debrt_return(long long);
