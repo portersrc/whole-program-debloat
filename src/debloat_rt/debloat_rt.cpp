@@ -1262,9 +1262,8 @@ void _debrt_protect_all_pages(int perm)
     long long text_start_aligned = text_start & ~(0x1000-1);
     long long text_end_aligned   = text_end   & ~(0x1000-1);
     if(text_start_aligned == text_end_aligned){
-        // FIXME ? may need to remove this assert. It means the text section is
-        // so small that we can't zero out any pages.
-        assert(0 && "text start and end are equal. test case is too small for a page-based technique\n");
+        printf("WARNING: text start and end are equal. " \
+               "Program is too small for a page-based technique.\n");
     }
     // Check if text_start was already aligned. If it wasn't we need to bump
     // our starting (aligned) page. We go up by 1 page, b/c o/w we'd mark shit
