@@ -11,6 +11,7 @@
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 #include <set>
 #include <stack>
@@ -31,8 +32,11 @@ namespace {
 
         Function *debrt_protect_func;
         Function *debrt_protect_end_func;
+        Function *debrt_protect_indirect_func;
+        Function *debrt_protect_end_indirect_func;
         map<Function *, int> function_map;
         Type *int32Ty;
+        Type *int64Ty;
         LoopInfo *LI;
         map<BasicBlock *, int> bb_map;
         map<Function *, set<Function *> > adj_list;
@@ -59,7 +63,10 @@ namespace {
         void mark_no_instrument_reachable_funcs(void);
         void instrument(void);
         void instrument_loop(Loop *loop, Function *parent_func);
-        void instrument_after_invoke(InvokeInst *II, vector<Value *> &ArgsV);
+        void instrument_after_invoke(InvokeInst *II,
+                                     vector<Value *> &ArgsV,
+                                     Function *debrt_func);
+        void instrument_indirect(void);
     };
 }
 
@@ -223,7 +230,9 @@ void WholeProgramDebloat::mark_no_instrument_reachable_funcs(void)
     }
 }
 
-void WholeProgramDebloat::instrument_after_invoke(InvokeInst *II, vector<Value *> &ArgsV)
+void WholeProgramDebloat::instrument_after_invoke(InvokeInst *II,
+                                                  vector<Value *> &ArgsV,
+                                                  Function *debrt_func)
 {
     if(II->getCalledFunction()){
         errs() << "function called: " << II->getCalledFunction()->getName() << "\n";
@@ -239,7 +248,22 @@ void WholeProgramDebloat::instrument_after_invoke(InvokeInst *II, vector<Value *
         << "expected 2, but got " << II->getNumSuccessors() << "\n";
         assert(0);
     }
+    BasicBlock *new_bb = SplitEdge(II->getParent(), II->getNormalDest());
+    //BasicBlock *pred_bb = new_bb->getUniquePredecessor();
+    //assert(pred_bb);
+    //if(new_bb == II->getParent()){
+    //    errs() << "new_bb is the 'from'\n";
+    //}else if(new_bb == II->getNormalDest()){
+    //    errs() << "new_bb is the 'to'\n";
+    //}else{
+    //    errs() << "new_bb is in the middle\n";
+    //}
     Instruction *ndi = II->getNormalDest()->getFirstNonPHI();
+    //Instruction *ndi = new_bb->getFirstNonPHI();
+    //Instruction *ndi = pred_bb->getFirstNonPHI();
+    //for(auto &I : *new_bb){
+    //    errs() << I << "\n";
+    //}
     if(ndi == NULL){
         // unexpected, though the API allows getFirstNonPHI to be null.
         // assert 0 for now and handle only if we encounter it.
@@ -247,7 +271,54 @@ void WholeProgramDebloat::instrument_after_invoke(InvokeInst *II, vector<Value *
         assert(0);
     }
     IRBuilder<> builder_end(ndi);
-    builder_end.CreateCall(debrt_protect_end_func, ArgsV);
+    if(dyn_cast<LandingPadInst>(ndi)){
+        builder_end.SetInsertPoint(ndi->getNextNode());
+    }
+    builder_end.CreateCall(debrt_func, ArgsV);
+}
+
+
+void WholeProgramDebloat::instrument_indirect(void)
+{
+    for(auto f : all_funcs){
+        errs() << "Instrumenting indirect for " << f->getName().str() << "\n";
+        for(auto &b : *f){
+            for(auto &I : b){
+                CallBase   *CB = dyn_cast<CallBase>(&I);
+                CallInst   *CI = dyn_cast<CallInst>(&I);
+                InvokeInst *II = dyn_cast<InvokeInst>(&I);
+                if(CB){
+                    if(CB->getCalledFunction() == NULL){
+                        errs() << "seeing indirect function call\n";
+                        Value *v = CB->getCalledOperand();
+                        if(v->getType()->isPointerTy()){
+                            // instrument before indirect func call
+                            vector<Value *> ArgsV;
+                            IRBuilder<> builder(CB);
+                            ArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
+                            builder.CreateCall(debrt_protect_indirect_func, ArgsV);
+
+                            if(CI){
+                                IRBuilder<> builder_end(CI);
+                                builder_end.SetInsertPoint(CI->getNextNode());
+                                builder_end.CreateCall(debrt_protect_end_indirect_func, ArgsV);
+                            }else if(II){
+                                errs() << "indirect func invoke case\n";
+                                instrument_after_invoke(II, ArgsV, debrt_protect_end_indirect_func);
+                            }else{
+                                assert(0);
+                            }
+                        }else{
+                            // Not sure how to handle this if it happens
+                            // would need to investigate the specific case.
+                            assert(0 && "Unexpected: calledOperand is NOT a " \
+                                        "pointer type for an indirect call.\n");
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 void WholeProgramDebloat::instrument(void)
@@ -323,7 +394,7 @@ void WholeProgramDebloat::instrument(void)
                                 builder_end.CreateCall(debrt_protect_end_func, ArgsV);
                             }else if(II){
                                 errs() << "no-instrument invoke case\n";
-                                instrument_after_invoke(II, ArgsV);
+                                instrument_after_invoke(II, ArgsV, debrt_protect_end_func);
                             }else{
                                 assert(0);
                             }
@@ -347,7 +418,7 @@ void WholeProgramDebloat::instrument(void)
                                 builder_end.CreateCall(debrt_protect_end_func, ArgsV);
                             }else if(II){
                                 errs() << "yes-instrument invoke case\n";
-                                instrument_after_invoke(II, ArgsV);
+                                instrument_after_invoke(II, ArgsV, debrt_protect_end_func);
                             }else{
                                 assert(0);
                             }
@@ -356,8 +427,11 @@ void WholeProgramDebloat::instrument(void)
                 }
             }
         }
-
     }
+
+    // instrument indirect function calls
+    instrument_indirect();
+
 }
 
 bool WholeProgramDebloat::runOnModule(Module &M)
@@ -399,7 +473,9 @@ void WholeProgramDebloat::wpd_init(Module &M)
     // errs() << "Create library function\n";
     // Create library function
     int32Ty = IntegerType::getInt32Ty(M.getContext());
+    int64Ty = IntegerType::getInt64Ty(M.getContext());
     Type *ArgTypes[] = { int32Ty };
+    Type *ArgTypes64[] = { int64Ty };
     debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
             Function::ExternalLinkage,
             "debrt_protect",
@@ -407,6 +483,14 @@ void WholeProgramDebloat::wpd_init(Module &M)
     debrt_protect_end_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
             Function::ExternalLinkage,
             "debrt_protect_end",
+            M);
+    debrt_protect_indirect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
+            Function::ExternalLinkage,
+            "debrt_protect_indirect",
+            M);
+    debrt_protect_end_indirect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
+            Function::ExternalLinkage,
+            "debrt_protect_end_indirect",
             M);
 }
 
