@@ -308,7 +308,11 @@ void update_page_counts(int func_id, int addend)
     for(i = 0; i < pages.size(); i++){
         addr = pages[i];
         page_to_count[addr] += addend;
-        assert(page_to_count[addr] >= 0);
+        if(page_to_count[addr] < 0){
+            DEBRT_PRINTF("page_to_count[addr] < 0. exiting. " \
+                         "addr(0x%llx) func_id(%d)\n", addr, func_id);
+            exit(1);
+        }
         if((page_to_count[addr] == 1) && (addend == 1)){
             DEBRT_PRINTF("went from 0 to 1, remap RX\n");
             _remap_permissions(addr, 1, RX_PERM);
