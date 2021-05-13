@@ -510,10 +510,12 @@ void WholeProgramDebloat::dump_static_callsets(void)
         Function *f = p.first;
         set<Function *> &callees = p.second;
         //errs() << f->getName() << ": ";
-        fprintf(fp_callset, "%s ", f->getName().str().c_str());
+        //fprintf(fp_callset, "%s ", f->getName().str().c_str());
+        fprintf(fp_callset, "%d ", function_map[f]);
         for(auto callee : callees){
             //errs() << callee->getName() << " ";
-            fprintf(fp_callset, "%s,", callee->getName().str().c_str());
+            //fprintf(fp_callset, "%s,", callee->getName().str().c_str());
+            fprintf(fp_callset, "%d,", function_map[callee]);
         }
         //errs() << "\n";
         fprintf(fp_callset, "\n");

@@ -25,7 +25,7 @@
 
 using namespace std;
 
-#define DEBRT_DEBUG
+//#define DEBRT_DEBUG
 
 #define CGPredict
 
@@ -1224,10 +1224,16 @@ void _read_callsets(void)
     while(getline(ifs, line)){
         elems = split(line, ' ');
         func_id = atoi(elems[0].c_str());
+        if(elems.size() == 1){
+            continue;
+        }
         elems_callset = split(elems[1], ','); // seems to correclty ignore trailing comma
         //printf("callset_size==%lu ", elems_callset.size());
         //printf("  %d: ", func_id);
         for(auto f : elems_callset){
+            if(f == ""){
+                continue;
+            }
             callee_id = atoi(f.c_str());
             addr = func_id_to_addr_and_size[func_id].first;
             // note: two different sets in memory
