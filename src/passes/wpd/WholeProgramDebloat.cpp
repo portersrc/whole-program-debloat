@@ -67,6 +67,7 @@ namespace {
                                      vector<Value *> &ArgsV,
                                      Function *debrt_func);
         void instrument_indirect(void);
+        void dump_static_callsets(void);
     };
 }
 
@@ -321,6 +322,7 @@ void WholeProgramDebloat::instrument_indirect(void)
     }
 }
 
+
 void WholeProgramDebloat::instrument(void)
 {
     set<Function *> instrument_funcs;
@@ -500,8 +502,27 @@ bool WholeProgramDebloat::doInitialization(Module &M)
     return false;
 }
 
+void WholeProgramDebloat::dump_static_callsets(void)
+{
+    FILE *fp_callset = fopen("wpd_func_id_to_callset.txt", "w");
+    //errs() << "Dumping static callsets\n";
+    for(auto p : adj_list){
+        Function *f = p.first;
+        set<Function *> &callees = p.second;
+        //errs() << f->getName() << ": ";
+        fprintf(fp_callset, "%s ", f->getName().str().c_str());
+        for(auto callee : callees){
+            //errs() << callee->getName() << " ";
+            fprintf(fp_callset, "%s,", callee->getName().str().c_str());
+        }
+        //errs() << "\n";
+        fprintf(fp_callset, "\n");
+    }
+    fclose(fp_callset);
+}
 bool WholeProgramDebloat::doFinalization(Module &M)
 {
+    dump_static_callsets();
     return false;
 }
 
