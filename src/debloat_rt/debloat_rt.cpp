@@ -100,14 +100,19 @@ long long text_offset = 0;
 long long text_size   = 0;
 
 
-map<string, int> func_name_to_id;
-map<int, string> func_id_to_name; // convenience
-map<string, long long> func_name_to_offset;
+map<int, string>                 func_id_to_name; // convenience
 map<int, pair<long long, long> > func_id_to_addr_and_size;
-set<string> ptd_to_funcs;
-set<int> ptd_to_func_ids;
+map<int, set<int> >              func_id_to_callset;
+map<int, vector<long long> >     func_id_to_pages;
 
-map<int, vector<long long> > func_id_to_pages;
+map<long long, set<int> >        func_addr_to_callset;
+
+map<string, int>       func_name_to_id;
+map<string, long long> func_name_to_offset;
+
+set<string> ptd_to_funcs;
+set<int>    ptd_to_func_ids;
+
 map<long long, int> page_to_count;
 
 
@@ -1198,6 +1203,43 @@ void _read_func_ptrs(void)
     }
 }
 
+void _read_callsets(void)
+{
+    DEBRT_PRINTF("reading callsets\n");
+    // read the function ID -> statically reachable functions
+    string line;
+    ifstream ifs;
+    vector<string> elems;
+    vector<string> elems_callset;
+    int func_id;
+    int callee_id;
+    long long addr;
+
+    ifs.open("wpd_func_id_to_callset.txt");
+    if(!ifs.is_open()){
+        perror("Error opening wpd_func_id_to_callset.txt file");
+        exit(EXIT_FAILURE);
+    }
+
+    while(getline(ifs, line)){
+        elems = split(line, ' ');
+        func_id = atoi(elems[0].c_str());
+        elems_callset = split(elems[1], ','); // seems to correclty ignore trailing comma
+        //printf("callset_size==%lu ", elems_callset.size());
+        //printf("  %d: ", func_id);
+        for(auto f : elems_callset){
+            callee_id = atoi(f.c_str());
+            addr = func_id_to_addr_and_size[func_id].first;
+            // note: two different sets in memory
+            func_id_to_callset[func_id].insert(callee_id);
+            func_addr_to_callset[addr].insert(callee_id);
+            //printf("%d,", atoi(f.c_str()));
+        }
+        //printf("\n");
+    }
+    ifs.close();
+
+}
 
 
 int _debrt_monitor_init(void)
@@ -1349,6 +1391,7 @@ int _debrt_protect_init(int please_read_func_sets)
     _read_nm();
     _read_readelf();
     _read_readelf_sections();
+    _read_callsets();
 
     _dump_func_id_to_pages();
     _dump_func_id_to_addr_and_size();
