@@ -1566,8 +1566,33 @@ int debrt_init(int main_func_id)
     assert(main_func_id == func_name_to_id["main"]);
     update_page_counts(main_func_id, 1);
 
+    lib_initialized = 1;
 
     return 0;
 }
 }
 
+extern "C" {
+int debrt_protect_single(int callee_func_id)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    assert(lib_initialized);
+    DEBRT_PRINTF("INC page count for func_id %d\n", callee_func_id);
+    update_page_counts(callee_func_id, 1);
+    return 0;
+}
+}
+
+
+extern "C" {
+int debrt_protect_single_end(int callee_func_id)
+{
+    int i;
+    va_list ap;
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    assert(lib_initialized);
+    DEBRT_PRINTF("DEC page count for func_id %d\n", callee_func_id);
+    update_page_counts(callee_func_id, -1);
+    return 0;
+}
+}
