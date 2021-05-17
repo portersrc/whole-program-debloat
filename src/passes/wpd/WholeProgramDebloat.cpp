@@ -12,6 +12,7 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include <llvm/Demangle/Demangle.h>
 
 #include <set>
 #include <stack>
@@ -30,6 +31,7 @@ namespace {
 
         WholeProgramDebloat() : ModulePass(ID) {}
 
+        Function *debrt_init_func;
         Function *debrt_protect_func;
         Function *debrt_protect_end_func;
         Function *debrt_protect_indirect_func;
@@ -67,6 +69,8 @@ namespace {
                                      vector<Value *> &ArgsV,
                                      Function *debrt_func);
         void instrument_indirect(void);
+        bool instrument_main(Module &M);
+        string get_demangled_name(const Function &F);
         void dump_static_callsets(void);
     };
 }
@@ -436,9 +440,47 @@ void WholeProgramDebloat::instrument(void)
 
 }
 
+
+string WholeProgramDebloat::get_demangled_name(const Function &F)
+{
+    ItaniumPartialDemangler IPD;
+    string name = F.getName().str();
+    if(IPD.partialDemangle(name.c_str())){
+        return name;
+    }
+    if(IPD.isFunction()){
+        return IPD.getFunctionBaseName(nullptr, nullptr);
+    }
+    return IPD.finishDemangle(nullptr, nullptr);
+}
+
+
+bool WholeProgramDebloat::instrument_main(Module &M)
+{
+    int found_main = 0;
+    for(auto &F : M){
+        string func_name = get_demangled_name(F);
+        if(func_name == "main"){
+            // FIXME: actually instrument main
+            vector<Value *> ArgsV;
+            Instruction *I = F.getEntryBlock().getFirstNonPHI();
+            assert(I);
+            IRBuilder<> builder(I);
+            ArgsV.push_back(ConstantInt::get(int32Ty, function_map[&F], false));
+            builder.CreateCall(debrt_init_func, ArgsV);
+            found_main = 1;
+            break;
+        }
+    }
+    assert(found_main == 1);
+}
+
+
 bool WholeProgramDebloat::runOnModule(Module &M)
 {
     wpd_init(M);
+
+    instrument_main(M);
 
     // mark as no-instrument any functions that are called inside a loop
     mark_no_instrument_callees_in_loop(M);
@@ -478,6 +520,11 @@ void WholeProgramDebloat::wpd_init(Module &M)
     int64Ty = IntegerType::getInt64Ty(M.getContext());
     Type *ArgTypes[] = { int32Ty };
     Type *ArgTypes64[] = { int64Ty };
+
+    debrt_init_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+            Function::ExternalLinkage,
+            "debrt_init",
+            M);
     debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
             Function::ExternalLinkage,
             "debrt_protect",
@@ -492,7 +539,7 @@ void WholeProgramDebloat::wpd_init(Module &M)
             M);
     debrt_protect_end_indirect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
             Function::ExternalLinkage,
-            "debrt_protect_end_indirect",
+            "debrt_protect_indirect_end",
             M);
 }
 

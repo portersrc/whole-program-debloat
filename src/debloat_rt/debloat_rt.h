@@ -7,18 +7,28 @@ int debrt_monitor(int argc, ...);
 int debrt_protect(int argc, ...);
 int debrt_protect_end(int argc, ...);
 
-int debrt_protect_indirect(long long fp_value);
-int debrt_protect_end_indirect(long long fp_value);
-
 int debrt_protect_sequence(int argc, ...);
 
 int debrt_return(long long);
 
-int debrt_protect_loop(int argc, ...);
-int debrt_protect_loop_end(int argc, ...);
-
 int debrt_cgmonitor(int argc, ...);
 int debrt_cgreturn(long long);
+
+
+
+int debrt_init(int main_func_id);
+
+int debrt_protect_single(int callee_func_id);
+int debrt_protect_single_end(int callee_func_id);
+
+int debrt_protect_reachable(int callee_func_id);
+int debrt_protect_reachable_end(int callee_func_id);
+
+int debrt_protect_loop(int loop_id);
+int debrt_protect_loop_end(int loop_id);
+
+int debrt_protect_indirect(long long callee_addr);
+int debrt_protect_indirect_end(long long callee_addr);
 
 }
 

@@ -1501,7 +1501,7 @@ int debrt_protect_end(int argc, ...)
 
 
 extern "C" {
-int debrt_protect_indirect(long long fp_value)
+int debrt_protect_indirect(long long callee_addr)
 {
     int i;
     DEBRT_PRINTF("%s\n", __FUNCTION__);
@@ -1511,10 +1511,63 @@ int debrt_protect_indirect(long long fp_value)
 }
 
 extern "C" {
-int debrt_protect_end_indirect(long long fp_value)
+int debrt_protect_indirect_end(long long callee_addr)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     DEBRT_PRINTF("end fp_value is: 0x%llx\n", fp_value);
     return 0;
 }
 }
+
+
+extern "C" {
+int debrt_init(int main_func_id)
+{
+    int e;
+    const char *output_filename;
+
+    output_filename = getenv("DEBRT_OUT");
+    if(!output_filename){
+        output_filename = DEFAULT_OUTPUT_FILENAME;
+    }
+    fp_out = fopen(output_filename, "w");
+    if(!fp_out){
+        e = errno;
+        fprintf(stderr, "debrt_init failed to open %s (errno: %d)\n",
+                        output_filename, e);
+        return e;
+    }
+
+    _set_addr_of_main_mapping();
+    DEBRT_PRINTF("executable_addr_base: 0x%llx\n", executable_addr_base);
+    DEBRT_PRINTF("executable_addr_end:  0x%llx\n", executable_addr_end);
+    _read_func_name_to_id();
+    //_dump_func_name_to_id();
+    _read_func_ptrs(); // XXX has to happen after read-func-name-to-id
+    _read_nm();
+    _read_readelf();
+    _read_readelf_sections();
+    _read_callsets();
+
+    _dump_func_id_to_pages();
+    _dump_func_id_to_addr_and_size();
+
+    _init_page_to_count();
+
+    atexit(_debrt_protect_destroy);
+
+    _debrt_protect_all_pages(RO_PERM);
+    _debrt_map_ptd_to_funcs();
+
+
+    // if this is the first protect call, we need to make sure the caller's
+    // page and main are still executable.
+    DEBRT_PRINTF("ensuring first protect caller is still RX\n");
+    assert(main_func_id == func_name_to_id["main"]);
+    update_page_counts(main_func_id, 1);
+
+
+    return 0;
+}
+}
+
