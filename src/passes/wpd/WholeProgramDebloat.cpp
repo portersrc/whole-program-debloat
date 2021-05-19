@@ -265,22 +265,27 @@ void WholeProgramDebloat::instrument_indirect(void)
                         errs() << "seeing indirect function call\n";
                         Value *v = CB->getCalledOperand();
                         if(v->getType()->isPointerTy()){
-                            // instrument before indirect func call
-                            vector<Value *> ArgsV;
-                            IRBuilder<> builder(CB);
-                            ArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
-                            builder.CreateCall(debrt_protect_indirect_func, ArgsV);
+                            if(encompassed_funcs.find(f) == encompassed_funcs.end()){
+                                // instrument before indirect func call
+                                vector<Value *> ArgsV;
+                                IRBuilder<> builder(CB);
+                                ArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
+                                builder.CreateCall(debrt_protect_indirect_func, ArgsV);
 
-                            // instrument after indirect func call
-                            if(CI){
-                                IRBuilder<> builder_end(CI);
-                                builder_end.SetInsertPoint(CI->getNextNode());
-                                builder_end.CreateCall(debrt_protect_end_indirect_func, ArgsV);
-                            }else if(II){
-                                errs() << "indirect func invoke case\n";
-                                instrument_after_invoke(II, ArgsV, debrt_protect_end_indirect_func);
+                                // instrument after indirect func call
+                                if(CI){
+                                    IRBuilder<> builder_end(CI);
+                                    builder_end.SetInsertPoint(CI->getNextNode());
+                                    builder_end.CreateCall(debrt_protect_end_indirect_func, ArgsV);
+                                }else if(II){
+                                    errs() << "indirect func invoke case\n";
+                                    instrument_after_invoke(II, ArgsV, debrt_protect_end_indirect_func);
+                                }else{
+                                    assert(0);
+                                }
                             }else{
-                                assert(0);
+                                assert(0 && "ERROR: Unhandled functionality " \
+                                       "- indirect call in encompassed_funcs");
                             }
                         }else{
                             // Not sure how to handle this if it happens

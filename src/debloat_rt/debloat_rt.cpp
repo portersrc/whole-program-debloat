@@ -1699,12 +1699,13 @@ extern "C" {
 int debrt_protect_indirect(long long callee_addr)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
-    DEBRT_PRINTF("fp_value is: 0x%llx\n", callee_addr);
+    DEBRT_PRINTF("callee_addr is: 0x%llx\n", callee_addr);
     int func_id = func_addr_to_id[callee_addr];
-    if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
-        // encompassed function
-        return debrt_protect_reachable(func_id);
-    }
+    assert(encompassed_funcs.find(func_id) == encompassed_funcs.end());
+    //if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
+    //    // encompassed function
+    //    return debrt_protect_reachable(func_id);
+    //}
     // top-level function
     return debrt_protect_single(func_id);
 }
@@ -1714,12 +1715,13 @@ extern "C" {
 int debrt_protect_indirect_end(long long callee_addr)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
-    DEBRT_PRINTF("end fp_value is: 0x%llx\n", callee_addr);
+    DEBRT_PRINTF("end callee_addr is: 0x%llx\n", callee_addr);
     int func_id = func_addr_to_id[callee_addr];
-    if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
-        // encompassed function
-        return debrt_protect_reachable_end(func_id);
-    }
+    assert(encompassed_funcs.find(func_id) == encompassed_funcs.end());
+    //if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
+    //    // encompassed function
+    //    return debrt_protect_reachable_end(func_id);
+    //}
     // top-level function
     return debrt_protect_single_end(func_id);
 }
