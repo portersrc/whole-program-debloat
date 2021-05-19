@@ -25,7 +25,7 @@
 
 using namespace std;
 
-//#define DEBRT_DEBUG
+#define DEBRT_DEBUG
 
 #define CGPredict
 
@@ -102,13 +102,18 @@ long long text_size   = 0;
 
 map<int, string>                 func_id_to_name; // convenience
 map<int, pair<long long, long> > func_id_to_addr_and_size;
-map<int, set<int> >              func_id_to_callset;
+map<int, set<int> >              func_id_to_reachable_funcs;
 map<int, vector<long long> >     func_id_to_pages;
 
-map<long long, set<int> >        func_addr_to_callset;
+map<int, set<int> >              loop_id_to_reachable_funcs;
+
+map<long long, set<int> >        func_addr_to_reachable_funcs;
+map<long long, int>              func_addr_to_id;
 
 map<string, int>       func_name_to_id;
 map<string, long long> func_name_to_offset;
+
+set<int> encompassed_funcs;
 
 set<string> ptd_to_funcs;
 set<int>    ptd_to_func_ids;
@@ -193,6 +198,20 @@ void _dump_func_id_to_addr_and_size(void)
         //DEBRT_PRINTF("%d: 0x%llx %ld\n", func_id, addr_and_size[0], addr_and_size[1]);
         //DEBRT_PRINTF("%d:\n", func_id);
         DEBRT_PRINTF("%d (%s): 0x%llx %ld\n", func_id, func_id_to_name[func_id].c_str(), addr, size);
+    }
+}
+
+void _dump_loop_static_reachability(void)
+{
+    int loop_id;
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    for(auto p : loop_id_to_reachable_funcs){
+        loop_id = p.first;
+        DEBRT_PRINTF("%d: ", loop_id);
+        for(auto reachable_func : p.second){
+            DEBRT_PRINTF("%d ", reachable_func);
+        }
+        DEBRT_PRINTF("\n", loop_id);
     }
 }
 
@@ -815,22 +834,6 @@ int debrt_return(long long func_addr)
 }
 }
 
-extern "C" {
-int debrt_protect_loop(int argc, ...)
-{
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
-    return 0;
-}
-}
-
-extern "C" {
-int debrt_protect_loop_end(int argc, ...)
-{
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
-    return 0;
-}
-}
-
 
 // Read the all func set IDs and their corresponding func IDs into an array
 // of sets called "func_sets". func_sets is indexed by the func set ID. Each
@@ -986,6 +989,7 @@ void _read_readelf(void)
                 if(func_name_to_id.find(func_name) != func_name_to_id.end()){
                     int func_id = func_name_to_id[func_name];
                     func_id_to_addr_and_size[func_id] = make_pair(func_addr, func_size);
+                    func_addr_to_id[func_addr] = func_id;
                     vector<long long> pages;
                     long long first_page;
                     long long last_page;
@@ -1203,21 +1207,86 @@ void _read_func_ptrs(void)
     }
 }
 
-void _read_callsets(void)
+void _read_static_reachability(void)
 {
-    DEBRT_PRINTF("reading callsets\n");
+    DEBRT_PRINTF("reading static reachability\n");
     // read the function ID -> statically reachable functions
     string line;
     ifstream ifs;
     vector<string> elems;
-    vector<string> elems_callset;
+    vector<string> elems_reachable;
     int func_id;
-    int callee_id;
+    int reachable_func_id;
     long long addr;
 
-    ifs.open("wpd_func_id_to_callset.txt");
+    ifs.open("wpd_static_reachability.txt");
     if(!ifs.is_open()){
-        perror("Error opening wpd_func_id_to_callset.txt file");
+        perror("Error opening wpd_static_reachability.txt file");
+        exit(EXIT_FAILURE);
+    }
+
+    while(getline(ifs, line)){
+        elems = split(line, ' ');
+        func_id = atoi(elems[0].c_str());
+        addr = func_id_to_addr_and_size[func_id].first;
+        if(elems.size() == 1){
+            continue;
+        }
+        elems_reachable = split(elems[1], ','); // seems to correclty ignore trailing comma
+        //printf("elems_reachable.size()==%lu ", elems_reachable.size());
+        //printf("  %d: ", func_id);
+        for(auto f : elems_reachable){
+            if(f == ""){
+                continue;
+            }
+            reachable_func_id = atoi(f.c_str());
+            // note: two different sets in memory
+            func_id_to_reachable_funcs[func_id].insert(reachable_func_id);
+            func_addr_to_reachable_funcs[addr].insert(reachable_func_id);
+            //printf("%d,", atoi(f.c_str()));
+        }
+        //printf("\n");
+    }
+    ifs.close();
+
+}
+void _read_encompassed_funcs(void)
+{
+    DEBRT_PRINTF("reading encompassed funcs\n");
+    string line;
+    ifstream ifs;
+    vector<string> elems;
+    vector<string> elems_reachable;
+    int func_id;
+    int reachable_func_id;
+    long long addr;
+
+    ifs.open("wpd_encompassed_funcs.txt");
+    if(!ifs.is_open()){
+        perror("Error opening wpd_encompassed_funcs.txt file");
+        exit(EXIT_FAILURE);
+    }
+    while(getline(ifs, line)){
+        func_id = atoi(line.c_str());
+        encompassed_funcs.insert(func_id);
+    }
+    ifs.close();
+
+}
+
+void _read_loop_static_reachability(void)
+{
+    DEBRT_PRINTF("reading loop static reachability\n");
+    string line;
+    ifstream ifs;
+    vector<string> elems;
+    vector<string> elems_reachable;
+    int func_id;
+    int reachable_func_id;
+
+    ifs.open("wpd_loop_static_reachability.txt");
+    if(!ifs.is_open()){
+        perror("Error opening wpd_loop_static_reachability.txt file");
         exit(EXIT_FAILURE);
     }
 
@@ -1227,18 +1296,15 @@ void _read_callsets(void)
         if(elems.size() == 1){
             continue;
         }
-        elems_callset = split(elems[1], ','); // seems to correclty ignore trailing comma
-        //printf("callset_size==%lu ", elems_callset.size());
+        elems_reachable = split(elems[1], ','); // seems to correclty ignore trailing comma
+        //printf("elems_reachable.size()==%lu ", elems_reachable.size());
         //printf("  %d: ", func_id);
-        for(auto f : elems_callset){
+        for(auto f : elems_reachable){
             if(f == ""){
                 continue;
             }
-            callee_id = atoi(f.c_str());
-            addr = func_id_to_addr_and_size[func_id].first;
-            // note: two different sets in memory
-            func_id_to_callset[func_id].insert(callee_id);
-            func_addr_to_callset[addr].insert(callee_id);
+            reachable_func_id = atoi(f.c_str());
+            loop_id_to_reachable_funcs[func_id].insert(reachable_func_id);
             //printf("%d,", atoi(f.c_str()));
         }
         //printf("\n");
@@ -1397,7 +1463,6 @@ int _debrt_protect_init(int please_read_func_sets)
     _read_nm();
     _read_readelf();
     _read_readelf_sections();
-    _read_callsets();
 
     _dump_func_id_to_pages();
     _dump_func_id_to_addr_and_size();
@@ -1501,26 +1566,6 @@ int debrt_protect_end(int argc, ...)
 
 
 extern "C" {
-int debrt_protect_indirect(long long callee_addr)
-{
-    int i;
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
-    DEBRT_PRINTF("fp_value is: 0x%llx\n", fp_value);
-    return 0;
-}
-}
-
-extern "C" {
-int debrt_protect_indirect_end(long long callee_addr)
-{
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
-    DEBRT_PRINTF("end fp_value is: 0x%llx\n", fp_value);
-    return 0;
-}
-}
-
-
-extern "C" {
 int debrt_init(int main_func_id)
 {
     int e;
@@ -1541,16 +1586,21 @@ int debrt_init(int main_func_id)
     _set_addr_of_main_mapping();
     DEBRT_PRINTF("executable_addr_base: 0x%llx\n", executable_addr_base);
     DEBRT_PRINTF("executable_addr_end:  0x%llx\n", executable_addr_end);
+
+    // XXX read func-name-to-id before the other steps
     _read_func_name_to_id();
     //_dump_func_name_to_id();
-    _read_func_ptrs(); // XXX has to happen after read-func-name-to-id
-    _read_nm();
+
+    _read_func_ptrs();
     _read_readelf();
     _read_readelf_sections();
-    _read_callsets();
+    _read_static_reachability();
+    _read_loop_static_reachability();
+    _read_encompassed_funcs();
 
     _dump_func_id_to_pages();
     _dump_func_id_to_addr_and_size();
+    _dump_loop_static_reachability();
 
     _init_page_to_count();
 
@@ -1587,12 +1637,90 @@ int debrt_protect_single(int callee_func_id)
 extern "C" {
 int debrt_protect_single_end(int callee_func_id)
 {
-    int i;
-    va_list ap;
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     assert(lib_initialized);
     DEBRT_PRINTF("DEC page count for func_id %d\n", callee_func_id);
     update_page_counts(callee_func_id, -1);
     return 0;
+}
+}
+
+static inline
+int _protect_reachable(int callee_func_id, int addend)
+{
+    update_page_counts(callee_func_id, addend);
+    for(int reachable_func : func_id_to_reachable_funcs[callee_func_id]){
+        update_page_counts(reachable_func, addend);
+    }
+    return 0;
+}
+extern "C" {
+int debrt_protect_reachable(int callee_func_id)
+{
+    return _protect_reachable(callee_func_id, 1);
+}
+}
+extern "C" {
+int debrt_protect_reachable_end(int callee_func_id)
+{
+    return _protect_reachable(callee_func_id, -1);
+}
+}
+
+
+static inline
+int _protect_loop_reachable(int loop_id, int addend)
+{
+    for(int reachable_func : loop_id_to_reachable_funcs[loop_id]){
+        update_page_counts(reachable_func, addend);
+    }
+    return 0;
+}
+extern "C" {
+int debrt_protect_loop(int loop_id)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _protect_loop_reachable(loop_id, 1);
+    return 0;
+}
+}
+
+extern "C" {
+int debrt_protect_loop_end(int loop_id)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _protect_loop_reachable(loop_id, -1);
+    return 0;
+}
+}
+
+
+extern "C" {
+int debrt_protect_indirect(long long callee_addr)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("fp_value is: 0x%llx\n", callee_addr);
+    int func_id = func_addr_to_id[callee_addr];
+    if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
+        // encompassed function
+        return debrt_protect_reachable(func_id);
+    }
+    // top-level function
+    return debrt_protect_single(func_id);
+}
+}
+
+extern "C" {
+int debrt_protect_indirect_end(long long callee_addr)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("end fp_value is: 0x%llx\n", callee_addr);
+    int func_id = func_addr_to_id[callee_addr];
+    if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
+        // encompassed function
+        return debrt_protect_reachable_end(func_id);
+    }
+    // top-level function
+    return debrt_protect_single_end(func_id);
 }
 }

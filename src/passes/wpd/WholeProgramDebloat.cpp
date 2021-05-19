@@ -32,22 +32,34 @@ namespace {
         WholeProgramDebloat() : ModulePass(ID) {}
 
         Function *debrt_init_func;
-        Function *debrt_protect_func;
-        Function *debrt_protect_end_func;
+        Function *debrt_protect_single_func;
+        Function *debrt_protect_single_end_func;
+        Function *debrt_protect_reachable_func;
+        Function *debrt_protect_reachable_end_func;
+        Function *debrt_protect_loop_func;
+        Function *debrt_protect_loop_end_func;
         Function *debrt_protect_indirect_func;
         Function *debrt_protect_end_indirect_func;
-        map<Function *, int> function_map;
+        map<Function *, int> func_to_id;
+        map<int, string> func_id_to_name;
+        map<string, int> func_name_to_id;
         Type *int32Ty;
         Type *int64Ty;
-        LoopInfo *LI;
         map<BasicBlock *, int> bb_map;
         map<Function *, set<Function *> > adj_list;
         set<Function *> all_funcs;
-        // "no instrument funcs" is a set of functions that we aren't
+        // "encompassed funcs" are functions that we aren't
         // allowed to instrument _inside of_, because they are either
         // called inside of a loop, or they are called by a function
-        // that's called inside of a loop.
-        set<Function *> no_instrument_funcs;
+        // that's called inside of a loop; they're encompassed by a loop.
+        set<Function *> encompassed_funcs;
+        // RESTART: rename instrument-funcs.
+        set<Function *> toplevel_funcs;
+        map<Function *, set<Function *> > static_reachability;
+        map<int, set<Function *> > loop_static_reachability;
+        map<int, int> loop_id_to_func_id; // for debugging
+        set<string> func_has_addr_taken;
+        int loop_id_counter;
 
 
         void getAnalysisUsage(AnalysisUsage &AU) const
@@ -61,23 +73,42 @@ namespace {
         bool doFinalization(Module &) override;
 
         void wpd_init(Module &M);
-        void mark_no_instrument_callees_in_loop(Module &M);
-        void mark_no_instrument_reachable_funcs(void);
+        void build_basic_structs(Module &M);
+        void build_static_reachability(void);
+        void extend_encompassed_funcs(void);
+        void build_toplevel_funcs(void);
+
+        bool instrument_main(Module &M);
         void instrument(void);
-        void instrument_loop(Loop *loop, Function *parent_func);
+        void instrument_loop(Loop *loop, int func_id);
         void instrument_after_invoke(InvokeInst *II,
                                      vector<Value *> &ArgsV,
                                      Function *debrt_func);
         void instrument_indirect(void);
-        bool instrument_main(Module &M);
+
+
         string get_demangled_name(const Function &F);
-        void dump_static_callsets(void);
+        void dump_static_reachability(void);
+        void dump_loop_static_reachability(void);
+        void dump_encompassed_funcs(void);
+        void dump_loop_id_to_func_id(void);
+        void dump_func_name_to_id(void);
+        void dump_func_ptrs(void);
     };
 }
 
 
-void WholeProgramDebloat::instrument_loop(Loop *loop, Function *parent_func)
+void WholeProgramDebloat::instrument_loop(Loop *loop, int func_id)
 {
+    //
+    // XXX All this code is intentionally crammed in here. 'loop' is, I think,
+    // an object address from getLoopInfo() that poofs. So we don't want to
+    // rely on its address as a map key anywhere (like we might for a Fuction
+    // or BasicBlock object).
+    // 
+
+    int loop_id = loop_id_counter;
+
     // Find preheader
     // FIXME This looks sus.
     // Consider checking LLVM doxygen on getLoopPreheader. The fix could be to
@@ -91,54 +122,21 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Function *parent_func)
             int idH = bb_map[header];
             int idP = bb_map[pred];
             if(idP < idH){
-                //errs() << "hit case where preader gets assigned to pred\n";
+                //errs() << "hit case where preheader gets assigned to pred\n";
                 preheader = pred;
                 break;
             }
         }
     }
-    // errs() << "Get Preheader\n";
 
-    // Find the functions within the loops
-    queue<Function *> queueFunctions;
-    set<Function *> setFunctions;
-    for(auto bb = loop->block_begin(); bb != loop->block_end(); ++bb){
-        for(auto &I : *(*bb)){
-            CallBase *CB = dyn_cast<CallInst>(&I);
-            if(!CB){
-                CB = dyn_cast<InvokeInst>(&I);
-            }
-            if(CB){
-                Function *newF = CB->getCalledFunction();
-                if(function_map.count(newF) > 0){
-                    // errs() << "Function(" << newF->getName().str() << ") is within loop nest\n";
-                    queueFunctions.push(newF);
-                    setFunctions.insert(newF);
-                }
-            }
-        }
-    }
-
-    // Find the children of the functions that we have already seen
-    while(!queueFunctions.empty()){
-        Function *curr = queueFunctions.front();
-        queueFunctions.pop();
-
-        for(auto &B : *curr){
-            for(auto &I : B){
-                CallBase *CB = dyn_cast<CallInst>(&I);
-                if(!CB){
-                    CB = dyn_cast<InvokeInst>(&I);
-                }
-                if(CB){
-                    Function *newF = CB->getCalledFunction();
-                    if(function_map.count(newF) > 0){
-                        if(setFunctions.find(newF) == setFunctions.end()){
-                            // errs() << "Function(" << newF->getName().str() << ") is within loop nest\n";
-                            queueFunctions.push(newF);
-                            setFunctions.insert(newF);
-                        }
-                    }
+    // Prime loop_static_reachability with any callees in our loops
+    for(auto &B : loop->getBlocks()){
+        for(auto &I : (*B)){
+            CallBase *cb = dyn_cast<CallBase>(&I);
+            if(cb){
+                Function *callee = cb->getCalledFunction();
+                if(func_to_id.count(callee) > 0){
+                    loop_static_reachability[loop_id].insert(callee);
                 }
             }
         }
@@ -146,22 +144,27 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Function *parent_func)
 
     // If there was at least one function call inside the loop, then we
     // will instrument it.
-    if(setFunctions.size() > 0){
+    if(loop_static_reachability.find(loop_id) != loop_static_reachability.end()){
+
+        // Extend based on reachability of those callees
+        for(auto loop_callee : loop_static_reachability[loop_id]){
+            for(auto reachable_func : static_reachability[loop_callee]){
+                loop_static_reachability[loop_id].insert(reachable_func);
+            }
+        }
+
         // Create arguments for the library function
         // errs() << "Make arguments\n";
         vector<Value *> ArgsV;
-        ArgsV.push_back(ConstantInt::get(int32Ty, 1+setFunctions.size(), false));
-        ArgsV.push_back(ConstantInt::get(int32Ty, function_map[parent_func], false));
-        for(auto F : setFunctions){
-            ArgsV.push_back(ConstantInt::get(int32Ty, function_map[F], false));
-        }
+        errs() << "instrumenting loop id " << loop_id << "\n";
+        ArgsV.push_back(ConstantInt::get(int32Ty, loop_id, false));
 
         // instrument the preheader of the loop
         Instruction *TI = preheader->getTerminator();
         assert(TI);
-        assert(debrt_protect_func);
+        assert(debrt_protect_loop_func);
         IRBuilder<> builder(TI);
-        builder.CreateCall(debrt_protect_func, ArgsV);
+        builder.CreateCall(debrt_protect_loop_func, ArgsV);
         // errs() << "Inserted library function within preheader(" << preheader->getName().str() << "\n";
 
         // instrument the exit(s) block(s) of the loop
@@ -177,63 +180,28 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, Function *parent_func)
             Instruction *ebt = exit_block->getTerminator();
             assert(ebt);
             IRBuilder<> builder_exit(ebt);
-            builder_exit.CreateCall(debrt_protect_end_func, ArgsV);
+            builder_exit.CreateCall(debrt_protect_loop_end_func, ArgsV);
         }
+
+        // Note which function this loop is associated with
+        loop_id_to_func_id[loop_id] = func_id;
+
+        // Bump our ID counter
+        loop_id_counter++;
     }
 
 }
 
 
-void WholeProgramDebloat::mark_no_instrument_callees_in_loop(Module &M)
+void WholeProgramDebloat::extend_encompassed_funcs(void)
 {
-    LoopInfo *li;
-    CallBase *cb;
-    for(auto &F : M){
-        if(F.hasName() && !F.isDeclaration()){
-            all_funcs.insert(&F);
-            li = &getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
-            for(auto &B : F){
-                for(auto &I : B){
-                    cb = dyn_cast<CallInst>(&I);
-                    if(!cb){
-                        cb = dyn_cast<InvokeInst>(&I);
-                    }
-                    if(cb){
-                        Function *callee = cb->getCalledFunction();
-                        if(function_map.count(callee) > 0){
-                            adj_list[&F].insert(callee);
-                            if(li && li->getLoopFor(&B)){
-                                no_instrument_funcs.insert(callee);
-                            }
-                        }
-                    }
-                }
-            }
+    for(auto F : encompassed_funcs){
+        for(auto reachable_func : static_reachability[F]){
+            encompassed_funcs.insert(reachable_func);
         }
     }
 }
 
-void WholeProgramDebloat::mark_no_instrument_reachable_funcs(void)
-{
-
-    queue<Function *> q;
-    set<Function *> visited;
-    for(auto F : no_instrument_funcs){
-        q.push(F);
-    }
-
-    while(!q.empty()){
-        Function *f = q.front();
-        q.pop();
-        visited.insert(f);
-        for(auto callee : adj_list[f]){
-            if(visited.find(callee) == visited.end()){
-                q.push(callee);
-                no_instrument_funcs.insert(callee);
-            }
-        }
-    }
-}
 
 void WholeProgramDebloat::instrument_after_invoke(InvokeInst *II,
                                                   vector<Value *> &ArgsV,
@@ -303,6 +271,7 @@ void WholeProgramDebloat::instrument_indirect(void)
                             ArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
                             builder.CreateCall(debrt_protect_indirect_func, ArgsV);
 
+                            // instrument after indirect func call
                             if(CI){
                                 IRBuilder<> builder_end(CI);
                                 builder_end.SetInsertPoint(CI->getNextNode());
@@ -329,13 +298,7 @@ void WholeProgramDebloat::instrument_indirect(void)
 
 void WholeProgramDebloat::instrument(void)
 {
-    set<Function *> instrument_funcs;
-    set_difference(all_funcs.begin(),
-                   all_funcs.end(),
-                   no_instrument_funcs.begin(),
-                   no_instrument_funcs.end(),
-                   inserter(instrument_funcs, instrument_funcs.end()));
-    for(auto f : instrument_funcs){
+    for(auto f : toplevel_funcs){
         // errs() << "Label Basicblocks\n";
         // Label each Basicblock within the funciton with a unique id
         int bb = 0;
@@ -346,10 +309,9 @@ void WholeProgramDebloat::instrument(void)
         errs() << "Instrumenting " << f->getName().str() << "\n";
 
         // Instrument outer loops
-        LI = &getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
-        // errs() << "Go through all outer loops" << "\n";
-        for(auto loop = LI->begin(), e = LI->end(); loop != e; ++loop ){
-            instrument_loop(*loop, f);
+        LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
+        for(auto loop = LI->begin(), e = LI->end(); loop != e; ++loop){
+            instrument_loop(*loop, func_to_id[f]);
         }
 
         // instrument call sites
@@ -364,43 +326,24 @@ void WholeProgramDebloat::instrument(void)
                 InvokeInst *II = dyn_cast<InvokeInst>(&I);
                 if(CB){
                     Function *callee = CB->getCalledFunction();
-                    if(function_map.count(callee) > 0){
-                        if(no_instrument_funcs.find(callee) != no_instrument_funcs.end()){
+                    if(func_to_id.count(callee) > 0){
+                        if(encompassed_funcs.find(callee) != encompassed_funcs.end()){
                             // Case: callee is no-instrument
-
-                            // find statically reachable funcs of the callee
-                            queue<Function *> q;
-                            set<Function *> reachable_funcs;
-                            q.push(callee);
-                            while(!q.empty()){
-                                Function *qf = q.front();
-                                q.pop();
-                                reachable_funcs.insert(qf);
-                                for(auto qcallee : adj_list[qf]){
-                                    if(reachable_funcs.find(qcallee) == reachable_funcs.end()){
-                                        q.push(qcallee);
-                                    }
-                                }
-                            }
 
                             // instrument before callee
                             vector<Value *> ArgsV;
-                            ArgsV.push_back(ConstantInt::get(int32Ty, 1+reachable_funcs.size(), false));
-                            ArgsV.push_back(ConstantInt::get(int32Ty, function_map[f], false));
-                            for(auto rf : reachable_funcs){
-                                ArgsV.push_back(ConstantInt::get(int32Ty, function_map[rf], false));
-                            }
+                            ArgsV.push_back(ConstantInt::get(int32Ty, func_to_id[callee], false));
                             IRBuilder<> builder(CB);
-                            builder.CreateCall(debrt_protect_func, ArgsV);
+                            builder.CreateCall(debrt_protect_reachable_func, ArgsV);
 
                             // instrument after callee
                             if(CI){
                                 IRBuilder<> builder_end(CI);
                                 builder_end.SetInsertPoint(CI->getNextNode());
-                                builder_end.CreateCall(debrt_protect_end_func, ArgsV);
+                                builder_end.CreateCall(debrt_protect_reachable_end_func, ArgsV);
                             }else if(II){
                                 errs() << "no-instrument invoke case\n";
-                                instrument_after_invoke(II, ArgsV, debrt_protect_end_func);
+                                instrument_after_invoke(II, ArgsV, debrt_protect_reachable_end_func);
                             }else{
                                 assert(0);
                             }
@@ -410,21 +353,18 @@ void WholeProgramDebloat::instrument(void)
 
                             // instrument before callee
                             vector<Value *> ArgsV;
-                            ArgsV.push_back(ConstantInt::get(int32Ty, 2, false));
-                            ArgsV.push_back(ConstantInt::get(int32Ty, function_map[f], false));
-                            ArgsV.push_back(ConstantInt::get(int32Ty, function_map[callee], false));
+                            ArgsV.push_back(ConstantInt::get(int32Ty, func_to_id[callee], false));
                             IRBuilder<> builder(CB);
-                            builder.CreateCall(debrt_protect_func, ArgsV);
-
+                            builder.CreateCall(debrt_protect_single_func, ArgsV);
 
                             // instrument after callee
                             if(CI){
                                 IRBuilder<> builder_end(CI);
                                 builder_end.SetInsertPoint(CI->getNextNode());
-                                builder_end.CreateCall(debrt_protect_end_func, ArgsV);
+                                builder_end.CreateCall(debrt_protect_single_end_func, ArgsV);
                             }else if(II){
                                 errs() << "yes-instrument invoke case\n";
-                                instrument_after_invoke(II, ArgsV, debrt_protect_end_func);
+                                instrument_after_invoke(II, ArgsV, debrt_protect_single_end_func);
                             }else{
                                 assert(0);
                             }
@@ -435,23 +375,7 @@ void WholeProgramDebloat::instrument(void)
         }
     }
 
-    // instrument indirect function calls
-    instrument_indirect();
 
-}
-
-
-string WholeProgramDebloat::get_demangled_name(const Function &F)
-{
-    ItaniumPartialDemangler IPD;
-    string name = F.getName().str();
-    if(IPD.partialDemangle(name.c_str())){
-        return name;
-    }
-    if(IPD.isFunction()){
-        return IPD.getFunctionBaseName(nullptr, nullptr);
-    }
-    return IPD.finishDemangle(nullptr, nullptr);
 }
 
 
@@ -466,7 +390,7 @@ bool WholeProgramDebloat::instrument_main(Module &M)
             Instruction *I = F.getEntryBlock().getFirstNonPHI();
             assert(I);
             IRBuilder<> builder(I);
-            ArgsV.push_back(ConstantInt::get(int32Ty, function_map[&F], false));
+            ArgsV.push_back(ConstantInt::get(int32Ty, func_to_id[&F], false));
             builder.CreateCall(debrt_init_func, ArgsV);
             found_main = 1;
             break;
@@ -476,43 +400,111 @@ bool WholeProgramDebloat::instrument_main(Module &M)
 }
 
 
-bool WholeProgramDebloat::runOnModule(Module &M)
+
+
+void WholeProgramDebloat::build_basic_structs(Module &M)
 {
-    wpd_init(M);
-
-    instrument_main(M);
-
-    // mark as no-instrument any functions that are called inside a loop
-    mark_no_instrument_callees_in_loop(M);
-
-    // mark as no-instrument any functions that are reachable from a function
-    // that is no-instrument
-    mark_no_instrument_reachable_funcs();
-
-    instrument();
-}
-
-
-void WholeProgramDebloat::wpd_init(Module &M)
-{
-    // errs() << "Write Function to IDs map to a file\n";
-    // Give each application function an ID and write it to a file
-    FILE *fp = fopen("wpd_func_name_to_id.txt", "w");
-    FILE *fp_funcptrs = fopen("wpd_func_ptrs.txt", "w");
-    int count = 0 ;
+    LoopInfo *li;
+    CallBase *cb;
     for(auto &F : M){
         if(F.hasName() && !F.isDeclaration()){
-            fprintf(fp, "%s %u\n", F.getName().str().c_str(), count);
-            function_map[&F] = count;
-            count += 1;
-            if(F.hasAddressTaken()){
-                //errs() << "F.hasAddressTaken() is: " << F.getName() << "\n";
-                fprintf(fp_funcptrs, "%s\n", F.getName().str().c_str());
+            if(F.getName() == "select_atoms"){
+                errs() << "seeing select_atoms\n";
+            }
+            // update all_funcs
+            all_funcs.insert(&F);
+            li = &getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+            for(auto &B : F){
+                for(auto &I : B){
+                    cb = dyn_cast<CallBase>(&I);
+                    if(cb){
+                        Function *callee = cb->getCalledFunction();
+                        if(F.getName() == "select_atoms"){
+                            if(callee == NULL){
+                                errs() << "callee is null\n";
+                            }else{
+                                errs() << "seeing callee "<< callee->getName() <<"\n";
+                            }
+                        }
+                        if(func_to_id.count(callee) > 0){
+                            if(F.getName() == "select_atoms"){
+                                errs() << "if case for callee "<< callee->getName() <<"\n";
+                            }
+                            // update adj_list
+                            adj_list[&F].insert(callee);
+                            if(li && li->getLoopFor(&B)){
+                                if(F.getName() == "select_atoms"){
+                                    errs() << "got all the way through for callee "<< callee->getName() <<"\n";
+                                }
+                                // add any functions that are called inside of
+                                // a loop to encompassed_funcs
+                                encompassed_funcs.insert(callee);
+                            }
+                        }else{
+                            if(F.getName() == "select_atoms"){
+                                errs() << "else case\n";
+                            }
+                        }
+                    }
+                }
+            }
+            if(F.getName() == "select_atoms"){
+                errs() << "leaving select_atoms\n";
             }
         }
     }
-    fclose(fp);
-    fclose(fp_funcptrs);
+}
+
+void WholeProgramDebloat::build_static_reachability(void)
+{
+    for(auto F : all_funcs){
+        queue<Function *> q;
+        for(auto callee : adj_list[F]){
+            q.push(callee);
+        }
+        while(!q.empty()){
+            Function *f = q.front();
+            q.pop();
+            static_reachability[F].insert(f);
+            for(auto qcallee : adj_list[f]){
+                if(static_reachability[F].find(qcallee) == static_reachability[F].end()){
+                    q.push(qcallee);
+                }
+            }
+        }
+    }
+}
+
+void WholeProgramDebloat::build_toplevel_funcs(void)
+{
+    // toplevel_funcs = all_funcs \ encompassed_funcs
+    set_difference(all_funcs.begin(),
+                   all_funcs.end(),
+                   encompassed_funcs.begin(),
+                   encompassed_funcs.end(),
+                   inserter(toplevel_funcs, toplevel_funcs.end()));
+}
+
+void WholeProgramDebloat::wpd_init(Module &M)
+{
+    // Init loop count (for handing out IDs)
+    loop_id_counter = 0;
+
+    // Give each application function an ID
+    int count = 0;
+    for(auto &F : M){
+        if(F.hasName() && !F.isDeclaration()){
+            func_name_to_id[F.getName().str()] = count;
+            func_to_id[&F] = count;
+            func_id_to_name[count] = F.getName().str();
+            count++;
+            if(F.hasAddressTaken()){
+                //errs() << "F.hasAddressTaken() is: " << F.getName() << "\n";
+                func_has_addr_taken.insert(F.getName().str());
+            }
+        }
+    }
+
 
     // errs() << "Create library function\n";
     // Create library function
@@ -525,13 +517,29 @@ void WholeProgramDebloat::wpd_init(Module &M)
             Function::ExternalLinkage,
             "debrt_init",
             M);
-    debrt_protect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+    debrt_protect_single_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
             Function::ExternalLinkage,
-            "debrt_protect",
+            "debrt_protect_single",
             M);
-    debrt_protect_end_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+    debrt_protect_single_end_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
             Function::ExternalLinkage,
-            "debrt_protect_end",
+            "debrt_protect_single_end",
+            M);
+    debrt_protect_reachable_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+            Function::ExternalLinkage,
+            "debrt_protect_reachable",
+            M);
+    debrt_protect_reachable_end_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+            Function::ExternalLinkage,
+            "debrt_protect_reachable_end",
+            M);
+    debrt_protect_loop_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+            Function::ExternalLinkage,
+            "debrt_protect_loop",
+            M);
+    debrt_protect_loop_end_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+            Function::ExternalLinkage,
+            "debrt_protect_loop_end",
             M);
     debrt_protect_indirect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
             Function::ExternalLinkage,
@@ -543,35 +551,134 @@ void WholeProgramDebloat::wpd_init(Module &M)
             M);
 }
 
-bool WholeProgramDebloat::doInitialization(Module &M)
+
+bool WholeProgramDebloat::runOnModule(Module &M)
 {
-    // XXX don't use this to initialize shit unless you want it to wig out
-    return false;
+    // Initialization
+    wpd_init(M);
+
+    // Build all_funcs, adj_list, func_to_loop_info
+    // Paritlally build encompassed_funcs
+    build_basic_structs(M);
+
+    // Build a map of func -> set of statically reachable funcs
+    build_static_reachability();
+
+    // Extend encompassed_funcs to any functions that are reachable from
+    // its members
+    extend_encompassed_funcs();
+
+    // Build the set of functions that are "top-level", i.e. not reachable
+    // from within any loop
+    build_toplevel_funcs();
+
+    // Instrument main with a debrt-init call
+    instrument_main(M);
+
+    // Instrument all other functions
+    instrument();
+
+    // instrument indirect function calls
+    instrument_indirect();
 }
 
-void WholeProgramDebloat::dump_static_callsets(void)
+
+void WholeProgramDebloat::dump_static_reachability(void)
 {
-    FILE *fp_callset = fopen("wpd_func_id_to_callset.txt", "w");
-    //errs() << "Dumping static callsets\n";
-    for(auto p : adj_list){
+    FILE *fp_reachability = fopen("wpd_static_reachability.txt", "w");
+    //errs() << "Dumping static reachability\n";
+    for(auto p : static_reachability){
         Function *f = p.first;
-        set<Function *> &callees = p.second;
+        set<Function *> &reachable_funcs = p.second;
         //errs() << f->getName() << ": ";
-        //fprintf(fp_callset, "%s ", f->getName().str().c_str());
-        fprintf(fp_callset, "%d ", function_map[f]);
-        for(auto callee : callees){
-            //errs() << callee->getName() << " ";
-            //fprintf(fp_callset, "%s,", callee->getName().str().c_str());
-            fprintf(fp_callset, "%d,", function_map[callee]);
+        //fprintf(fp_reachability, "%s ", f->getName().str().c_str());
+        fprintf(fp_reachability, "%d ", func_to_id[f]);
+        for(auto rf : reachable_funcs){
+            //errs() << rf->getName() << " ";
+            //fprintf(fp_reachability, "%s,", rf->getName().str().c_str());
+            fprintf(fp_reachability, "%d,", func_to_id[rf]);
         }
         //errs() << "\n";
-        fprintf(fp_callset, "\n");
+        fprintf(fp_reachability, "\n");
     }
-    fclose(fp_callset);
+    fclose(fp_reachability);
+}
+void WholeProgramDebloat::dump_loop_static_reachability(void)
+{
+    FILE *fp_loop_reachability = fopen("wpd_loop_static_reachability.txt", "w");
+    for(auto p : loop_static_reachability){
+        int loop_id = p.first;
+        set<Function *> &reachable_funcs = p.second;
+        fprintf(fp_loop_reachability, "%d ", loop_id);
+        for(auto rf : reachable_funcs){
+            fprintf(fp_loop_reachability, "%d,", func_to_id[rf]);
+        }
+        fprintf(fp_loop_reachability, "\n");
+    }
+    fclose(fp_loop_reachability);
+}
+void WholeProgramDebloat::dump_encompassed_funcs(void)
+{
+    FILE *fp_encompassed = fopen("wpd_encompassed_funcs.txt", "w");
+    for(auto ef : encompassed_funcs){
+        int func_id = func_to_id[ef];
+        fprintf(fp_encompassed, "%d (%s)\n", func_id, func_id_to_name[func_id].c_str());
+    }
+    fclose(fp_encompassed);
+}
+void WholeProgramDebloat::dump_loop_id_to_func_id(void)
+{
+    FILE *fp_loop_to_func = fopen("wpd_loop_to_func.txt", "w");
+    for(auto p : loop_id_to_func_id){
+        int loop_id = p.first;
+        int func_id = p.second;
+        //errs() << l->getName() << ": ";
+        //fprintf(fp_loop_to_func, "%s ", l->getName().str().c_str());
+        fprintf(fp_loop_to_func, "%d: %d (%s)\n", loop_id, func_id, func_id_to_name[func_id].c_str());
+    }
+    fclose(fp_loop_to_func);
+}
+void WholeProgramDebloat::dump_func_ptrs(void)
+{
+    FILE *fp_funcptrs = fopen("wpd_func_ptrs.txt", "w");
+    for(auto func_name : func_has_addr_taken){
+        fprintf(fp_funcptrs, "%s\n", func_name.c_str());
+    }
+    fclose(fp_funcptrs);
+}
+void WholeProgramDebloat::dump_func_name_to_id(void)
+{
+    FILE *fp = fopen("wpd_func_name_to_id.txt", "w");
+    for(auto fn2id : func_name_to_id){
+        fprintf(fp, "%s %u\n", fn2id.first.c_str(), fn2id.second);
+    }
+    fclose(fp);
+}
+string WholeProgramDebloat::get_demangled_name(const Function &F)
+{
+    ItaniumPartialDemangler IPD;
+    string name = F.getName().str();
+    if(IPD.partialDemangle(name.c_str())){
+        return name;
+    }
+    if(IPD.isFunction()){
+        return IPD.getFunctionBaseName(nullptr, nullptr);
+    }
+    return IPD.finishDemangle(nullptr, nullptr);
 }
 bool WholeProgramDebloat::doFinalization(Module &M)
 {
-    dump_static_callsets();
+    dump_encompassed_funcs();
+    dump_static_reachability();
+    dump_loop_static_reachability();
+    dump_func_name_to_id();
+    dump_func_ptrs();
+    dump_loop_id_to_func_id();
+    return false;
+}
+bool WholeProgramDebloat::doInitialization(Module &M)
+{
+    // XXX don't use this to initialize shit unless you want it to wig out
     return false;
 }
 
