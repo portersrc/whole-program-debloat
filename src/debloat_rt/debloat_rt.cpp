@@ -211,7 +211,7 @@ void _dump_loop_static_reachability(void)
         for(auto reachable_func : p.second){
             DEBRT_PRINTF("%d ", reachable_func);
         }
-        DEBRT_PRINTF("\n", loop_id);
+        DEBRT_PRINTF("\n");
     }
 }
 

@@ -284,8 +284,11 @@ void WholeProgramDebloat::instrument_indirect(void)
                                     assert(0);
                                 }
                             }else{
-                                assert(0 && "ERROR: Unhandled functionality " \
-                                       "- indirect call in encompassed_funcs");
+                                errs() << "WARNING: Unhandled functionality "
+                                       << "- indirect call in encompassed_funcs."
+                                       << " Could lead to runtime crash.\n";
+                                //assert(0 && "ERROR: Unhandled functionality " \
+                                //       "- indirect call in encompassed_funcs");
                             }
                         }else{
                             // Not sure how to handle this if it happens
