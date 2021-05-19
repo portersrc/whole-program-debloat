@@ -408,9 +408,6 @@ void WholeProgramDebloat::build_basic_structs(Module &M)
     CallBase *cb;
     for(auto &F : M){
         if(F.hasName() && !F.isDeclaration()){
-            if(F.getName() == "select_atoms"){
-                errs() << "seeing select_atoms\n";
-            }
             // update all_funcs
             all_funcs.insert(&F);
             li = &getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
@@ -419,37 +416,17 @@ void WholeProgramDebloat::build_basic_structs(Module &M)
                     cb = dyn_cast<CallBase>(&I);
                     if(cb){
                         Function *callee = cb->getCalledFunction();
-                        if(F.getName() == "select_atoms"){
-                            if(callee == NULL){
-                                errs() << "callee is null\n";
-                            }else{
-                                errs() << "seeing callee "<< callee->getName() <<"\n";
-                            }
-                        }
                         if(func_to_id.count(callee) > 0){
-                            if(F.getName() == "select_atoms"){
-                                errs() << "if case for callee "<< callee->getName() <<"\n";
-                            }
                             // update adj_list
                             adj_list[&F].insert(callee);
                             if(li && li->getLoopFor(&B)){
-                                if(F.getName() == "select_atoms"){
-                                    errs() << "got all the way through for callee "<< callee->getName() <<"\n";
-                                }
                                 // add any functions that are called inside of
                                 // a loop to encompassed_funcs
                                 encompassed_funcs.insert(callee);
                             }
-                        }else{
-                            if(F.getName() == "select_atoms"){
-                                errs() << "else case\n";
-                            }
                         }
                     }
                 }
-            }
-            if(F.getName() == "select_atoms"){
-                errs() << "leaving select_atoms\n";
             }
         }
     }
