@@ -25,7 +25,7 @@
 
 using namespace std;
 
-#define DEBRT_DEBUG
+//#define DEBRT_DEBUG
 
 #define CGPredict
 
@@ -38,6 +38,16 @@ using namespace std;
 #else
 #define DEBRT_PRINTF(...)
 #endif
+
+
+#define _WARN_RETURN_IF_NOT_INITIALIZED() \
+    if(!lib_initialized){ \
+        fprintf(stderr, "WARNING: debrt-protect called before lib was initialized." \
+                        "Ignoring debrt-protect call. (This may be OK if this " \
+                        "happens at start-up due to an instrumented C++ " \
+                        "constructor before main.)\n"); \
+        return 1; \
+    }
 
 
 #define PAGE_SIZE 0x1000
@@ -1626,7 +1636,7 @@ extern "C" {
 int debrt_protect_single(int callee_func_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
-    assert(lib_initialized);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
     DEBRT_PRINTF("INC page count for func_id %d\n", callee_func_id);
     update_page_counts(callee_func_id, 1);
     return 0;
@@ -1638,7 +1648,7 @@ extern "C" {
 int debrt_protect_single_end(int callee_func_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
-    assert(lib_initialized);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
     DEBRT_PRINTF("DEC page count for func_id %d\n", callee_func_id);
     update_page_counts(callee_func_id, -1);
     return 0;
@@ -1657,12 +1667,16 @@ int _protect_reachable(int callee_func_id, int addend)
 extern "C" {
 int debrt_protect_reachable(int callee_func_id)
 {
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
     return _protect_reachable(callee_func_id, 1);
 }
 }
 extern "C" {
 int debrt_protect_reachable_end(int callee_func_id)
 {
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
     return _protect_reachable(callee_func_id, -1);
 }
 }
@@ -1680,6 +1694,7 @@ extern "C" {
 int debrt_protect_loop(int loop_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
     _protect_loop_reachable(loop_id, 1);
     return 0;
 }
@@ -1689,6 +1704,7 @@ extern "C" {
 int debrt_protect_loop_end(int loop_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
     _protect_loop_reachable(loop_id, -1);
     return 0;
 }
@@ -1699,6 +1715,7 @@ extern "C" {
 int debrt_protect_indirect(long long callee_addr)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
     DEBRT_PRINTF("callee_addr is: 0x%llx\n", callee_addr);
     int func_id = func_addr_to_id[callee_addr];
     assert(encompassed_funcs.find(func_id) == encompassed_funcs.end());
@@ -1715,6 +1732,7 @@ extern "C" {
 int debrt_protect_indirect_end(long long callee_addr)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
     DEBRT_PRINTF("end callee_addr is: 0x%llx\n", callee_addr);
     int func_id = func_addr_to_id[callee_addr];
     assert(encompassed_funcs.find(func_id) == encompassed_funcs.end());
