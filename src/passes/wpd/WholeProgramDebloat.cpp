@@ -12,7 +12,7 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
-#include <llvm/Demangle/Demangle.h>
+#include "llvm/Demangle/Demangle.h"
 
 #include <set>
 #include <stack>
@@ -58,17 +58,18 @@ namespace {
         map<Function *, set<Function *> > static_reachability;
         map<int, set<Function *> > loop_static_reachability;
         map<int, int> loop_id_to_func_id; // for debugging
-        set<string> func_has_addr_taken;
+        set<string> func_name_has_addr_taken;
+        set<Function *> func_has_addr_taken;
         int loop_id_counter;
 
 
         void getAnalysisUsage(AnalysisUsage &AU) const
         {
             AU.addRequired<LoopInfoWrapperPass>();
-            AU.setPreservesAll();
         }
 
-        bool runOnModule(Module &) override;
+        bool runOnModule(Module &M) override;
+        bool runOnModule_real(Module &M);
         bool doInitialization(Module &) override;
         bool doFinalization(Module &) override;
 
@@ -195,6 +196,9 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, int func_id)
 
 void WholeProgramDebloat::extend_encompassed_funcs(void)
 {
+    for(auto F : func_has_addr_taken){
+        encompassed_funcs.insert(F);
+    }
     for(auto F : encompassed_funcs){
         for(auto reachable_func : static_reachability[F]){
             encompassed_funcs.insert(reachable_func);
@@ -482,11 +486,12 @@ void WholeProgramDebloat::wpd_init(Module &M)
             func_name_to_id[F.getName().str()] = count;
             func_to_id[&F] = count;
             func_id_to_name[count] = F.getName().str();
-            count++;
             if(F.hasAddressTaken()){
                 //errs() << "F.hasAddressTaken() is: " << F.getName() << "\n";
-                func_has_addr_taken.insert(F.getName().str());
+                func_name_has_addr_taken.insert(F.getName().str());
+                func_has_addr_taken.insert(&F);
             }
+            count++;
         }
     }
 
@@ -537,7 +542,8 @@ void WholeProgramDebloat::wpd_init(Module &M)
 }
 
 
-bool WholeProgramDebloat::runOnModule(Module &M)
+
+bool WholeProgramDebloat::runOnModule_real(Module &M)
 {
     // Initialization
     wpd_init(M);
@@ -565,6 +571,11 @@ bool WholeProgramDebloat::runOnModule(Module &M)
 
     // instrument indirect function calls
     instrument_indirect();
+}
+
+bool WholeProgramDebloat::runOnModule(Module &M)
+{
+    runOnModule_real(M);
 }
 
 
@@ -625,8 +636,8 @@ void WholeProgramDebloat::dump_loop_id_to_func_id(void)
 }
 void WholeProgramDebloat::dump_func_ptrs(void)
 {
-    FILE *fp_funcptrs = fopen("wpd_func_ptrs.txt", "w");
-    for(auto func_name : func_has_addr_taken){
+    FILE *fp_funcptrs = fopen("wpd_func_name_has_addr_taken.txt", "w");
+    for(auto func_name : func_name_has_addr_taken){
         fprintf(fp_funcptrs, "%s\n", func_name.c_str());
     }
     fclose(fp_funcptrs);

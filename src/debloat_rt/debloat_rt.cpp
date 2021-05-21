@@ -111,9 +111,10 @@ long long text_size   = 0;
 
 
 map<int, string>                 func_id_to_name; // convenience
-map<int, pair<long long, long> > func_id_to_addr_and_size;
+map<int, pair<long long, long> > func_id_to_rel_addr_and_size;
 map<int, set<int> >              func_id_to_reachable_funcs;
 map<int, vector<long long> >     func_id_to_pages;
+map<int, long long>              func_id_to_addr;
 
 map<int, set<int> >              loop_id_to_reachable_funcs;
 
@@ -200,14 +201,20 @@ void _dump_func_id_to_addr_and_size(void)
     int func_id;
     long long addr;
     long size;
-    for(auto it = func_id_to_addr_and_size.begin(); it != func_id_to_addr_and_size.end(); it++){
+    for(auto it = func_id_to_rel_addr_and_size.begin(); it != func_id_to_rel_addr_and_size.end(); it++){
         func_id = it->first;
         //pair<long long, long> addr_and_size = it->second;
         addr = it->second.first;
         size = it->second.second;
         //DEBRT_PRINTF("%d: 0x%llx %ld\n", func_id, addr_and_size[0], addr_and_size[1]);
         //DEBRT_PRINTF("%d:\n", func_id);
-        DEBRT_PRINTF("%d (%s): 0x%llx %ld\n", func_id, func_id_to_name[func_id].c_str(), addr, size);
+        DEBRT_PRINTF("%d (%s): 0x%llx %ld (0x%llx - 0x%llx)\n",
+                     func_id,
+                     func_id_to_name[func_id].c_str(),
+                     addr,
+                     size,
+                     executable_addr_base + addr,
+                     executable_addr_base + addr + size);
     }
 }
 
@@ -223,6 +230,15 @@ void _dump_loop_static_reachability(void)
         }
         DEBRT_PRINTF("\n");
     }
+}
+
+void _dump_encompassed_funcs(void)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    for(auto func_id : encompassed_funcs){
+        DEBRT_PRINTF("%d, ", func_id);
+    }
+    DEBRT_PRINTF("\n");
 }
 
 
@@ -450,7 +466,7 @@ void _assert_return_addr_in_main(long long return_addr)
     assert(func_name_to_id.find("main") != func_name_to_id.end());
     func_id = func_name_to_id["main"];
     DEBRT_PRINTF("return_addr of first debrt-protect call 0x%llx\n", return_addr);
-    pair<long long, long> addr_and_size = func_id_to_addr_and_size[func_id];
+    pair<long long, long> addr_and_size = func_id_to_rel_addr_and_size[func_id];
     assert(return_addr >= executable_addr_base + addr_and_size.first);
     assert(return_addr  < executable_addr_base + addr_and_size.first + addr_and_size.second);
 }
@@ -998,8 +1014,9 @@ void _read_readelf(void)
                 // check that the name is part of whatever we got in nm.
                 if(func_name_to_id.find(func_name) != func_name_to_id.end()){
                     int func_id = func_name_to_id[func_name];
-                    func_id_to_addr_and_size[func_id] = make_pair(func_addr, func_size);
-                    func_addr_to_id[func_addr] = func_id;
+                    func_id_to_rel_addr_and_size[func_id] = make_pair(func_addr, func_size);
+                    func_addr_to_id[executable_addr_base + func_addr] = func_id;
+                    func_id_to_addr[func_id] = executable_addr_base + func_addr;
                     vector<long long> pages;
                     long long first_page;
                     long long last_page;
@@ -1199,9 +1216,9 @@ void _read_func_ptrs(void)
     ifstream ifs;
     vector<string> elems;
 
-    ifs.open("wpd_func_ptrs.txt");
+    ifs.open("wpd_func_name_has_addr_taken.txt");
     if(!ifs.is_open()){
-        perror("Error openening wpd-func-name-to-id file");
+        perror("Error openening wpd-func-name-has-addr-taken file");
         exit(EXIT_FAILURE);
     }
 
@@ -1238,7 +1255,7 @@ void _read_static_reachability(void)
     while(getline(ifs, line)){
         elems = split(line, ' ');
         func_id = atoi(elems[0].c_str());
-        addr = func_id_to_addr_and_size[func_id].first;
+        addr = func_id_to_addr[func_id];
         if(elems.size() == 1){
             continue;
         }
@@ -1277,8 +1294,11 @@ void _read_encompassed_funcs(void)
         exit(EXIT_FAILURE);
     }
     while(getline(ifs, line)){
-        func_id = atoi(line.c_str());
+        elems = split(line, ' ');
+        assert(elems.size() == 2);
+        func_id = atoi(elems[0].c_str());
         encompassed_funcs.insert(func_id);
+        // elems[1] is func name for convenience. can ignore.
     }
     ifs.close();
 
@@ -1611,6 +1631,7 @@ int debrt_init(int main_func_id)
     _dump_func_id_to_pages();
     _dump_func_id_to_addr_and_size();
     _dump_loop_static_reachability();
+    _dump_encompassed_funcs();
 
     _init_page_to_count();
 
@@ -1717,12 +1738,20 @@ int debrt_protect_indirect(long long callee_addr)
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
     DEBRT_PRINTF("callee_addr is: 0x%llx\n", callee_addr);
+    if(func_addr_to_id.find(callee_addr) == func_addr_to_id.end()){
+        // This could be a valid case. Example: A top-level function is
+        // instrumented at an indirect callsite, and at runtime, this resolves
+        // to a library address. In that case, we can safely ignore. We warn
+        // just in case we need to review later.
+        DEBRT_PRINTF("WARNING: callee_addr not found.\n");
+        return 0;
+    }
     int func_id = func_addr_to_id[callee_addr];
-    assert(encompassed_funcs.find(func_id) == encompassed_funcs.end());
-    //if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
-    //    // encompassed function
-    //    return debrt_protect_reachable(func_id);
-    //}
+    DEBRT_PRINTF("func_id is: %d\n", func_id);
+    if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
+        // encompassed function
+        return debrt_protect_reachable(func_id);
+    }
     // top-level function
     return debrt_protect_single(func_id);
 }
@@ -1734,12 +1763,17 @@ int debrt_protect_indirect_end(long long callee_addr)
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
     DEBRT_PRINTF("end callee_addr is: 0x%llx\n", callee_addr);
+    if(func_addr_to_id.find(callee_addr) == func_addr_to_id.end()){
+        // See debrt_protect_indirect() for why this is OK.
+        DEBRT_PRINTF("WARNING: callee_addr not found.\n");
+        return 0;
+    }
     int func_id = func_addr_to_id[callee_addr];
-    assert(encompassed_funcs.find(func_id) == encompassed_funcs.end());
-    //if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
-    //    // encompassed function
-    //    return debrt_protect_reachable_end(func_id);
-    //}
+    DEBRT_PRINTF("func_id is: %d\n", func_id);
+    if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
+        // encompassed function
+        return debrt_protect_reachable_end(func_id);
+    }
     // top-level function
     return debrt_protect_single_end(func_id);
 }
