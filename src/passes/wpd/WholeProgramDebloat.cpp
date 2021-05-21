@@ -13,6 +13,7 @@
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Demangle/Demangle.h"
+#include "llvm/IR/InlineAsm.h"
 
 #include <set>
 #include <stack>
@@ -268,6 +269,10 @@ void WholeProgramDebloat::instrument_indirect(void)
                     if(CB->getCalledFunction() == NULL){
                         errs() << "seeing indirect function call\n";
                         Value *v = CB->getCalledOperand();
+                        if(dyn_cast<InlineAsm>(v)){
+                            // ignore inline assembly... don't instrument
+                            continue;
+                        }
                         if(v->getType()->isPointerTy()){
                             if(encompassed_funcs.find(f) == encompassed_funcs.end()){
                                 // instrument before indirect func call
@@ -577,7 +582,6 @@ bool WholeProgramDebloat::runOnModule(Module &M)
 {
     runOnModule_real(M);
 }
-
 
 void WholeProgramDebloat::dump_static_reachability(void)
 {
