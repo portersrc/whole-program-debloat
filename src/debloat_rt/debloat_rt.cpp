@@ -25,7 +25,7 @@
 
 using namespace std;
 
-//#define DEBRT_DEBUG
+#define DEBRT_DEBUG
 
 #define CGPredict
 
@@ -354,9 +354,11 @@ void update_page_counts(int func_id, int addend)
     //
 
     DEBRT_PRINTF("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("func_id is %d\n", func_id);
     DEBRT_PRINTF("pages.size(): %lu\n", pages.size());
     for(i = 0; i < pages.size(); i++){
         addr = pages[i];
+        DEBRT_PRINTF("updating addr 0x%llx\n", addr);
         page_to_count[addr] += addend;
         if(page_to_count[addr] < 0){
             DEBRT_PRINTF("page_to_count[addr] < 0. exiting. " \
@@ -1006,7 +1008,9 @@ void _read_readelf(void)
                 func_addr = strtoll(token.c_str(), NULL, 16);
 
             }else if(which_token == RELF_SIZE){
-                func_size = strtol(token.c_str(), NULL, 10);
+                // infer base by passing "0". almost always 10 but ive seen 16
+                // in at least one perlbench function
+                func_size = strtol(token.c_str(), NULL, 0);
 
             // func name
             }else if(which_token == RELF_NAME){
@@ -1679,10 +1683,12 @@ int debrt_protect_single_end(int callee_func_id)
 static inline
 int _protect_reachable(int callee_func_id, int addend)
 {
+    DEBRT_PRINTF("callee_func_id: %d\n", callee_func_id);
     update_page_counts(callee_func_id, addend);
     for(int reachable_func : func_id_to_reachable_funcs[callee_func_id]){
         update_page_counts(reachable_func, addend);
     }
+    DEBRT_PRINTF("leaving _protect_reachable\n");
     return 0;
 }
 extern "C" {
@@ -1706,6 +1712,7 @@ int debrt_protect_reachable_end(int callee_func_id)
 static inline
 int _protect_loop_reachable(int loop_id, int addend)
 {
+    DEBRT_PRINTF("loop id: %d\n", loop_id);
     for(int reachable_func : loop_id_to_reachable_funcs[loop_id]){
         update_page_counts(reachable_func, addend);
     }
