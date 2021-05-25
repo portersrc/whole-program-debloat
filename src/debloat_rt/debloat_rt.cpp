@@ -25,7 +25,7 @@
 
 using namespace std;
 
-#define DEBRT_DEBUG
+//#define DEBRT_DEBUG
 
 #define CGPredict
 
@@ -1443,6 +1443,9 @@ void _debrt_map_ptd_to_funcs(void)
     DEBRT_PRINTF("mapping RX any pages of ptd-to funcs\n");
     for(auto func_id : ptd_to_func_ids){
         update_page_counts(func_id, 1);
+        for(auto reachable_func_id : func_id_to_reachable_funcs[func_id]){
+            update_page_counts(reachable_func_id, 1);
+        }
     }
 }
 
