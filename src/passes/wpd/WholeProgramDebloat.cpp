@@ -46,7 +46,6 @@ namespace {
         map<string, int> func_name_to_id;
         Type *int32Ty;
         Type *int64Ty;
-        map<BasicBlock *, int> bb_map;
         map<Function *, set<Function *> > adj_list;
         set<Function *> all_funcs;
         // "encompassed funcs" are functions that we aren't
@@ -112,24 +111,8 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, int func_id)
     int loop_id = loop_id_counter;
 
     // Find preheader
-    // FIXME This looks sus.
-    // Consider checking LLVM doxygen on getLoopPreheader. The fix could be to
-    // walk incoming edges to the first BB of the loop. Another option
-    // if needed is to run loop-simplify beforehand.
-    // see also https://llvm.org/docs/LoopTerminology.html
     BasicBlock *preheader = loop->getLoopPreheader();
-    BasicBlock *header = *(loop->block_begin());
-    if(!preheader){
-        for(BasicBlock *pred : predecessors(header)){
-            int idH = bb_map[header];
-            int idP = bb_map[pred];
-            if(idP < idH){
-                //errs() << "hit case where preheader gets assigned to pred\n";
-                preheader = pred;
-                break;
-            }
-        }
-    }
+    assert(preheader); // must run -loop-simplify for this to be OK.
 
     // Prime loop_static_reachability with any callees in our loops
     for(auto &B : loop->getBlocks()){
@@ -316,13 +299,6 @@ void WholeProgramDebloat::instrument_indirect(void)
 void WholeProgramDebloat::instrument(void)
 {
     for(auto f : toplevel_funcs){
-        // errs() << "Label Basicblocks\n";
-        // Label each Basicblock within the funciton with a unique id
-        int bb = 0;
-        for(auto &b : *f){
-            bb_map[&b] = bb;
-            bb += 1;
-        }
         errs() << "Instrumenting " << f->getName().str() << "\n";
 
         // Instrument outer loops
