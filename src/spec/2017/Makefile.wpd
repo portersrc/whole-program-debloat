@@ -361,6 +361,20 @@ base: $(EXEBASE)
       $(NUMBER).$(NAME)_baseline_opt.s \
       -o $(NUMBER).$(NAME)_baseline \
       -lm -lrt
+base_loop_simplify: $(EXEBASE)
+	opt \
+      -O3 \
+      -loop-simplify \
+      < $(NUMBER).$(NAME)_linked.bc \
+      > $(NUMBER).$(NAME)_baseline_ls_opt.bc
+	llc  \
+      $(NUMBER).$(NAME)_baseline_ls_opt.bc \
+      -relocation-model=pic \
+      -o $(NUMBER).$(NAME)_baseline_ls_opt.s
+	g++ \
+      $(NUMBER).$(NAME)_baseline_ls_opt.s \
+      -o $(NUMBER).$(NAME)_baseline_ls \
+      -lm -lrt
 wpd: $(EXEBASE)
 	#opt \
     #  -O3 \
