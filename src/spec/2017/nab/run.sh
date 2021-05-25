@@ -16,6 +16,9 @@ fi
 if [ "$1" == "base" ]; then
     BIN=544.nab_r_baseline
     WHICH=base
+elif [ "$1" == "base_ls" ]; then
+    BIN=544.nab_r_baseline_ls
+    WHICH=base_ls
 elif [ "$1" == "wpd" ]; then
     BIN=544.nab_r_wpd
     WHICH=wpd
