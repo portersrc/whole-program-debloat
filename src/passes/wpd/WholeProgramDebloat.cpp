@@ -441,6 +441,11 @@ void WholeProgramDebloat::build_static_reachability(void)
                     q.push(qcallee);
                 }
             }
+            // If the function is recursive or part of an SCC, add it to
+            // encompassed funcs.
+            if(F == f){
+                encompassed_funcs.insert(f);
+            }
         }
     }
 }
@@ -534,6 +539,7 @@ bool WholeProgramDebloat::runOnModule_real(Module &M)
     build_basic_structs(M);
 
     // Build a map of func -> set of statically reachable funcs
+    // (also add funcs that are recursive or part of SCCs to encompassed-funcs)
     build_static_reachability();
 
     // Extend encompassed_funcs to any functions that are reachable from
