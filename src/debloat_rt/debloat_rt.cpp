@@ -107,6 +107,14 @@ int fb_idx = FP_IDX_BASE;
 // Gotten from /proc/<pid>/maps.
 long long executable_addr_base = 0;
 long long executable_addr_end  = 0;
+
+// The first page-aligned text address
+long long text_start_aligned = 0;
+// Somewhat of a misnomer, but it's the inverse of text_start_aligned.
+// It's the last page-aligned text address, but importantly, the page
+// also contains only .text (and doesn't collide with another section.)
+long long text_end_aligned = 0;
+
 // The .text section's offset address from the base address, and its size.
 // Gotten from readelf --section output.
 long long text_offset = 0;
@@ -390,8 +398,8 @@ void update_page_counts(int func_id, int addend)
             DEBRT_PRINTF("done RX\n");
 
 
-            if( (addr >= ((executable_addr_base + text_offset + 0x1000) & ~(0x1000-1)))
-            &&  (addr <  ((executable_addr_base + text_offset + text_size) & ~(0x1000-1)))
+            if( (addr >= text_start_aligned)
+            &&  (addr <  text_end_aligned)
             &&  (ptd_to_func_ids.find(func_id) == ptd_to_func_ids.end()))
             {
                 stats_total_mapped_pages += 1;
@@ -404,11 +412,11 @@ void update_page_counts(int func_id, int addend)
             // FIXME: This is a hacky fix for PLT. linker script or some
             // other solution needs to put .text at a page boundary (and
             // not in the same page as part of the plt.
-            if( addr < ((executable_addr_base + text_offset + 0x1000) & ~(0x1000-1)) ){
+            if(addr < text_start_aligned){
                 DEBRT_PRINTF("addr is beneath executable addr base or part of " \
                              "first page. possibly part of .plt. ignoring " \
                              "mapping RO\n");
-            }else if( addr >= ((executable_addr_base + text_offset + text_size) & ~(0x1000-1)) ){
+            }else if(addr >= text_end_aligned){
                 DEBRT_PRINTF("addr is above text end or part of last page. " \
                              "possibly part of .fini. ignoring mapping RO\n");
             }else{
@@ -1439,8 +1447,8 @@ void _debrt_protect_all_pages(int perm)
     DEBRT_PRINTF("PROTECTING ALL PAGES\n");
     long long text_start = executable_addr_base + text_offset;
     long long text_end   = text_start + text_size;
-    long long text_start_aligned = text_start & ~(0x1000-1);
-    long long text_end_aligned   = text_end   & ~(0x1000-1);
+    text_start_aligned = text_start & ~(0x1000-1);
+    text_end_aligned   = text_end   & ~(0x1000-1);
     if(text_start_aligned >= text_end_aligned){
         // Aligned .text start should never be above end
         assert(text_start_aligned == text_end_aligned);
