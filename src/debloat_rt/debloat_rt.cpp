@@ -70,9 +70,10 @@ const int CALLED_FUNC_ID_IDX = 1;
 const char *DEFAULT_OUTPUT_FILENAME = "debrt.out";
 FILE *fp_out;
 
-int total_mapped_pages = 0; // FIXME ? probably doesn't take into account main
-                            // or pointed-to funcs that are left always-on.
-                            // could help me get a quick measurement of security
+// total number of text pages that can be protected
+long long max_protected_text_pages;
+
+int stats_total_mapped_pages = 0;
 
 vector<set<int> > func_sets;
 set<int> *pred_set_p;
@@ -132,6 +133,7 @@ set<int>    ptd_to_func_ids;
 map<long long, int> page_to_count;
 
 
+int *stats_hist;
 
 
 template<typename Out>
@@ -172,8 +174,17 @@ vector<string> split_nonempty(const string &s, char delim)
 
 
 
+void _stats_update_hist(void)
+{
+    // dynamically sized, so this assert should never hit
+    assert(stats_total_mapped_pages <= max_protected_text_pages + 1);
+    stats_hist[stats_total_mapped_pages]++;
+}
 
-void _dump_func_name_to_id()
+
+
+
+void _dump_func_name_to_id(void)
 {
     for(map<string, int>::iterator it = func_name_to_id.begin(); it != func_name_to_id.end(); it++){
         cout << it->first << " " << it->second << endl;
@@ -239,6 +250,11 @@ void _dump_encompassed_funcs(void)
         DEBRT_PRINTF("%d, ", func_id);
     }
     DEBRT_PRINTF("\n");
+}
+
+void _dump_stats_hist(void)
+{
+    // TODO
 }
 
 
@@ -368,8 +384,16 @@ void update_page_counts(int func_id, int addend)
         if((page_to_count[addr] == 1) && (addend == 1)){
             DEBRT_PRINTF("went from 0 to 1, remap RX\n");
             _remap_permissions(addr, 1, RX_PERM);
-            total_mapped_pages += 1;
             DEBRT_PRINTF("done RX\n");
+
+
+            if( (addr >= ((executable_addr_base + text_offset + 0x1000) & ~(0x1000-1)))
+            &&  (addr <  ((executable_addr_base + text_offset + text_size) & ~(0x1000-1)))
+            &&  (ptd_to_func_ids.find(func_id) == ptd_to_func_ids.end()))
+            {
+                stats_total_mapped_pages += 1;
+            }
+
         }else if(page_to_count[addr] == 0){
             assert(addend == -1);
             DEBRT_PRINTF("went from 1 to 0, remap RO\n");
@@ -392,12 +416,13 @@ void update_page_counts(int func_id, int addend)
                 }else{
                     _remap_permissions(addr, 1, RO_PERM);
                     //_remap_permissions(addr, 1, RX_PERM);
-                    total_mapped_pages -= 1;
+                    stats_total_mapped_pages -= 1;
                 }
             }
             DEBRT_PRINTF("done RO\n");
         }
     }
+    _stats_update_hist();
 }
 
 void _map_new_func_id(int func_id)
@@ -1436,6 +1461,21 @@ void _debrt_protect_all_pages(int perm)
         assert(0 && "mprotect error");
     }
     DEBRT_PRINTF("  mprotect succeeded\n");
+    DEBRT_PRINTF("text_start_aligned: 0x%llx\n", text_start_aligned);
+    DEBRT_PRINTF("text_end_aligned: 0x%llx\n", text_end_aligned);
+    max_protected_text_pages = (text_end_aligned - text_start_aligned) / PAGE_SIZE;
+    DEBRT_PRINTF("PROTECTED TEXT SEGMENT SIZE (BYTES_HEX, BYTES_DECIMAL, " \
+                 "NUM_PAGES): 0x%llx %lld %lld\n",
+                 text_end_aligned - text_start_aligned,
+                 text_end_aligned - text_start_aligned,
+                 max_protected_text_pages);
+
+    // kind of a hack. this func gets called at both start-up and teardown.
+    // just initialize on start-up
+    if(stats_hist == NULL){
+        // + 1 because our 0th index represents 0 mapped pages
+        stats_hist = (int *) calloc(max_protected_text_pages + 1, sizeof(int));
+    }
 }
 
 void _debrt_map_ptd_to_funcs(void)
@@ -1518,11 +1558,19 @@ void _debrt_protect_destroy(void)
 {
     int e;
     int rc;
+    int i;
 
     _debrt_protect_all_pages(RX_PERM);
 
     fprintf(fp_out, "num_mispredictions: %d\n", num_mispredictions);
     fprintf(fp_out, "total_predictions:  %d\n", total_predictions);
+
+    fprintf(fp_out, "hist: ");
+    for(i = 0; i < max_protected_text_pages; i++){
+        fprintf(fp_out, "%d ", stats_hist[i]);
+    }
+    fprintf(fp_out, "\n");
+    free(stats_hist);
 
     rc = fclose(fp_out);
     if(rc == EOF){
