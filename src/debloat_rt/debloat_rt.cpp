@@ -25,7 +25,7 @@
 
 using namespace std;
 
-//#define DEBRT_DEBUG
+#define DEBRT_DEBUG
 
 #define CGPredict
 
@@ -74,6 +74,8 @@ FILE *fp_out;
 long long max_protected_text_pages;
 
 int stats_total_mapped_pages = 0;
+int start_had_to_align = 0;
+int end_had_to_align = 0;
 
 vector<set<int> > func_sets;
 set<int> *pred_set_p;
@@ -361,6 +363,7 @@ void update_page_counts(int func_id, int addend)
     int i;
     long long addr;
     vector<long long> &pages = func_id_to_pages[func_id];
+    int yes_stats_got_updated = 0;
 
     //
     // FIXME
@@ -392,6 +395,7 @@ void update_page_counts(int func_id, int addend)
             &&  (ptd_to_func_ids.find(func_id) == ptd_to_func_ids.end()))
             {
                 stats_total_mapped_pages += 1;
+                yes_stats_got_updated = 1;
             }
 
         }else if(page_to_count[addr] == 0){
@@ -417,12 +421,15 @@ void update_page_counts(int func_id, int addend)
                     _remap_permissions(addr, 1, RO_PERM);
                     //_remap_permissions(addr, 1, RX_PERM);
                     stats_total_mapped_pages -= 1;
+                    yes_stats_got_updated = 1;
                 }
             }
             DEBRT_PRINTF("done RO\n");
         }
     }
-    _stats_update_hist();
+    if(yes_stats_got_updated){
+        _stats_update_hist();
+    }
 }
 
 void _map_new_func_id(int func_id)
@@ -1452,9 +1459,11 @@ void _debrt_protect_all_pages(int perm)
     // for the end
     if(text_start & (0x1000-1)){ // if not orignially aligned
         text_start_aligned += 0x1000; // bump the starting (aligned) page by 1
+        start_had_to_align = 1;
     }
     if(text_end & (0x1000-1)){
         text_end_aligned   -= 0x1000;
+        end_had_to_align = 1;
     }
     if(mprotect((void *)text_start_aligned, text_end_aligned - text_start_aligned, perm) == -1){
         DEBRT_PRINTF("mprotect error\n");
@@ -1566,11 +1575,21 @@ void _debrt_protect_destroy(void)
     fprintf(fp_out, "total_predictions:  %d\n", total_predictions);
 
     fprintf(fp_out, "hist: ");
-    for(i = 0; i < max_protected_text_pages; i++){
+    for(i = 0; i < max_protected_text_pages+1; i++){
         fprintf(fp_out, "%d ", stats_hist[i]);
     }
     fprintf(fp_out, "\n");
     free(stats_hist);
+
+    // max_protected_text_pages doesn't include the first and/or last page,
+    // if those pages collided with another section (for now). If there
+    // are only a handful of pages in the program, these  unprotected pages
+    // could be significant. For large programs, it's not as important.
+    // FIXME: we want to align the first page anyway and have the last
+    // text page not collide with the next section; so this should go away
+    // eventually.
+    fprintf(fp_out, "Unprotected pages lost at start and/or end due to " \
+                    "alignment: %d\n", start_had_to_align + end_had_to_align);
 
     rc = fclose(fp_out);
     if(rc == EOF){
