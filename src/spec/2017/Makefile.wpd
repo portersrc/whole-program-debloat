@@ -382,12 +382,15 @@ wpd: $(EXEBASE)
     #  -WholeProgramDebloat \
     #  < $(NUMBER).$(NAME)_linked.bc \
     #  > $(NUMBER).$(NAME)_wpd_opt.bc
+	# opt \
+    #   -O3 \
+    #   -loop-simplify \
+    #   < $(NUMBER).$(NAME)_linked.bc \
+    #   > $(NUMBER).$(NAME)_baseline_ls_opt.bc
 	opt \
-      -O3 \
       -load libWholeProgramDebloat.so \
-      -loop-simplify \
       -WholeProgramDebloat \
-      < $(NUMBER).$(NAME)_linked.bc \
+      < $(NUMBER).$(NAME)_baseline_ls_opt.bc \
       > $(NUMBER).$(NAME)_wpd_opt.bc
 	#opt \
     #  -O3 \
