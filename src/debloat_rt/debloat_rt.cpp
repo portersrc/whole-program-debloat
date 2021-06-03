@@ -25,7 +25,7 @@
 
 using namespace std;
 
-#define DEBRT_DEBUG
+//#define DEBRT_DEBUG
 
 #define CGPredict
 
@@ -68,7 +68,9 @@ const int CALLSITE_ID_IDX    = 0;
 const int CALLED_FUNC_ID_IDX = 1;
 
 const char *DEFAULT_OUTPUT_FILENAME = "debrt.out";
+const char *DEBRT_MAPPED_PAGES_FILENAME = "debrt-mapped-rx-pages.out";
 FILE *fp_out;
+FILE *fp_mapped_pages;
 
 // total number of text pages that can be protected
 long long max_protected_text_pages;
@@ -370,6 +372,8 @@ void update_page_counts(int func_id, int addend)
 {
     int i;
     long long addr;
+    long long page;
+    int count;
     vector<long long> &pages = func_id_to_pages[func_id];
     int yes_stats_got_updated = 0;
 
@@ -397,9 +401,8 @@ void update_page_counts(int func_id, int addend)
             _remap_permissions(addr, 1, RX_PERM);
             DEBRT_PRINTF("done RX\n");
 
-
             if( (addr >= text_start_aligned)
-            &&  (addr <  text_end_aligned)
+            &&  (addr <=  text_end_aligned)
             &&  (ptd_to_func_ids.find(func_id) == ptd_to_func_ids.end()))
             {
                 stats_total_mapped_pages += 1;
@@ -416,7 +419,7 @@ void update_page_counts(int func_id, int addend)
                 DEBRT_PRINTF("addr is beneath executable addr base or part of " \
                              "first page. possibly part of .plt. ignoring " \
                              "mapping RO\n");
-            }else if(addr >= text_end_aligned){
+            }else if(addr > text_end_aligned){
                 DEBRT_PRINTF("addr is above text end or part of last page. " \
                              "possibly part of .fini. ignoring mapping RO\n");
             }else{
@@ -437,6 +440,14 @@ void update_page_counts(int func_id, int addend)
     }
     if(yes_stats_got_updated){
         _stats_update_hist();
+        for(auto p2c : page_to_count){
+            page  = p2c.first;
+            count = p2c.second;
+            if(count > 0){
+                fprintf(fp_mapped_pages, "%lld ", (page - text_start_aligned) >> 12);
+            }
+        }
+        fprintf(fp_mapped_pages, "\n");
     }
 }
 
@@ -1473,6 +1484,7 @@ void _debrt_protect_all_pages(int perm)
         text_end_aligned   -= 0x1000;
         end_had_to_align = 1;
     }
+    // FIXME: Should be text_end_aligned - text_start_aligned + 0x1000, i think
     if(mprotect((void *)text_start_aligned, text_end_aligned - text_start_aligned, perm) == -1){
         DEBRT_PRINTF("mprotect error\n");
         assert(0 && "mprotect error");
@@ -1480,11 +1492,17 @@ void _debrt_protect_all_pages(int perm)
     DEBRT_PRINTF("  mprotect succeeded\n");
     DEBRT_PRINTF("text_start_aligned: 0x%llx\n", text_start_aligned);
     DEBRT_PRINTF("text_end_aligned: 0x%llx\n", text_end_aligned);
-    max_protected_text_pages = (text_end_aligned - text_start_aligned) / PAGE_SIZE;
+    max_protected_text_pages = (text_end_aligned - text_start_aligned + 0x1000) / PAGE_SIZE;
     DEBRT_PRINTF("PROTECTED TEXT SEGMENT SIZE (BYTES_HEX, BYTES_DECIMAL, " \
                  "NUM_PAGES): 0x%llx %lld %lld\n",
-                 text_end_aligned - text_start_aligned,
-                 text_end_aligned - text_start_aligned,
+                 text_end_aligned - text_start_aligned + 0x1000,
+                 text_end_aligned - text_start_aligned + 0x1000,
+                 max_protected_text_pages);
+    fprintf(fp_out,
+                 "PROTECTED TEXT SEGMENT SIZE (BYTES_HEX, BYTES_DECIMAL, " \
+                 "NUM_PAGES): 0x%llx %lld %lld\n",
+                 text_end_aligned - text_start_aligned + 0x1000,
+                 text_end_aligned - text_start_aligned + 0x1000,
                  max_protected_text_pages);
 
     // kind of a hack. this func gets called at both start-up and teardown.
@@ -1602,8 +1620,15 @@ void _debrt_protect_destroy(void)
     rc = fclose(fp_out);
     if(rc == EOF){
         e = errno;
-        fprintf(stderr, "_debrt_monitor_destroy failed to close output file " \
+        fprintf(stderr, "_debrt_protect_destroy failed to close output file " \
                         "(errno: %d)\n", e);
+    }
+
+    rc = fclose(fp_mapped_pages);
+    if(rc == EOF){
+        e = errno;
+        fprintf(stderr, "_debrt_protect_destroy failed to close mapped pages " \
+                        "output file (errno: %d)\n", e);
     }
 }
 
@@ -1692,6 +1717,13 @@ int debrt_init(int main_func_id)
         e = errno;
         fprintf(stderr, "debrt_init failed to open %s (errno: %d)\n",
                         output_filename, e);
+        return e;
+    }
+    fp_mapped_pages = fopen(DEBRT_MAPPED_PAGES_FILENAME, "w");
+    if(!fp_mapped_pages){
+        e = errno;
+        fprintf(stderr, "debrt_init failed to open %s (errno: %d)\n",
+                        DEBRT_MAPPED_PAGES_FILENAME, e);
         return e;
     }
 
