@@ -25,7 +25,7 @@
 
 using namespace std;
 
-#define DEBRT_DEBUG
+//#define DEBRT_DEBUG
 
 #define CGPredict
 
@@ -372,6 +372,7 @@ void update_page_counts(int func_id, int addend)
 {
     int i;
     long long addr;
+    long long page;
     int count;
     vector<long long> &pages = func_id_to_pages[func_id];
     int yes_stats_got_updated = 0;
@@ -440,10 +441,10 @@ void update_page_counts(int func_id, int addend)
     if(yes_stats_got_updated){
         _stats_update_hist();
         for(auto p2c : page_to_count){
-            addr  = p2c.first;
+            page  = p2c.first;
             count = p2c.second;
             if(count > 0){
-                fprintf(fp_mapped_pages, "%lld ", (addr - (executable_addr_base + text_offset)) >> 12);
+                fprintf(fp_mapped_pages, "%lld ", (page - text_start_aligned) >> 12);
             }
         }
         fprintf(fp_mapped_pages, "\n");
@@ -1493,6 +1494,12 @@ void _debrt_protect_all_pages(int perm)
     DEBRT_PRINTF("text_end_aligned: 0x%llx\n", text_end_aligned);
     max_protected_text_pages = (text_end_aligned - text_start_aligned + 0x1000) / PAGE_SIZE;
     DEBRT_PRINTF("PROTECTED TEXT SEGMENT SIZE (BYTES_HEX, BYTES_DECIMAL, " \
+                 "NUM_PAGES): 0x%llx %lld %lld\n",
+                 text_end_aligned - text_start_aligned + 0x1000,
+                 text_end_aligned - text_start_aligned + 0x1000,
+                 max_protected_text_pages);
+    fprintf(fp_out,
+                 "PROTECTED TEXT SEGMENT SIZE (BYTES_HEX, BYTES_DECIMAL, " \
                  "NUM_PAGES): 0x%llx %lld %lld\n",
                  text_end_aligned - text_start_aligned + 0x1000,
                  text_end_aligned - text_start_aligned + 0x1000,
