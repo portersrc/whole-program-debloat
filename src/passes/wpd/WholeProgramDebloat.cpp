@@ -57,6 +57,8 @@ namespace {
         set<Function *> toplevel_funcs;
         map<Function *, set<Function *> > static_reachability;
         map<int, set<Function *> > loop_static_reachability;
+        vector<set<Function *>> instrumented_sets;
+        map<int, set<Function *>> disjoint_sets;
         map<int, int> loop_id_to_func_id; // for debugging
         set<string> func_name_has_addr_taken;
         set<Function *> func_has_addr_taken;
@@ -78,6 +80,7 @@ namespace {
         void build_static_reachability(void);
         void extend_encompassed_funcs(void);
         void build_toplevel_funcs(void);
+        void create_disjoint_sets(void);
 
         bool instrument_main(Module &M);
         void instrument(void);
@@ -95,6 +98,7 @@ namespace {
         void dump_loop_id_to_func_id(void);
         void dump_func_name_to_id(void);
         void dump_func_ptrs(void);
+        void dump_disjoint_sets(void);
     };
 }
 
@@ -150,6 +154,9 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, int func_id)
         assert(debrt_protect_loop_func);
         IRBuilder<> builder(TI);
         builder.CreateCall(debrt_protect_loop_func, ArgsV);
+
+        //Set of functions debloated within loop (Sharjeel)
+        instrumented_sets.push_back(loop_static_reachability[loop_id]);
         // errs() << "Inserted library function within preheader(" << preheader->getName().str() << "\n";
 
         // instrument the exit(s) block(s) of the loop
@@ -263,7 +270,7 @@ void WholeProgramDebloat::instrument_indirect(void)
                                 IRBuilder<> builder(CB);
                                 ArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
                                 builder.CreateCall(debrt_protect_indirect_func, ArgsV);
-
+                                
                                 // instrument after indirect func call
                                 if(CI){
                                     IRBuilder<> builder_end(CI);
@@ -320,8 +327,11 @@ void WholeProgramDebloat::instrument(void)
                 if(CB){
                     Function *callee = CB->getCalledFunction();
                     if(func_to_id.count(callee) > 0){
+                        set<Function *> temp;
+                        temp.insert(callee);
                         if(encompassed_funcs.find(callee) != encompassed_funcs.end()){
                             // Case: callee is no-instrument
+                            temp.insert(static_reachability[callee].begin(), static_reachability[callee].end());
 
                             // instrument before callee
                             vector<Value *> ArgsV;
@@ -362,6 +372,8 @@ void WholeProgramDebloat::instrument(void)
                                 assert(0);
                             }
                         }
+                        //An example of set of functions that will be debloated (Sharjeel)
+                        instrumented_sets.push_back(temp);
                     }
                 }
             }
@@ -393,8 +405,6 @@ bool WholeProgramDebloat::instrument_main(Module &M)
 }
 
 
-
-
 void WholeProgramDebloat::build_basic_structs(Module &M)
 {
     LoopInfo *li;
@@ -422,6 +432,91 @@ void WholeProgramDebloat::build_basic_structs(Module &M)
                 }
             }
         }
+    }
+}
+
+void WholeProgramDebloat::create_disjoint_sets(void)
+{
+    // Set of functions that have addresses taken so we take their reachability and consider it as a set (Sharjeel)
+    for(auto F : func_has_addr_taken)
+    {
+        set<Function *> temp;
+        temp.insert(F);
+        temp.insert(static_reachability[F].begin(), static_reachability[F].end());
+        instrumented_sets.push_back(temp);
+    }
+
+    size_t index = 0;
+    set<Function *> intersection;
+    set<Function *> difference1;
+    set<Function *> difference2;
+    // While there are non-disjoint sets
+    while(!instrumented_sets.empty())
+    {
+        // Take a set A
+        vector<set<Function *>> temp(instrumented_sets.begin() + 1, instrumented_sets.end());
+        set<Function *> current(instrumented_sets[0]);
+        instrumented_sets.clear();
+
+        // Take a set B
+        for(auto setF : temp)
+        {
+            if(current.size() != 0)
+            {   
+                intersection.clear();
+                difference1.clear();
+                difference2.clear();
+
+                if(setF.size() == 0)
+                {
+                    continue;
+                }
+
+                // Take intersection of set A and set B to make set C
+                set_intersection(current.begin(), current.end(), setF.begin(), setF.end(), inserter(intersection, intersection.end()));
+                if(intersection.size() == 0)
+                {
+                    // If intersection is empty, we do not need to do any difference and keep set B for next stage
+                    instrumented_sets.push_back(setF);
+                }
+                else
+                {
+                    // Take difference between set A and set C to get set A-C
+                    set_difference(current.begin(), current.end(), intersection.begin(), intersection.end(), inserter(difference1, difference1.end()));
+
+                    // Take difference between set B and set C to get set B-C
+                    set_difference(setF.begin(), setF.end(), intersection.begin(), intersection.end(), inserter(difference2, difference2.end()));
+
+                    // If both set A and set B are the same, we remove set B and continue with set A
+                    if(difference1.size() == 0 && difference2.size() == 0)
+                    {
+                        continue;
+                    }
+
+                    // If set B is empty, we do not need to consider it for a future step
+                    if(difference2.size() != 0)
+                    {
+                        instrumented_sets.push_back(difference2);
+                    }
+                    
+                    instrumented_sets.push_back(intersection);
+
+                    current.clear();
+                    current.insert(difference1.begin(), difference1.end());
+                }
+            }
+            else 
+            {
+                instrumented_sets.push_back(setF);
+            }
+        }
+
+        // If set A is not empty, we consider it as a disjoint set
+        if(current.size() != 0)
+        {
+            disjoint_sets[index].insert(current.begin(), current.end());
+        }
+        index += 1;
     }
 }
 
@@ -558,6 +653,9 @@ bool WholeProgramDebloat::runOnModule_real(Module &M)
 
     // instrument indirect function calls
     instrument_indirect();
+
+    // create disjoint sets
+    create_disjoint_sets();
 }
 
 bool WholeProgramDebloat::runOnModule(Module &M)
@@ -636,6 +734,19 @@ void WholeProgramDebloat::dump_func_name_to_id(void)
     }
     fclose(fp);
 }
+void WholeProgramDebloat::dump_disjoint_sets(void)
+{
+    FILE *fp = fopen("wpd_disjoint_sets.txt", "w");
+    for(auto set : disjoint_sets){
+        fprintf(fp, "%u: ", set.first);
+        for(auto f : set.second)
+        {
+            fprintf(fp, "%u ", func_to_id[f]);
+        }
+        fprintf(fp, "\n");
+    }
+    fclose(fp);
+}
 string WholeProgramDebloat::get_demangled_name(const Function &F)
 {
     ItaniumPartialDemangler IPD;
@@ -656,6 +767,7 @@ bool WholeProgramDebloat::doFinalization(Module &M)
     dump_func_name_to_id();
     dump_func_ptrs();
     dump_loop_id_to_func_id();
+    dump_disjoint_sets();
     return false;
 }
 bool WholeProgramDebloat::doInitialization(Module &M)
