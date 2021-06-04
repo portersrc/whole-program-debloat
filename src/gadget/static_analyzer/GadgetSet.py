@@ -8,6 +8,8 @@ import subprocess
 # Third Party Imports
 import angr
 
+import os.path
+
 # Local Imports
 from static_analyzer.Gadget import Gadget
 from static_analyzer.Instruction import Instruction
@@ -19,7 +21,7 @@ class GadgetSet(object):
     of gadgets present in the binary's encoding.
     """
 
-    def __init__(self, name, filepath, createCFG, output_console):
+    def __init__(self, name, filepath, createCFG, output_console, text_begin, text_size, sets):
         """
         GadgetSet constructor
         :param str name: Name for the gadget set
@@ -30,6 +32,9 @@ class GadgetSet(object):
         self.name = name
         self.cnt_rejected = 0
         self.cnt_duplicate = 0
+        self.sets = sets
+        self.text_begin = text_begin
+        self.text_end = text_begin + text_size
 
         # Init the CFG with angr for finding functions
         if createCFG:
@@ -143,6 +148,8 @@ class GadgetSet(object):
         self.practical_ASLR_ROP_expressivity = sum(self.practical_ASLR_ROP)
         self.turing_complete_ROP_expressivity = sum(self.turing_complete_ROP)
 
+
+
         if output_console:
             self.print_stats()
 
@@ -199,10 +206,21 @@ class GadgetSet(object):
         :param str flags: string containing the flags for execution
         :return: Output from the ROPgadget command as a standard string, None if the data was not collected as expected.
         """
+        text = None
+        if(os.path.exists(filepath+".gadget")):
+            f = open(filepath+".gadget", "r")
+            text = f.read()
+            f.close()
+        else:
+            sub = subprocess.Popen("ROPgadget --binary " + filepath + " " + flags, shell=True, stdout=subprocess.PIPE)
+            subprocess_return = sub.stdout.read()
+            text = subprocess_return.decode("utf-8")
 
-        sub = subprocess.Popen("ROPgadget --binary " + filepath + " " + flags, shell=True, stdout=subprocess.PIPE)
-        subprocess_return = sub.stdout.read()
-        return subprocess_return.decode("utf-8")
+            f = open(filepath+".gadget", "w")
+            f.write(text)
+            f.close()
+
+        return text
 
     def analyze_gadget(self, gadget):
         """
@@ -210,6 +228,20 @@ class GadgetSet(object):
         :param Gadget gadget: gadget to analyze
         :return: None, but modifies GadgetSet collections and Gadget object members
         """
+
+        if self.sets != None:
+            offset = int(gadget.offset[:-1],16)
+            # print("offset: "+str(offset)+" which is "+str(gadget.offset))
+            if offset >= self.text_begin and offset <= self.text_end:
+                start_page = self.text_begin // 4096
+                # print("Start Page: "+str(start_page)+" which is "+str(self.text_begin))
+                curr_page = offset // 4096
+                # print("Curr Page: "+str(curr_page)+" which is "+str(offset))
+                relative_curr_page = curr_page - start_page 
+                # print("Relative Curr Page: "+str(relative_curr_page))
+                if relative_curr_page not in self.sets:
+                    return
+
 
         # Step 1: Eliminate useless gadgets, defined as:
         # 1) Gadgets that consist only of the GPI (SYSCALL gadgets excluded)
