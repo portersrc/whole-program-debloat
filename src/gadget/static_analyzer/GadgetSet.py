@@ -21,7 +21,7 @@ class GadgetSet(object):
     of gadgets present in the binary's encoding.
     """
 
-    def __init__(self, name, filepath, createCFG, output_console, text_begin, text_size, sets):
+    def __init__(self, name, filepath, createCFG, output_console, text_begin, text_size):
         """
         GadgetSet constructor
         :param str name: Name for the gadget set
@@ -32,7 +32,6 @@ class GadgetSet(object):
         self.name = name
         self.cnt_rejected = 0
         self.cnt_duplicate = 0
-        self.sets = sets
         self.text_begin = text_begin
         self.text_end = text_begin + text_size
 
@@ -149,7 +148,6 @@ class GadgetSet(object):
         self.turing_complete_ROP_expressivity = sum(self.turing_complete_ROP)
 
 
-
         if output_console:
             self.print_stats()
 
@@ -220,7 +218,108 @@ class GadgetSet(object):
             f.write(text)
             f.close()
 
+        # print(text)
         return text
+    
+    def variant_gadget(self, sets):
+        
+        # Initialize functional gadget type lists
+        self.allGadgetsVariant = []
+        self.ROPGadgetsVariant = []
+        self.JOPGadgetsVariant = []
+        self.COPGadgetsVariant = []
+
+        # Initialize special purpose gadget type lists
+        self.SyscallGadgetsVariant = []
+        self.JOPDispatchersVariant = []
+        self.JOPDataLoadersVariant = []
+        self.JOPInitializersVariant = []
+        self.JOPTrampolinesVariant = []
+        self.COPDispatchersVariant = []
+        self.COPStrongTrampolinesVariant = []
+        self.COPIntrastackPivotsVariant = []
+        self.COPDataLoadersVariant = []
+        self.COPInitializersVariant = []
+
+        # Initialize total and average quality scores
+        self.total_ROP_scoreVariant = 0.0
+        self.total_JOP_scoreVariant = 0.0
+        self.total_COP_scoreVariant = 0.0
+        self.averageROPQualityVariant = 0.0
+        self.averageJOPQualityVariant = 0.0
+        self.averageCOPQualityVariant = 0.0
+        self.average_functional_qualityVariant = 0.0
+        
+        # Reject unusable gadgets, sort gadgets into their appropriate category sets, score gadgets
+        for gadget in self.allGadgets:
+            self.analyze_gadget_variant(gadget, sets)
+
+        # Calculate gadget set counts / quality metrics
+        self.total_sp_gadgetsVariant = 0
+        self.total_sp_typesVariant = 0
+        if len(self.SyscallGadgetsVariant) > 0:
+            self.total_sp_typesVariant += 1
+            self.total_sp_gadgetsVariant += len(self.SyscallGadgetsVariant)
+        if len(self.JOPInitializersVariant) > 0:
+            self.total_sp_typesVariant += 1
+            self.total_sp_gadgetsVariant += len(self.JOPInitializersVariant)
+        if len(self.JOPTrampolinesVariant) > 0:
+            self.total_sp_typesVariant += 1
+            self.total_sp_gadgetsVariant += len(self.JOPTrampolinesVariant)
+        if len(self.JOPDispatchersVariant) > 0:
+            self.total_sp_typesVariant += 1
+            self.total_sp_gadgetsVariant += len(self.JOPDispatchersVariant)
+        if len(self.JOPDataLoadersVariant) > 0:
+            self.total_sp_typesVariant += 1
+            self.total_sp_gadgetsVariant += len(self.JOPDataLoadersVariant)
+        if len(self.COPDataLoadersVariant) > 0:
+            self.total_sp_typesVariant += 1
+            self.total_sp_gadgetsVariant += len(self.COPDataLoadersVariant)
+        if len(self.COPDispatchersVariant) > 0:
+            self.total_sp_typesVariant += 1
+            self.total_sp_gadgetsVariant += len(self.COPDispatchersVariant)
+        if len(self.COPInitializersVariant) > 0:
+            self.total_sp_typesVariant += 1
+            self.total_sp_gadgetsVariant += len(self.COPInitializersVariant)
+        if len(self.COPStrongTrampolinesVariant) > 0:
+            self.total_sp_typesVariant += 1
+            self.total_sp_gadgetsVariant += len(self.COPStrongTrampolinesVariant)
+        if len(self.COPIntrastackPivotsVariant) > 0:
+            self.total_sp_typesVariant += 1
+            self.total_sp_gadgetsVariant += len(self.COPIntrastackPivotsVariant)
+
+        self.total_functional_gadgetsVariant = len(self.ROPGadgetsVariant) + len(self.JOPGadgetsVariant) + len(self.COPGadgetsVariant)
+        self.total_unique_gadgetsVariant = self.total_sp_gadgetsVariant + self.total_functional_gadgetsVariant
+
+        self.total_scoreVariant = self.total_ROP_scoreVariant + self.total_JOP_scoreVariant + self.total_COP_scoreVariant
+
+        if self.total_ROP_scoreVariant != 0.0:
+            self.averageROPQualityVariant = self.total_ROP_scoreVariant / len(self.ROPGadgetsVariant)
+        if self.total_JOP_scoreVariant != 0.0:
+            self.averageJOPQualityVariant = self.total_JOP_scoreVariant / len(self.JOPGadgetsVariant)
+        if self.total_COP_scoreVariant != 0.0:
+            self.averageCOPQualityVariant = self.total_COP_scoreVariant / len(self.COPGadgetsVariant)
+        if self.total_functional_gadgetsVariant != 0:
+            self.average_functional_qualityVariant = self.total_scoreVariant / self.total_functional_gadgetsVariant
+
+        # Scan ROP gadgets to determine set expressivity
+        self.practical_ROPVariant = [False for i in range(11)]
+        self.practical_ASLR_ROPVariant = [False for i in range(35)]
+        self.turing_complete_ROPVariant = [False for i in range(17)]
+        quality_threshold = 4.0
+
+        for gadget in self.ROPGadgetsVariant:
+            if gadget.score <= quality_threshold:
+                self.classify_gadget_variant(gadget)
+
+        # Perform a secondary scan of JOP gadgets that can be used instead of some ROP gadgets
+        for gadget in self.JOPGadgetsVariant:
+            self.classify_JOP_gadget_variant(gadget)
+
+        # Calculate satisfaction scores
+        self.practical_ROP_expressivityVariant = sum(self.practical_ROPVariant)
+        self.practical_ASLR_ROP_expressivityVariant = sum(self.practical_ASLR_ROPVariant)
+        self.turing_complete_ROP_expressivityVariant = sum(self.turing_complete_ROPVariant)
 
     def analyze_gadget(self, gadget):
         """
@@ -228,20 +327,6 @@ class GadgetSet(object):
         :param Gadget gadget: gadget to analyze
         :return: None, but modifies GadgetSet collections and Gadget object members
         """
-
-        if self.sets != None:
-            offset = int(gadget.offset[:-1],16)
-            # print("offset: "+str(offset)+" which is "+str(gadget.offset))
-            if offset >= self.text_begin and offset <= self.text_end:
-                start_page = self.text_begin // 4096
-                # print("Start Page: "+str(start_page)+" which is "+str(self.text_begin))
-                curr_page = offset // 4096
-                # print("Curr Page: "+str(curr_page)+" which is "+str(offset))
-                relative_curr_page = curr_page - start_page 
-                # print("Relative Curr Page: "+str(relative_curr_page))
-                if relative_curr_page not in self.sets:
-                    return
-
 
         # Step 1: Eliminate useless gadgets, defined as:
         # 1) Gadgets that consist only of the GPI (SYSCALL gadgets excluded)
@@ -798,3 +883,561 @@ class GadgetSet(object):
         if self.practical_ASLR_ROP[1] is False:
             if "[" in op1 and op1_family not in [None, 6, 7] and "+" not in op1 and "-" not in op1 and "*" not in op1:
                 self.practical_ASLR_ROP[1] = True
+
+    def classify_gadget_variant(self, gadget):
+        """
+        Analyzes a gadget to determine which expressivity classes it satisfies
+        :param Gadget gadget: gadget to analyze
+        :return: None, but modifies Gadget expressivity collections
+        """
+        first_instr = gadget.instructions[0]
+        opcode = first_instr.opcode
+        op1 = first_instr.op1
+        op2 = first_instr.op2
+        op1_family = Instruction.get_word_operand_register_family(op1)
+        op2_family = Instruction.get_word_operand_register_family(op2)
+
+        # For performance, iterate through the expressivity classes and perform analysis. Analysis rules should
+        # set as many classes as possible.
+        if self.practical_ROPVariant[0] is False:
+            if opcode == "dec" and op1_family in [0, 5] and "[" not in op1:
+                self.practical_ROPVariant[0] = True
+
+                # Also satisfies:
+                self.turing_complete_ROPVariant[0] = True
+                self.practical_ASLR_ROPVariant[9] = True
+
+        if self.practical_ROPVariant[1] is False:
+            if opcode == "inc" and op1_family in [0, 5] and "[" not in op1:
+                self.practical_ROPVariant[1] = True
+
+                # Also satisfies:
+                self.turing_complete_ROPVariant[0] = True
+                self.practical_ASLR_ROPVariant[8] = True
+
+        if self.practical_ROPVariant[2] is False:
+            if opcode == "pop" and op1_family in [0, 5] and "[" not in op1:
+                self.practical_ROPVariant[2] = True
+
+                # Also satisfies:
+                self.turing_complete_ROPVariant[1] = True
+                self.practical_ASLR_ROPVariant[5] = True
+
+        if self.practical_ROPVariant[3] is False:
+            if (opcode == "pop" and op1_family == 4 and "[" not in op1) or \
+               (opcode in ["xchg", "move"] and op1_family == 4 and op2_family in [0, 5]
+                                                               and "[" not in op1 and "[" not in op2) or \
+               (opcode == "lea" and op1_family == 4 and op2_family in [0, 5]
+                                                    and "+" not in op2 and "-" not in op2 and "*" not in op2) or \
+               (opcode == "xchg" and op1_family in [0, 5] and op2_family == 4 and "[" not in op1 and "[" not in op2):
+                self.practical_ROPVariant[3] = True
+
+        if self.practical_ROPVariant[4] is False:
+            if opcode == "xchg" and ((op1_family == 0 and op2_family == 5) or (op2_family == 0 and op1_family == 5)) \
+               and "[" not in op1 and "[" not in op2:
+                self.practical_ROPVariant[4] = True
+
+        if self.practical_ROPVariant[5] is False:
+            if opcode == "push" and op1_family in [0, 4, 5] and "[" not in op1:
+                self.practical_ROPVariant[5] = True
+
+        if self.practical_ROPVariant[6] is False:
+            if opcode in ["clc", "sahf"] or \
+               (opcode in ["test", "add", "adc", "sub", "sbb", "and", "or", "xor", "cmp"] and
+               op1_family in [0, 4, 5] and op2_family in [0, 4, 5] and "[" not in op1 and "[" not in op2):
+                self.practical_ROPVariant[6] = True
+
+                # Also satisfies:
+                self.turing_complete_ROPVariant[7] = True
+                self.practical_ASLR_ROPVariant[4] = True
+
+        if self.practical_ROPVariant[7] is False:
+            if (opcode.startswith("stos") or opcode in ["mov", "add", "or"]) and "[" in op1 and "+" not in op1 and \
+               "-" not in op1 and "*" not in op1 and op1_family in [0, 4, 5] and op2_family in [0, 4, 5] and \
+               op1_family != op2_family:
+                self.practical_ROPVariant[7] = True
+
+                # Also satisfies:
+                self.turing_complete_ROPVariant[6] = True
+                self.practical_ASLR_ROPVariant[2] = True
+
+        if self.practical_ROPVariant[8] is False:
+            if (opcode.startswith("lods") or opcode in ["mov", "add", "adc", "sub", "sbb", "and", "or", "xor"]) and \
+               "[" in op2 and "+" not in op2 and "-" not in op2 and "*" not in op2 and op1_family in [0, 4, 5] and \
+               op2_family in [0, 4, 5] and op1_family != op2_family:
+                self.practical_ROPVariant[8] = True
+
+                # Also satisfies:
+                self.turing_complete_ROPVariant[5] = True
+                self.practical_ASLR_ROPVariant[1] = True
+
+        # NOTE: Single rule for two classes
+        if self.practical_ROPVariant[9] is False or self.practical_ASLR_ROPVariant[7] is False:
+            if opcode == "leave":
+                self.practical_ROPVariant[9] = True
+                self.practical_ASLR_ROPVariant[7] = True
+
+        if self.practical_ROPVariant[10] is False:
+            if (opcode == "pop" and op1_family == 6 and "[" not in op1) or \
+               (opcode == "xchg" and op1_family is not None and op2_family is not None and op1_family != op2_family
+                                 and (op1_family == 6 or op2_family == 6) and "[" not in op1 and "[" not in op2) or \
+               (opcode in ["add", "adc", "sub", "sbb"] and "[" not in op1 and op1_family == 6 and
+               op2_family not in [None, 6] and "+" not in op2 and "-" not in op2 and "*" not in op2):
+                self.practical_ROPVariant[10] = True
+
+        if self.turing_complete_ROPVariant[0] is False:
+            if opcode in ["inc", "dec"] and op1_family not in [None, 7] and "+" not in op1 and "-" not in op1 and \
+               "*" not in op1:
+                self.turing_complete_ROPVariant[0] = True
+
+        if self.turing_complete_ROPVariant[1] is False:
+            if opcode == "pop" and op1_family not in [None, 7] and "[" not in op1:
+                self.turing_complete_ROPVariant[1] = True
+
+        if self.turing_complete_ROPVariant[2] is False:
+            if opcode in ["add", "adc", "sub", "sbb"] and op1_family not in [None, 7] and "+" not in op1 and \
+                    "-" not in op1 and "*" not in op1 and op2_family not in [None, 7] and "+" not in op2 and \
+                    "-" not in op2 and "*" not in op2 and op1_family != op2_family:
+                self.turing_complete_ROPVariant[2] = True
+
+        if self.turing_complete_ROPVariant[3] is False:
+            if (opcode == "xor" and op1_family not in [None, 7] and "+" not in op1 and "-" not in op1 and "*" not in op1
+               and op2_family not in [None, 7] and "+" not in op2 and "-" not in op2 and "*" not in op2
+               and op1_family != op2_family) or \
+               (opcode in ["neg", "not"] and op1_family not in [None, 7] and "+" not in op1 and "-" not in op1
+               and "*" not in op1):
+                self.turing_complete_ROPVariant[3] = True
+
+        if self.turing_complete_ROPVariant[4] is False:
+            if opcode in ["and", "or"] and op1_family not in [None, 7] and "+" not in op1 and \
+                    "-" not in op1 and "*" not in op1 and op2_family not in [None, 7] and "+" not in op2 and \
+                    "-" not in op2 and "*" not in op2 and op1_family != op2_family:
+                self.turing_complete_ROPVariant[4] = True
+
+        if self.turing_complete_ROPVariant[5] is False:
+            if (opcode.startswith("lods") or opcode in ["mov", "add", "adc", "sub", "sbb", "and", "or", "xor"]) and \
+               "[" in op2 and "+" not in op2 and "-" not in op2 and "*" not in op2 and \
+               op1_family not in [None, 7] and op2_family not in [None, 7] and op1_family != op2_family:
+                self.turing_complete_ROPVariant[5] = True
+
+        if self.turing_complete_ROPVariant[6] is False:
+            if (opcode.startswith("stos") or opcode in ["mov", "add", "or"]) and "[" in op1 and "+" not in op1 and \
+               "-" not in op1 and "*" not in op1 and op1_family not in [None, 7] and op2_family not in [None, 7] and \
+               op1_family != op2_family:
+                self.turing_complete_ROPVariant[6] = True
+
+        if self.turing_complete_ROPVariant[7] is False:
+            if opcode in ["clc", "sahf"] or \
+               (opcode in ["test", "add", "adc", "sub", "sbb", "and", "or", "xor", "cmp"] and
+               op1_family not in [None, 7] and op2_family not in [None, 7] and "+" not in op1 and "-" not in op1 and
+               "*" not in op1 and "+" not in op2 and "-" not in op2 and "*" not in op2 and op1_family != op2_family):
+                self.turing_complete_ROPVariant[7] = True
+
+        if self.turing_complete_ROPVariant[8] is False:
+            if opcode in ["add", "adc", "sub", "sbb"] and "[" not in op2 and op2_family == 7 and \
+               op1_family not in [None, 7] and "+" not in op1 and "-" not in op1 and "*" not in op1:
+                self.turing_complete_ROPVariant[8] = True
+
+        if self.turing_complete_ROPVariant[9] is False:
+            if (opcode == "pop" and op1_family == 7 and "[" not in op1) or \
+               (opcode == "xchg" and op1_family is not None and op2_family is not None and op1_family != op2_family
+                                 and (op1_family == 7 or op2_family == 7) and "[" not in op1 and "[" not in op2) or \
+               (opcode in ["add", "adc", "sub", "sbb"] and "[" not in op1 and op1_family == 7 and
+               op2_family not in [None, 7] and "+" not in op2 and "-" not in op2 and "*" not in op2):
+                self.turing_complete_ROPVariant[9] = True
+
+        if self.turing_complete_ROPVariant[10] is False:
+            if opcode in ["lahf", "pushf"] or \
+               (opcode in ["adc", "sbb"] and op1_family not in [None, 7] and op2_family not in [None, 7] and
+               "+" not in op1 and "-" not in op1 and "*" not in op1 and
+               "+" not in op2 and "-" not in op2 and "*" not in op2 and op1_family != op2_family):
+                self.turing_complete_ROPVariant[10] = True
+
+        # Next 6 classes have common and very specific requirements, check once
+        if opcode == "xchg" and "[" not in op1 and "[" not in op2 and op1_family != op2_family:
+            if self.turing_complete_ROPVariant[11] is False:
+                if op1_family in [0, 1] and op2_family in [0, 1]:
+                    self.turing_complete_ROPVariant[11] = True
+
+            if self.turing_complete_ROPVariant[12] is False:
+                if op1_family in [0, 2] and op2_family in [0, 2]:
+                    self.turing_complete_ROPVariant[12] = True
+
+            if self.turing_complete_ROPVariant[13] is False:
+                if op1_family in [0, 3] and op2_family in [0, 3]:
+                    self.turing_complete_ROPVariant[13] = True
+
+            if self.turing_complete_ROPVariant[14] is False:
+                if op1_family in [0, 6] and op2_family in [0, 6]:
+                    self.turing_complete_ROPVariant[14] = True
+
+            if self.turing_complete_ROPVariant[15] is False:
+                if op1_family in [0, 4] and op2_family in [0, 4]:
+                    self.turing_complete_ROPVariant[15] = True
+
+            if self.turing_complete_ROPVariant[16] is False:
+                if op1_family in [0, 5] and op2_family in [0, 5]:
+                    self.turing_complete_ROPVariant[16] = True
+
+        if self.practical_ASLR_ROPVariant[0] is False:
+            if opcode == "push" and op1_family not in [None, 6, 7] and "[" not in op1:
+                self.practical_ASLR_ROPVariant[0] = True
+
+        if self.practical_ASLR_ROPVariant[1] is False:
+            if (opcode.startswith("lods") or opcode in ["mov", "add", "adc", "sub", "sbb", "and", "or", "xor"]) and \
+               "[" in op2 and "+" not in op2 and "-" not in op2 and "*" not in op2 and \
+               op1_family not in [None, 7] and op2_family not in [None, 6, 7] and op1_family != op2_family:
+                self.practical_ASLR_ROPVariant[1] = True
+
+        if self.practical_ASLR_ROPVariant[2] is False:
+            if (opcode.startswith("stos") or opcode == "mov") and "[" in op1 and "+" not in op1 and \
+               "-" not in op1 and "*" not in op1 and op1_family not in [None, 7] and op2_family not in [None, 7] and \
+               op1_family != op2_family:
+                self.practical_ASLR_ROPVariant[2] = True
+
+        if self.practical_ASLR_ROPVariant[3] is False:
+            if opcode in ["mov", "add", "adc", "and", "or", "xor"] and "[" not in op1 and "[" not in op2 and \
+               op1_family not in [None, 7] and op2_family == 7:
+                self.practical_ASLR_ROPVariant[3] = True
+
+        if self.practical_ASLR_ROPVariant[4] is False:
+            if opcode in ["clc", "sahf"] or \
+               (opcode in ["test", "add", "adc", "sub", "sbb", "and", "or", "xor", "cmp"] and
+               op1_family not in [None, 7] and op2_family not in [None, 7] and "[" not in op1 and "[" not in op2):
+                self.practical_ASLR_ROPVariant[4] = True
+
+        if self.practical_ASLR_ROPVariant[5] is False:
+            if opcode == "pop" and op1_family in [0, 4, 5] and "[" not in op1:
+                self.practical_ASLR_ROPVariant[5] = True
+
+        if self.practical_ASLR_ROPVariant[6] is False:
+            if opcode == "pop" and op1_family in [1, 2, 3, 6] and "[" not in op1:
+                self.practical_ASLR_ROPVariant[6] = True
+
+        # NOTE class 8 (index 7) is combined above
+
+        if self.practical_ASLR_ROPVariant[8] is False:
+            if opcode == "inc" and op1_family not in [None, 7] and "[" not in op1:
+                self.practical_ASLR_ROPVariant[8] = True
+
+        if self.practical_ASLR_ROPVariant[9] is False:
+            if opcode == "dec" and op1_family not in [None, 7] and "[" not in op1:
+                self.practical_ASLR_ROPVariant[9] = True
+
+        if self.practical_ASLR_ROPVariant[10] is False:
+            if opcode in ["add", "adc", "sub", "sbb"] and op1_family not in [None, 7] and "[" not in op1 and \
+               op2_family not in [None, 7] and "[" not in op2 and op1_family != op2_family:
+                self.practical_ASLR_ROPVariant[10] = True
+
+        # For the next 24 classes, some fairly common gadgets will satisfy many classes and significant
+        # overlap in definitions exists. Check these without first seeing if the class is satisfied
+        # POP AX
+        if opcode == "pop" and "[" not in op1 and op1_family == 0:
+            self.practical_ASLR_ROPVariant[13] = True
+            self.practical_ASLR_ROPVariant[17] = True
+            self.practical_ASLR_ROPVariant[21] = True
+            self.practical_ASLR_ROPVariant[25] = True
+            self.practical_ASLR_ROPVariant[29] = True
+            self.practical_ASLR_ROPVariant[33] = True
+
+        # XCHG AX with another GPR
+        if opcode == "xchg" and "[" not in op1 and "[" not in op2:
+            if op1_family == 0:
+                if op2_family == 1:
+                    self.practical_ASLR_ROPVariant[11] = True
+                    self.practical_ASLR_ROPVariant[12] = True
+                    self.practical_ASLR_ROPVariant[13] = True
+                    self.practical_ASLR_ROPVariant[14] = True
+                elif op2_family == 2:
+                    self.practical_ASLR_ROPVariant[15] = True
+                    self.practical_ASLR_ROPVariant[16] = True
+                    self.practical_ASLR_ROPVariant[17] = True
+                    self.practical_ASLR_ROPVariant[18] = True
+                elif op2_family == 3:
+                    self.practical_ASLR_ROPVariant[19] = True
+                    self.practical_ASLR_ROPVariant[20] = True
+                    self.practical_ASLR_ROPVariant[21] = True
+                    self.practical_ASLR_ROPVariant[22] = True
+                elif op2_family == 6:
+                    self.practical_ASLR_ROPVariant[23] = True
+                    self.practical_ASLR_ROPVariant[24] = True
+                    self.practical_ASLR_ROPVariant[25] = True
+                    self.practical_ASLR_ROPVariant[26] = True
+                elif op2_family == 4:
+                    self.practical_ASLR_ROPVariant[27] = True
+                    self.practical_ASLR_ROPVariant[28] = True
+                    self.practical_ASLR_ROPVariant[29] = True
+                    self.practical_ASLR_ROPVariant[30] = True
+                elif op2_family == 5:
+                    self.practical_ASLR_ROPVariant[31] = True
+                    self.practical_ASLR_ROPVariant[32] = True
+                    self.practical_ASLR_ROPVariant[33] = True
+                    self.practical_ASLR_ROPVariant[34] = True
+
+            elif op2_family == 0:
+                if op1_family == 1:
+                    self.practical_ASLR_ROPVariant[11] = True
+                    self.practical_ASLR_ROPVariant[12] = True
+                    self.practical_ASLR_ROPVariant[13] = True
+                    self.practical_ASLR_ROPVariant[14] = True
+                elif op1_family == 2:
+                    self.practical_ASLR_ROPVariant[15] = True
+                    self.practical_ASLR_ROPVariant[16] = True
+                    self.practical_ASLR_ROPVariant[17] = True
+                    self.practical_ASLR_ROPVariant[18] = True
+                elif op1_family == 3:
+                    self.practical_ASLR_ROPVariant[19] = True
+                    self.practical_ASLR_ROPVariant[20] = True
+                    self.practical_ASLR_ROPVariant[21] = True
+                    self.practical_ASLR_ROPVariant[22] = True
+                elif op1_family == 6:
+                    self.practical_ASLR_ROPVariant[23] = True
+                    self.practical_ASLR_ROPVariant[24] = True
+                    self.practical_ASLR_ROPVariant[25] = True
+                    self.practical_ASLR_ROPVariant[26] = True
+                elif op1_family == 4:
+                    self.practical_ASLR_ROPVariant[27] = True
+                    self.practical_ASLR_ROPVariant[28] = True
+                    self.practical_ASLR_ROPVariant[29] = True
+                    self.practical_ASLR_ROPVariant[30] = True
+                elif op1_family == 5:
+                    self.practical_ASLR_ROPVariant[31] = True
+                    self.practical_ASLR_ROPVariant[32] = True
+                    self.practical_ASLR_ROPVariant[33] = True
+                    self.practical_ASLR_ROPVariant[34] = True
+
+        # MOV between AX and another GPR
+        if opcode == "mov" and "[" not in op1 and "[" not in op2:
+            if op1_family == 0:
+                if op2_family == 1:
+                    self.practical_ASLR_ROPVariant[13] = True
+                    self.practical_ASLR_ROPVariant[14] = True
+                elif op2_family == 2:
+                    self.practical_ASLR_ROPVariant[17] = True
+                    self.practical_ASLR_ROPVariant[18] = True
+                elif op2_family == 3:
+                    self.practical_ASLR_ROPVariant[21] = True
+                    self.practical_ASLR_ROPVariant[22] = True
+                elif op2_family == 6:
+                    self.practical_ASLR_ROPVariant[25] = True
+                    self.practical_ASLR_ROPVariant[26] = True
+                elif op2_family == 4:
+                    self.practical_ASLR_ROPVariant[29] = True
+                    self.practical_ASLR_ROPVariant[30] = True
+                elif op2_family == 5:
+                    self.practical_ASLR_ROPVariant[33] = True
+                    self.practical_ASLR_ROPVariant[34] = True
+
+            elif op2_family == 0:
+                if op1_family == 1:
+                    self.practical_ASLR_ROPVariant[11] = True
+                    self.practical_ASLR_ROPVariant[12] = True
+                elif op1_family == 2:
+                    self.practical_ASLR_ROPVariant[15] = True
+                    self.practical_ASLR_ROPVariant[16] = True
+                elif op1_family == 3:
+                    self.practical_ASLR_ROPVariant[19] = True
+                    self.practical_ASLR_ROPVariant[20] = True
+                elif op1_family == 6:
+                    self.practical_ASLR_ROPVariant[23] = True
+                    self.practical_ASLR_ROPVariant[24] = True
+                elif op1_family == 4:
+                    self.practical_ASLR_ROPVariant[27] = True
+                    self.practical_ASLR_ROPVariant[28] = True
+                elif op1_family == 5:
+                    self.practical_ASLR_ROPVariant[31] = True
+                    self.practical_ASLR_ROPVariant[32] = True
+
+        # ["add", "adc", "sub", "sbb", "and", "or", "xor"] between AX and another GPR
+        if opcode in ["add", "adc", "sub", "sbb", "and", "or", "xor"] and "[" not in op1 and "[" not in op2:
+            if op1_family == 0:
+                if op2_family == 1:
+                    self.practical_ASLR_ROPVariant[14] = True
+                elif op2_family == 2:
+                    self.practical_ASLR_ROPVariant[18] = True
+                elif op2_family == 3:
+                    self.practical_ASLR_ROPVariant[22] = True
+                elif op2_family == 6:
+                    self.practical_ASLR_ROPVariant[26] = True
+                elif op2_family == 4:
+                    self.practical_ASLR_ROPVariant[30] = True
+                elif op2_family == 5:
+                    self.practical_ASLR_ROPVariant[34] = True
+
+            elif op2_family == 0:
+                if op1_family == 1:
+                    self.practical_ASLR_ROPVariant[12] = True
+                elif op1_family == 2:
+                    self.practical_ASLR_ROPVariant[16] = True
+                elif op1_family == 3:
+                    self.practical_ASLR_ROPVariant[20] = True
+                elif op1_family == 6:
+                    self.practical_ASLR_ROPVariant[24] = True
+                elif op1_family == 4:
+                    self.practical_ASLR_ROPVariant[28] = True
+                elif op1_family == 5:
+                    self.practical_ASLR_ROPVariant[32] = True
+
+        # Resume checks for individual classes 11, 15, 19, 23, 27, and 31. Others entirely checked entirely above
+        if self.practical_ASLR_ROPVariant[11] is False:
+            if opcode == "pop" and "[" not in op1 and op1_family == 1:
+                self.practical_ASLR_ROPVariant[11] = True
+
+        if self.practical_ASLR_ROPVariant[15] is False:
+            if opcode == "pop" and "[" not in op1 and op1_family == 2:
+                self.practical_ASLR_ROPVariant[15] = True
+
+        if self.practical_ASLR_ROPVariant[19] is False:
+            if opcode == "pop" and "[" not in op1 and op1_family == 3:
+                self.practical_ASLR_ROPVariant[19] = True
+
+        if self.practical_ASLR_ROPVariant[23] is False:
+            if opcode == "pop" and "[" not in op1 and op1_family == 6:
+                self.practical_ASLR_ROPVariant[23] = True
+
+        if self.practical_ASLR_ROPVariant[27] is False:
+            if opcode == "pop" and "[" not in op1 and op1_family == 4:
+                self.practical_ASLR_ROPVariant[27] = True
+
+        if self.practical_ASLR_ROPVariant[31] is False:
+            if opcode == "pop" and "[" not in op1 and op1_family == 5:
+                self.practical_ASLR_ROPVariant[31] = True
+    
+    def classify_JOP_gadget_variant(self, gadget):
+        """
+        Analyzes a gadget to determine which expressivity classes it satisfies
+        :param Gadget gadget: gadget to analyze
+        :return: None, but modifies Gadget expressivity collections
+        """
+        last_instr = gadget.instructions[len(gadget.instructions)-1]
+        op1 = last_instr.op1
+        op1_family = Instruction.get_word_operand_register_family(op1)
+
+        if self.practical_ROPVariant[3] is False:
+            if "[" in op1 and op1_family in [0, 5] and "+" not in op1 and "-" not in op1 and "*" not in op1:
+                self.practical_ROPVariant[3] = True
+
+        if self.practical_ROPVariant[5] is False:
+            if op1_family in [0, 5] and "+" not in op1 and "-" not in op1 and "*" not in op1:
+                self.practical_ROPVariant[5] = True
+
+        if self.practical_ROPVariant[7] is False:
+            if "[" in op1 and op1_family in [0, 4, 5] and "+" not in op1 and "-" not in op1 and "*" not in op1:
+                self.practical_ROPVariant[7] = True
+
+        if self.practical_ASLR_ROPVariant[0] is False:
+            if "[" not in op1 and op1_family not in [None, 6, 7]:
+                self.practical_ASLR_ROPVariant[0] = True
+
+        if self.practical_ASLR_ROPVariant[1] is False:
+            if "[" in op1 and op1_family not in [None, 6, 7] and "+" not in op1 and "-" not in op1 and "*" not in op1:
+                self.practical_ASLR_ROPVariant[1] = True
+
+    def analyze_gadget_variant(self, gadget, sets):
+        """
+        Analyzes a gadget to determine its properties
+        :param Gadget gadget: gadget to analyze
+        :return: None, but modifies GadgetSet collections and Gadget object members
+        """
+
+        if sets != None:
+            offset = int(gadget.offset[:-1],16)
+            # print("offset: "+str(offset)+" which is "+str(gadget.offset))
+            if offset >= self.text_begin and offset <= self.text_end:
+                start_page = self.text_begin // 4096
+                # print("Start Page: "+str(start_page)+" which is "+str(self.text_begin))
+                curr_page = offset // 4096
+                # print("Curr Page: "+str(curr_page)+" which is "+str(offset))
+                relative_curr_page = curr_page - start_page 
+                # print("Relative Curr Page: "+str(relative_curr_page))
+                if relative_curr_page not in sets:
+                    return
+
+
+        # Step 1: Eliminate useless gadgets, defined as:
+        # 1) Gadgets that consist only of the GPI (SYSCALL gadgets excluded)
+        # 2) Gadgets that have a first opcode that is not useful - we assume that the first instruction is part of the
+        #    desired operation to be performed (otherwise attacker would just use the shorter version)
+        # 3) Gadgets that end in a call/jmp <offset> (ROPgadget should not include these in the first place)
+        # 4) Gadgets that create values in segment or extension registers, or are RIP-relative
+        # 5) Gadgets ending in returns with offsets that are not byte aligned or greater than 32 bytes
+        # 6) Gadgets containing ring-0 instructions / operands
+        # 7) Gadgets that contain an intermediate GPI/interrupt (ROPgadget should not include these in the first place)
+        # 8) ROP Gadgets that perform non-static assignments to the stack pointer register
+        # 9) JOP/COP Gadgets that overwrite the target of and indirect branch GPI
+        # 10) JOP/COP gadgets that are RIP-relative
+        # 11) Syscall gadgets that end in an interrupt handler that is not 0x80 (ROPgadget should not include these)
+        # 12) Gadgets that create value in the first instruction only to overwrite that value before the GPI
+        # 13) Gadgets that contain intermediate static calls
+        if gadget.is_gpi_only() or gadget.is_useless_op() or gadget.is_invalid_branch() or \
+           gadget.creates_unusable_value() or gadget.has_invalid_ret_offset() or gadget.contains_unusable_op() or \
+           gadget.contains_intermediate_GPI() or gadget.clobbers_stack_pointer() or \
+           gadget.is_rip_relative_indirect_branch() or gadget.clobbers_indirect_target() or \
+           gadget.has_invalid_int_handler() or gadget.clobbers_created_value() or gadget.contains_static_call():
+            self.cnt_rejected += 1
+            return
+
+        # Step 2: Sort the gadget by type. Gadget type determined by GPI and secondary check for S.P. gadgets. Scoring
+        #         is only performed for unique functional gadgets.
+        gpi = gadget.instructions[len(gadget.instructions)-1].opcode
+
+        if gpi.startswith("ret"):
+            if self.add_if_unique(gadget, self.ROPGadgetsVariant):
+                # Determine score, first checking ROP-specific side constraints
+                gadget.check_sp_target_of_operation()  # increase score if stack pointer family is target of certain ops
+                gadget.check_contains_leave()          # +2 if gadget contains an intermediate "leave" instruction
+                gadget.check_negative_sp_offsets()     # +2 if gadget's cumulative stack pointer offsets are negative
+
+                # Next check general side-constraints
+                gadget.check_contains_conditional_op()    # increase score if gadget contains conditional operations
+                gadget.check_register_ops()               # increases score for ops on value and bystander register
+                gadget.check_memory_writes()              # increases score for each memory write in the gadget
+
+                self.total_ROP_scoreVariant += gadget.score
+
+        elif gpi.startswith("jmp"):
+            if gadget.is_JOP_COP_dispatcher():
+                self.add_if_unique(gadget, self.JOPDispatchersVariant)
+            elif gadget.is_JOP_COP_dataloader():
+                self.add_if_unique(gadget, self.JOPDataLoadersVariant)
+            elif gadget.is_JOP_initializer():
+                self.add_if_unique(gadget, self.JOPInitializersVariant)
+            elif gadget.is_JOP_trampoline():
+                self.add_if_unique(gadget, self.JOPTrampolinesVariant)
+            else:
+                if self.add_if_unique(gadget, self.JOPGadgetsVariant):
+                    # Determine score, first checking JOP-specific side constraints
+                    gadget.check_branch_target_of_operation()  # increase score if branch register is target of ops
+
+                    # Next check general side-constraints
+                    gadget.check_contains_conditional_op()  # increase score if gadget contains conditional operations
+                    gadget.check_register_ops()  # increases score for ops on value and bystander register
+                    gadget.check_memory_writes()  # increases score for each memory write in the gadget
+
+                    self.total_JOP_scoreVariant += gadget.score
+
+        elif gpi.startswith("call"):
+            if gadget.is_JOP_COP_dispatcher():
+                self.add_if_unique(gadget, self.COPDispatchersVariant)
+            elif gadget.is_JOP_COP_dataloader():
+                self.add_if_unique(gadget, self.COPDataLoadersVariant)
+            elif gadget.is_COP_initializer():
+                self.add_if_unique(gadget, self.COPInitializersVariant)
+            elif gadget.is_COP_strong_trampoline():
+                self.add_if_unique(gadget, self.COPStrongTrampolinesVariant)
+            elif gadget.is_COP_intrastack_pivot():
+                self.add_if_unique(gadget, self.COPIntrastackPivotsVariant)
+            else:
+                if self.add_if_unique(gadget, self.COPGadgetsVariant):
+                    # Determine score, first checking COP-specific side constraints
+                    gadget.check_branch_target_of_operation()  # increase score if branch register is target of ops
+
+                    # Next check general side-constraints
+                    gadget.check_contains_conditional_op()  # increase score if gadget contains conditional operations
+                    gadget.check_register_ops()  # increases score for ops on value and bystander register
+                    gadget.check_memory_writes()  # increases score for each memory write in the gadget
+
+                    self.total_COP_scoreVariant += gadget.score
+        else:
+            self.add_if_unique(gadget, self.SyscallGadgetsVariant)          
+

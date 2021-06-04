@@ -53,7 +53,7 @@ with open(args.set_file,"r") as f:
 
 # Create Gadget sets for original
 print("Analyzing original package [" + args.original_name + "] located at: " + args.original)
-original = GadgetSet(args.original_name, args.original, False, args.output_console, args.text_begin, args.text_size, None)
+original = GadgetSet(args.original_name, args.original, False, args.output_console, args.text_begin, args.text_size)
 
 # Create a timestamped results folder
 try:
@@ -162,90 +162,92 @@ if args.output_tables != '':
     table_lines[3] = args.output_tables + " & " + str(original.total_sp_types)
 
 # Iterate through the variants. Scan them to get a gadget set, compare it to the original, add data to output files
-gadgets = {}
+# gadgets = {}
 for i in range(len(sets)):
     print("Analyzing variant package for set: "+str(sets[i]))
 
-    variant = None
-    key = " ".join([str(j) for j in sets[i]])
-    if(key not in gadgets):
-        variant = GadgetSet("variant["+str(i)+"]", args.original, False, args.output_console, args.text_begin, args.text_size, sets[i])
-        gadgets[key] = variant
-    else:
-        variant = gadgets[key]
+    # variant = None
+    # key = " ".join([str(j) for j in sets[i]])
+    # if(key not in gadgets):
+    #     variant = GadgetSet("variant["+str(i)+"]", args.original, False, args.output_console, args.text_begin, args.text_size, sets[i])
+    #     gadgets[key] = variant
+    # else:
+    #     variant = gadgets[key]
+    original.variant_gadget(sets[i])
+    variant = original
     stat = GadgetStats(original, variant, args.output_console, args.output_locality)
 
     # Output file 1 variant lines
-    stat_counts = variant.name + "," + str(variant.total_unique_gadgets) + " (" + str(stat.totalUniqueCountDiff) + "; " + rate_format.format(stat.totalUniqueCountReduction) + "),"
-    stat_counts = stat_counts + str(len(variant.ROPGadgets)) + " (" + str(stat.ROPCountDiff) + "; " + rate_format.format(stat.ROPCountReduction) + "),"
-    stat_counts = stat_counts + str(len(variant.JOPGadgets)) + " (" + str(stat.JOPCountDiff) + "; " + rate_format.format(stat.JOPCountReduction) + "),"
-    stat_counts = stat_counts + str(len(variant.COPGadgets)) + " (" + str(stat.COPCountDiff) + "; " + rate_format.format(stat.COPCountReduction) + "),"
-    stat_counts = stat_counts + str(variant.total_sp_gadgets) + " (" + str(stat.total_sp_count_diff) + "; " + rate_format.format(stat.total_sp_reduction) + ")\r"
+    stat_counts = variant.name + "," + str(variant.total_unique_gadgetsVariant) + " (" + str(stat.totalUniqueCountDiff) + "; " + rate_format.format(stat.totalUniqueCountReduction) + "),"
+    stat_counts = stat_counts + str(len(variant.ROPGadgetsVariant)) + " (" + str(stat.ROPCountDiff) + "; " + rate_format.format(stat.ROPCountReduction) + "),"
+    stat_counts = stat_counts + str(len(variant.JOPGadgetsVariant)) + " (" + str(stat.JOPCountDiff) + "; " + rate_format.format(stat.JOPCountReduction) + "),"
+    stat_counts = stat_counts + str(len(variant.COPGadgetsVariant)) + " (" + str(stat.COPCountDiff) + "; " + rate_format.format(stat.COPCountReduction) + "),"
+    stat_counts = stat_counts + str(variant.total_sp_gadgetsVariant) + " (" + str(stat.total_sp_count_diff) + "; " + rate_format.format(stat.total_sp_reduction) + ")\r"
     file_1_lines.append(stat_counts)
 
     # Output file 2 variant lines
-    stat_counts = variant.name + "," + str(variant.total_unique_gadgets) + ","
+    stat_counts = variant.name + "," + str(variant.total_unique_gadgetsVariant) + ","
     stat_counts = stat_counts + rate_format.format(stat.totalUniqueIntroductionRate) + ","
-    stat_counts = stat_counts + str(len(variant.ROPGadgets)) + ","
+    stat_counts = stat_counts + str(len(variant.ROPGadgetsVariant)) + ","
     stat_counts = stat_counts + rate_format.format(stat.ROPIntroductionRate) + ","
-    stat_counts = stat_counts + str(len(variant.JOPGadgets)) + ","
+    stat_counts = stat_counts + str(len(variant.JOPGadgetsVariant)) + ","
     stat_counts = stat_counts + rate_format.format(stat.JOPIntroductionRate) + ","
-    stat_counts = stat_counts + str(len(variant.COPGadgets)) + ","
+    stat_counts = stat_counts + str(len(variant.COPGadgetsVariant)) + ","
     stat_counts = stat_counts + rate_format.format(stat.COPIntroductionRate) + "\r"
     file_2_lines.append(stat_counts)
 
     # Output file 3 variant lines
-    stat_counts = variant.name + "," + str(len(variant.SyscallGadgets)) + " (" + str(
+    stat_counts = variant.name + "," + str(len(variant.SyscallGadgetsVariant)) + " (" + str(
         stat.SysCountDiff) + "; " + rate_format.format(stat.SysCountReduction) + "),"
-    stat_counts = stat_counts + str(len(variant.JOPDispatchers)) + " (" + str(
+    stat_counts = stat_counts + str(len(variant.JOPDispatchersVariant)) + " (" + str(
         stat.JOPDispatchersCountDiff) + "; " + rate_format.format(stat.JOPDispatchersCountReduction) + "),"
-    stat_counts = stat_counts + str(len(variant.JOPDataLoaders)) + " (" + str(
+    stat_counts = stat_counts + str(len(variant.JOPDataLoadersVariant)) + " (" + str(
         stat.JOPDataLoadersCountDiff) + "; " + rate_format.format(stat.JOPDataLoadersCountReduction) + "),"
-    stat_counts = stat_counts + str(len(variant.JOPInitializers)) + " (" + str(
+    stat_counts = stat_counts + str(len(variant.JOPInitializersVariant)) + " (" + str(
         stat.JOPInitializersCountDiff) + "; " + rate_format.format(stat.JOPInitializersCountReduction) + "),"
-    stat_counts = stat_counts + str(len(variant.JOPTrampolines)) + " (" + str(
+    stat_counts = stat_counts + str(len(variant.JOPTrampolinesVariant)) + " (" + str(
         stat.JOPTrampolinesCountDiff) + "; " + rate_format.format(stat.JOPTrampolinesCountReduction) + "),"
-    stat_counts = stat_counts + str(len(variant.COPDispatchers)) + " (" + str(
+    stat_counts = stat_counts + str(len(variant.COPDispatchersVariant)) + " (" + str(
         stat.COPDispatchersCountDiff) + "; " + rate_format.format(stat.COPDispatchersCountReduction) + "),"
-    stat_counts = stat_counts + str(len(variant.COPDataLoaders)) + " (" + str(
+    stat_counts = stat_counts + str(len(variant.COPDataLoadersVariant)) + " (" + str(
         stat.COPDataLoadersCountDiff) + "; " + rate_format.format(stat.COPDataLoadersCountReduction) + "),"
-    stat_counts = stat_counts + str(len(variant.COPInitializers)) + " (" + str(
+    stat_counts = stat_counts + str(len(variant.COPInitializersVariant)) + " (" + str(
         stat.COPInitializersCountDiff) + "; " + rate_format.format(stat.COPInitializersCountReduction) + "),"
-    stat_counts = stat_counts + str(len(variant.COPStrongTrampolines)) + " (" + str(
+    stat_counts = stat_counts + str(len(variant.COPStrongTrampolinesVariant)) + " (" + str(
         stat.COPStrongTrampolinesCountDiff) + "; " + rate_format.format(
         stat.COPStrongTrampolinesCountReduction) + "),"
-    stat_counts = stat_counts + str(len(variant.COPIntrastackPivots)) + " (" + str(
+    stat_counts = stat_counts + str(len(variant.COPIntrastackPivotsVariant)) + " (" + str(
         stat.COPIntrastackPivotsCountDiff) + "; " + rate_format.format(
         stat.COPIntrastackPivotsCountReduction) + ")\r"
     file_3_lines.append(stat_counts)
 
     # Output file 4 variant lines
-    stat_counts = variant.name + "," + str(len(variant.SyscallGadgets)) + ","
+    stat_counts = variant.name + "," + str(len(variant.SyscallGadgetsVariant)) + ","
     stat_counts = stat_counts + rate_format.format(stat.SysIntroductionRate) + ","
-    stat_counts = stat_counts + str(len(variant.JOPDispatchers)) + ","
+    stat_counts = stat_counts + str(len(variant.JOPDispatchersVariant)) + ","
     stat_counts = stat_counts + rate_format.format(stat.JOPDispatchersIntroductionRate) + ","
-    stat_counts = stat_counts + str(len(variant.JOPDataLoaders)) + ","
+    stat_counts = stat_counts + str(len(variant.JOPDataLoadersVariant)) + ","
     stat_counts = stat_counts + rate_format.format(stat.JOPDataLoadersIntroductionRate) + ","
-    stat_counts = stat_counts + str(len(variant.JOPInitializers)) + ","
+    stat_counts = stat_counts + str(len(variant.JOPInitializersVariant)) + ","
     stat_counts = stat_counts + rate_format.format(stat.JOPInitializersIntroductionRate) + ","
-    stat_counts = stat_counts + str(len(variant.JOPTrampolines)) + ","
+    stat_counts = stat_counts + str(len(variant.JOPTrampolinesVariant)) + ","
     stat_counts = stat_counts + rate_format.format(stat.JOPTrampolinesIntroductionRate) + ","
-    stat_counts = stat_counts + str(len(variant.COPDispatchers)) + ","
+    stat_counts = stat_counts + str(len(variant.COPDispatchersVariant)) + ","
     stat_counts = stat_counts + rate_format.format(stat.COPDispatchersIntroductionRate) + ","
-    stat_counts = stat_counts + str(len(variant.COPDataLoaders)) + ","
+    stat_counts = stat_counts + str(len(variant.COPDataLoadersVariant)) + ","
     stat_counts = stat_counts + rate_format.format(stat.COPDataLoadersIntroductionRate) + ","
-    stat_counts = stat_counts + str(len(variant.COPInitializers)) + ","
+    stat_counts = stat_counts + str(len(variant.COPInitializersVariant)) + ","
     stat_counts = stat_counts + rate_format.format(stat.COPInitializersIntroductionRate) + ","
-    stat_counts = stat_counts + str(len(variant.COPStrongTrampolines)) + ","
+    stat_counts = stat_counts + str(len(variant.COPStrongTrampolinesVariant)) + ","
     stat_counts = stat_counts + rate_format.format(stat.COPStrongTrampolinesIntroductionRate) + ","
-    stat_counts = stat_counts + str(len(variant.COPIntrastackPivots)) + ","
+    stat_counts = stat_counts + str(len(variant.COPIntrastackPivotsVariant)) + ","
     stat_counts = stat_counts + rate_format.format(stat.COPIntrastackPivotsIntroductionRate) + "\r"
     file_4_lines.append(stat_counts)
 
     # Output file 5 variant lines
-    stat_counts = variant.name + "," + str(variant.practical_ROP_expressivity) + " (" + str(stat.practical_ROP_exp_diff) + "),"
-    stat_counts += str(variant.practical_ASLR_ROP_expressivity) + " (" + str(stat.practical_ASLR_ROP_exp_diff)  + "),"
-    stat_counts += str(variant.turing_complete_ROP_expressivity) + " (" + str(stat.turing_complete_ROP_exp_diff) + ")\r"
+    stat_counts = variant.name + "," + str(variant.practical_ROP_expressivityVariant) + " (" + str(stat.practical_ROP_exp_diff) + "),"
+    stat_counts += str(variant.practical_ASLR_ROP_expressivityVariant) + " (" + str(stat.practical_ASLR_ROP_exp_diff)  + "),"
+    stat_counts += str(variant.turing_complete_ROP_expressivityVariant) + " (" + str(stat.turing_complete_ROP_exp_diff) + ")\r"
     file_5_lines.append(stat_counts)
 
     # Output file 6 variant lines
@@ -254,22 +256,22 @@ for i in range(len(sets)):
         file_6_lines.append(stat_locality)
 
     # Output file 7 variant lines
-    stat_quality = variant.name + "," + str(len(variant.ROPGadgets)) + " (" + str(stat.keptQualityROPCountDiff) + "),"
-    stat_quality += str(variant.averageROPQuality) + " (" + str(stat.averageROPQualityDiff) + "),"
-    stat_quality += str(len(variant.JOPGadgets)) + " (" + str(stat.keptQualityJOPCountDiff) + "),"
-    stat_quality += str(variant.averageJOPQuality) + " (" + str(stat.averageJOPQualityDiff) + "),"
-    stat_quality += str(len(variant.COPGadgets)) + " (" + str(stat.keptQualityCOPCountDiff) + "),"
-    stat_quality += str(variant.averageCOPQuality) + " (" + str(stat.averageCOPQualityDiff) + ")\r"
+    stat_quality = variant.name + "," + str(len(variant.ROPGadgetsVariant)) + " (" + str(stat.keptQualityROPCountDiff) + "),"
+    stat_quality += str(variant.averageROPQualityVariant) + " (" + str(stat.averageROPQualityDiff) + "),"
+    stat_quality += str(len(variant.JOPGadgetsVariant)) + " (" + str(stat.keptQualityJOPCountDiff) + "),"
+    stat_quality += str(variant.averageJOPQualityVariant) + " (" + str(stat.averageJOPQualityDiff) + "),"
+    stat_quality += str(len(variant.COPGadgetsVariant)) + " (" + str(stat.keptQualityCOPCountDiff) + "),"
+    stat_quality += str(variant.averageCOPQualityVariant) + " (" + str(stat.averageCOPQualityDiff) + ")\r"
     file_7_lines.append(stat_quality)
 
     # Output file 8 variant lines
     if args.output_addresses:
         file_8_lines.append("Sensitive gadgets introduced in variant: " + variant.name + "\r")
-        specialSets = [variant.SyscallGadgets, variant.JOPDispatchers,
-                        variant.JOPDataLoaders, variant.JOPInitializers,
-                        variant.JOPTrampolines, variant.COPDispatchers,
-                        variant.COPDataLoaders, variant.COPInitializers,
-                        variant.COPStrongTrampolines, variant.COPIntrastackPivots]
+        specialSets = [variant.SyscallGadgetsVariant, variant.JOPDispatchersVariant,
+                        variant.JOPDataLoadersVariant, variant.JOPInitializersVariant,
+                        variant.JOPTrampolinesVariant, variant.COPDispatchersVariant,
+                        variant.COPDataLoadersVariant, variant.COPInitializersVariant,
+                        variant.COPStrongTrampolinesVariant, variant.COPIntrastackPivotsVariant]
         for specialSet in specialSets:
             for gadget in specialSet:
                 file_8_lines.append("Gadget: " + str(gadget.instructions) + "\r")
@@ -283,12 +285,12 @@ for i in range(len(sets)):
 
     # Output File 9 variant lines
     if args.output_tables != '':
-        table_lines[0] = table_lines[0] + " & " + str(variant.total_unique_gadgets) + " (" + rate_format.format(stat.totalUniqueIntroductionRate) + ")"
-        table_lines[1] = table_lines[1] + " & " + str(variant.practical_ROP_expressivity) + "/" + str(variant.practical_ASLR_ROP_expressivity) + "/" + str(variant.turing_complete_ROP_expressivity) + " & (" + \
+        table_lines[0] = table_lines[0] + " & " + str(variant.total_unique_gadgetsVariant) + " (" + rate_format.format(stat.totalUniqueIntroductionRate) + ")"
+        table_lines[1] = table_lines[1] + " & " + str(variant.practical_ROP_expressivityVariant) + "/" + str(variant.practical_ASLR_ROP_expressivityVariant) + "/" + str(variant.turing_complete_ROP_expressivityVariant) + " & (" + \
             str(stat.practical_ROP_exp_diff) + "/" + str(stat.practical_ASLR_ROP_exp_diff) + "/" + str(stat.turing_complete_ROP_exp_diff) + ")"
-        table_lines[2] = table_lines[2] +  " & " + str(variant.total_functional_gadgets) + " / " + float_format.format(variant.average_functional_quality) + " & (" + \
+        table_lines[2] = table_lines[2] +  " & " + str(variant.total_functional_gadgetsVariant) + " / " + float_format.format(variant.average_functional_qualityVariant) + " & (" + \
             str(stat.total_functional_count_diff) + " / " + float_format.format(stat.total_average_quality_diff) + ")"
-        table_lines[3] = table_lines[3] + " & " + str(variant.total_sp_types) + " & (" + str(stat.total_sp_type_reduction) + ")"
+        table_lines[3] = table_lines[3] + " & " + str(variant.total_sp_typesVariant) + " & (" + str(stat.total_sp_type_reduction) + ")"
 
 # Write file lines to disk.
 try:

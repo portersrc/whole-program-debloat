@@ -30,79 +30,79 @@ class GadgetStats(object):
         self.name = original.name + " <-> " + variant.name
 
         # Gadget Count Differences and Reduction Percentages
-        self.ROPCountDiff = len(original.ROPGadgets) - len(variant.ROPGadgets)
+        self.ROPCountDiff = len(original.ROPGadgets) - len(variant.ROPGadgetsVariant)
         if len(original.ROPGadgets) > 0:
             self.ROPCountReduction = self.ROPCountDiff / len(original.ROPGadgets)
         else:
             self.ROPCountReduction = 0
 
-        self.JOPCountDiff = len(original.JOPGadgets) - len(variant.JOPGadgets)
+        self.JOPCountDiff = len(original.JOPGadgets) - len(variant.JOPGadgetsVariant)
         if len(original.JOPGadgets) > 0:
             self.JOPCountReduction = self.JOPCountDiff / len(original.JOPGadgets)
         else:
             self.JOPCountReduction = 0
 
-        self.COPCountDiff = len(original.COPGadgets) - len(variant.COPGadgets)
+        self.COPCountDiff = len(original.COPGadgets) - len(variant.COPGadgetsVariant)
         if len(original.COPGadgets) > 0:
             self.COPCountReduction = self.COPCountDiff / len(original.COPGadgets)
         else:
             self.COPCountReduction = 0
 
-        self.SysCountDiff = len(original.SyscallGadgets) - len(variant.SyscallGadgets)
+        self.SysCountDiff = len(original.SyscallGadgets) - len(variant.SyscallGadgetsVariant)
         if len(original.SyscallGadgets) > 0:
             self.SysCountReduction = self.SysCountDiff / len(original.SyscallGadgets)
         else:
             self.SysCountReduction = 0
 
-        self.JOPDispatchersCountDiff = len(original.JOPDispatchers) - len(variant.JOPDispatchers)
+        self.JOPDispatchersCountDiff = len(original.JOPDispatchers) - len(variant.JOPDispatchersVariant)
         if len(original.JOPDispatchers) > 0:
             self.JOPDispatchersCountReduction = self.JOPDispatchersCountDiff / len(original.JOPDispatchers)
         else:
             self.JOPDispatchersCountReduction = 0
 
-        self.JOPDataLoadersCountDiff = len(original.JOPDataLoaders) - len(variant.JOPDataLoaders)
+        self.JOPDataLoadersCountDiff = len(original.JOPDataLoaders) - len(variant.JOPDataLoadersVariant)
         if len(original.JOPDataLoaders) > 0:
             self.JOPDataLoadersCountReduction = self.JOPDataLoadersCountDiff / len(original.JOPDataLoaders)
         else:
             self.JOPDataLoadersCountReduction = 0
 
-        self.JOPInitializersCountDiff = len(original.JOPInitializers) - len(variant.JOPInitializers)
+        self.JOPInitializersCountDiff = len(original.JOPInitializers) - len(variant.JOPInitializersVariant)
         if len(original.JOPInitializers) > 0:
             self.JOPInitializersCountReduction = self.JOPInitializersCountDiff / len(original.JOPInitializers)
         else:
             self.JOPInitializersCountReduction = 0
 
-        self.JOPTrampolinesCountDiff = len(original.JOPTrampolines) - len(variant.JOPTrampolines)
+        self.JOPTrampolinesCountDiff = len(original.JOPTrampolines) - len(variant.JOPTrampolinesVariant)
         if len(original.JOPTrampolines) > 0:
             self.JOPTrampolinesCountReduction = self.JOPTrampolinesCountDiff / len(original.JOPTrampolines)
         else:
             self.JOPTrampolinesCountReduction = 0
 
-        self.COPDispatchersCountDiff = len(original.COPDispatchers) - len(variant.COPDispatchers)
+        self.COPDispatchersCountDiff = len(original.COPDispatchers) - len(variant.COPDispatchersVariant)
         if len(original.COPDispatchers) > 0:
             self.COPDispatchersCountReduction = self.COPDispatchersCountDiff / len(original.COPDispatchers)
         else:
             self.COPDispatchersCountReduction = 0
 
-        self.COPDataLoadersCountDiff = len(original.COPDataLoaders) - len(variant.COPDataLoaders)
+        self.COPDataLoadersCountDiff = len(original.COPDataLoaders) - len(variant.COPDataLoadersVariant)
         if len(original.COPDataLoaders) > 0:
             self.COPDataLoadersCountReduction = self.COPDataLoadersCountDiff / len(original.COPDataLoaders)
         else:
             self.COPDataLoadersCountReduction = 0
 
-        self.COPInitializersCountDiff = len(original.COPInitializers) - len(variant.COPInitializers)
+        self.COPInitializersCountDiff = len(original.COPInitializers) - len(variant.COPInitializersVariant)
         if len(original.COPInitializers) > 0:
             self.COPInitializersCountReduction = self.COPInitializersCountDiff / len(original.COPInitializers)
         else:
             self.COPInitializersCountReduction = 0
 
-        self.COPStrongTrampolinesCountDiff = len(original.COPStrongTrampolines) - len(variant.COPStrongTrampolines)
+        self.COPStrongTrampolinesCountDiff = len(original.COPStrongTrampolines) - len(variant.COPStrongTrampolinesVariant)
         if len(original.COPStrongTrampolines) > 0:
             self.COPStrongTrampolinesCountReduction = self.COPStrongTrampolinesCountDiff / len(original.COPStrongTrampolines)
         else:
             self.COPStrongTrampolinesCountReduction = 0
 
-        self.COPIntrastackPivotsCountDiff = len(original.COPIntrastackPivots) - len(variant.COPIntrastackPivots)
+        self.COPIntrastackPivotsCountDiff = len(original.COPIntrastackPivots) - len(variant.COPIntrastackPivotsVariant)
         if len(original.COPIntrastackPivots) > 0:
             self.COPIntrastackPivotsCountReduction = self.COPIntrastackPivotsCountDiff / len(original.COPIntrastackPivots)
         else:
@@ -110,7 +110,7 @@ class GadgetStats(object):
 
         # Gadget Introduction Counts and Percentages by type
         originalROPSet = GadgetStats.get_gadget_set(original.ROPGadgets)
-        variantROPSet = GadgetStats.get_gadget_set(variant.ROPGadgets)
+        variantROPSet = GadgetStats.get_gadget_set(variant.ROPGadgetsVariant)
         commonROPSet = originalROPSet & variantROPSet
         ROPIntroducedSet = variantROPSet - commonROPSet
         if len(variantROPSet) > 0:
@@ -119,7 +119,7 @@ class GadgetStats(object):
             self.ROPIntroductionRate = 0
 
         originalJOPSet = GadgetStats.get_gadget_set(original.JOPGadgets)
-        variantJOPSet = GadgetStats.get_gadget_set(variant.JOPGadgets)
+        variantJOPSet = GadgetStats.get_gadget_set(variant.JOPGadgetsVariant)
         commonJOPSet = originalJOPSet & variantJOPSet
         JOPIntroducedSet = variantJOPSet - commonJOPSet
         if len(variantJOPSet) > 0:
@@ -128,7 +128,7 @@ class GadgetStats(object):
             self.JOPIntroductionRate = 0
 
         originalCOPSet = GadgetStats.get_gadget_set(original.COPGadgets)
-        variantCOPSet = GadgetStats.get_gadget_set(variant.COPGadgets)
+        variantCOPSet = GadgetStats.get_gadget_set(variant.COPGadgetsVariant)
         commonCOPSet = originalCOPSet & variantCOPSet
         COPIntroducedSet = variantCOPSet - commonCOPSet
         if len(variantCOPSet) > 0:
@@ -137,7 +137,7 @@ class GadgetStats(object):
             self.COPIntroductionRate = 0
 
         originalSysSet = GadgetStats.get_gadget_set(original.SyscallGadgets)
-        variantSysSet = GadgetStats.get_gadget_set(variant.SyscallGadgets)
+        variantSysSet = GadgetStats.get_gadget_set(variant.SyscallGadgetsVariant)
         commonSysSet = originalSysSet & variantSysSet
         sysIntroducedSet = variantSysSet - commonSysSet
         if len(variantSysSet) > 0:
@@ -146,7 +146,7 @@ class GadgetStats(object):
             self.SysIntroductionRate = 0
 
         originalJOPDispatchersSet = GadgetStats.get_gadget_set(original.JOPDispatchers)
-        variantJOPDispatchersSet = GadgetStats.get_gadget_set(variant.JOPDispatchers)
+        variantJOPDispatchersSet = GadgetStats.get_gadget_set(variant.JOPDispatchersVariant)
         commonJOPDispatchersSet = originalJOPDispatchersSet & variantJOPDispatchersSet
         JOPDispatchersIntroducedSet = variantJOPDispatchersSet - commonJOPDispatchersSet
         if len(variantJOPDispatchersSet) > 0:
@@ -155,7 +155,7 @@ class GadgetStats(object):
             self.JOPDispatchersIntroductionRate = 0
 
         originalJOPDataLoadersSet = GadgetStats.get_gadget_set(original.JOPDataLoaders)
-        variantJOPDataLoadersSet = GadgetStats.get_gadget_set(variant.JOPDataLoaders)
+        variantJOPDataLoadersSet = GadgetStats.get_gadget_set(variant.JOPDataLoadersVariant)
         commonJOPDataLoadersSet = originalJOPDataLoadersSet & variantJOPDataLoadersSet
         JOPDataLoadersIntroducedSet = variantJOPDataLoadersSet - commonJOPDataLoadersSet
         if len(variantJOPDataLoadersSet) > 0:
@@ -164,7 +164,7 @@ class GadgetStats(object):
             self.JOPDataLoadersIntroductionRate = 0
 
         originalJOPInitializersSet = GadgetStats.get_gadget_set(original.JOPInitializers)
-        variantJOPInitializersSet = GadgetStats.get_gadget_set(variant.JOPInitializers)
+        variantJOPInitializersSet = GadgetStats.get_gadget_set(variant.JOPInitializersVariant)
         commonJOPInitializersSet = originalJOPInitializersSet & variantJOPInitializersSet
         JOPInitializersIntroducedSet = variantJOPInitializersSet - commonJOPInitializersSet
         if len(variantJOPInitializersSet) > 0:
@@ -173,7 +173,7 @@ class GadgetStats(object):
             self.JOPInitializersIntroductionRate = 0
 
         originalJOPTrampolinesSet = GadgetStats.get_gadget_set(original.JOPTrampolines)
-        variantJOPTrampolinesSet = GadgetStats.get_gadget_set(variant.JOPTrampolines)
+        variantJOPTrampolinesSet = GadgetStats.get_gadget_set(variant.JOPTrampolinesVariant)
         commonJOPTrampolinesSet = originalJOPTrampolinesSet & variantJOPTrampolinesSet
         JOPTrampolinesIntroducedSet = variantJOPTrampolinesSet - commonJOPTrampolinesSet
         if len(variantJOPTrampolinesSet) > 0:
@@ -182,7 +182,7 @@ class GadgetStats(object):
             self.JOPTrampolinesIntroductionRate = 0
 
         originalCOPDispatchersSet = GadgetStats.get_gadget_set(original.COPDispatchers)
-        variantCOPDispatchersSet = GadgetStats.get_gadget_set(variant.COPDispatchers)
+        variantCOPDispatchersSet = GadgetStats.get_gadget_set(variant.COPDispatchersVariant)
         commonCOPDispatchersSet = originalCOPDispatchersSet & variantCOPDispatchersSet
         COPDispatchersIntroducedSet = variantCOPDispatchersSet - commonCOPDispatchersSet
         if len(variantCOPDispatchersSet) > 0:
@@ -191,7 +191,7 @@ class GadgetStats(object):
             self.COPDispatchersIntroductionRate = 0
 
         originalCOPDataLoadersSet = GadgetStats.get_gadget_set(original.COPDataLoaders)
-        variantCOPDataLoadersSet = GadgetStats.get_gadget_set(variant.COPDataLoaders)
+        variantCOPDataLoadersSet = GadgetStats.get_gadget_set(variant.COPDataLoadersVariant)
         commonCOPDataLoadersSet = originalCOPDataLoadersSet & variantCOPDataLoadersSet
         COPDataLoadersIntroducedSet = variantCOPDataLoadersSet - commonCOPDataLoadersSet
         if len(variantCOPDataLoadersSet) > 0:
@@ -200,7 +200,7 @@ class GadgetStats(object):
             self.COPDataLoadersIntroductionRate = 0
 
         originalCOPInitializersSet = GadgetStats.get_gadget_set(original.COPInitializers)
-        variantCOPInitializersSet = GadgetStats.get_gadget_set(variant.COPInitializers)
+        variantCOPInitializersSet = GadgetStats.get_gadget_set(variant.COPInitializersVariant)
         commonCOPInitializersSet = originalCOPInitializersSet & variantCOPInitializersSet
         COPInitializersIntroducedSet = variantCOPInitializersSet - commonCOPInitializersSet
         if len(variantCOPInitializersSet) > 0:
@@ -209,7 +209,7 @@ class GadgetStats(object):
             self.COPInitializersIntroductionRate = 0
 
         originalCOPStrongTrampolinesSet = GadgetStats.get_gadget_set(original.COPStrongTrampolines)
-        variantCOPStrongTrampolinesSet = GadgetStats.get_gadget_set(variant.COPStrongTrampolines)
+        variantCOPStrongTrampolinesSet = GadgetStats.get_gadget_set(variant.COPStrongTrampolinesVariant)
         commonCOPStrongTrampolinesSet = originalCOPStrongTrampolinesSet & variantCOPStrongTrampolinesSet
         COPStrongTrampolinesIntroducedSet = variantCOPStrongTrampolinesSet - commonCOPStrongTrampolinesSet
         if len(variantCOPStrongTrampolinesSet) > 0:
@@ -218,7 +218,7 @@ class GadgetStats(object):
             self.COPStrongTrampolinesIntroductionRate = 0
 
         originalCOPIntrastackPivotsSet = GadgetStats.get_gadget_set(original.COPIntrastackPivots)
-        variantCOPIntrastackPivotsSet = GadgetStats.get_gadget_set(variant.COPIntrastackPivots)
+        variantCOPIntrastackPivotsSet = GadgetStats.get_gadget_set(variant.COPIntrastackPivotsVariant)
         commonCOPIntrastackPivotsSet = originalCOPIntrastackPivotsSet & variantCOPIntrastackPivotsSet
         COPIntrastackPivotsIntroducedSet = variantCOPIntrastackPivotsSet - commonCOPIntrastackPivotsSet
         if len(variantCOPIntrastackPivotsSet) > 0:
@@ -242,7 +242,7 @@ class GadgetStats(object):
         else:
             self.totalUniqueCountReduction = 0
 
-        self.total_sp_count_diff = original.total_sp_gadgets - variant.total_sp_gadgets
+        self.total_sp_count_diff = original.total_sp_gadgets - variant.total_sp_gadgetsVariant
         if original.total_sp_gadgets > 0:
             self.total_sp_reduction = self.total_sp_count_diff / original.total_sp_gadgets
         else:
@@ -255,12 +255,12 @@ class GadgetStats(object):
         else:
             self.totalUniqueIntroductionRate = 0
 
-        self.total_sp_type_reduction = original.total_sp_types - variant.total_sp_types
+        self.total_sp_type_reduction = original.total_sp_types - variant.total_sp_typesVariant
 
         # Satisfied classes count differences
-        self.practical_ROP_exp_diff = original.practical_ROP_expressivity - variant.practical_ROP_expressivity
-        self.practical_ASLR_ROP_exp_diff = original.practical_ASLR_ROP_expressivity - variant.practical_ASLR_ROP_expressivity
-        self.turing_complete_ROP_exp_diff = original.turing_complete_ROP_expressivity - variant.turing_complete_ROP_expressivity
+        self.practical_ROP_exp_diff = original.practical_ROP_expressivity - variant.practical_ROP_expressivityVariant
+        self.practical_ASLR_ROP_exp_diff = original.practical_ASLR_ROP_expressivity - variant.practical_ASLR_ROP_expressivityVariant
+        self.turing_complete_ROP_exp_diff = original.turing_complete_ROP_expressivity - variant.turing_complete_ROP_expressivityVariant
 
         # Calculate gadget locality
         if output_locality:
@@ -270,15 +270,15 @@ class GadgetStats(object):
             self.gadgetLocality = 0.0
 
         # Calculate gadget quality
-        self.keptQualityROPCountDiff = len(original.ROPGadgets) - len(variant.ROPGadgets)
-        self.keptQualityJOPCountDiff = len(original.JOPGadgets) - len(variant.JOPGadgets)
-        self.keptQualityCOPCountDiff = len(original.COPGadgets) - len(variant.COPGadgets)
-        self.total_functional_count_diff = original.total_functional_gadgets - variant.total_functional_gadgets
+        self.keptQualityROPCountDiff = len(original.ROPGadgets) - len(variant.ROPGadgetsVariant)
+        self.keptQualityJOPCountDiff = len(original.JOPGadgets) - len(variant.JOPGadgetsVariant)
+        self.keptQualityCOPCountDiff = len(original.COPGadgets) - len(variant.COPGadgetsVariant)
+        self.total_functional_count_diff = original.total_functional_gadgets - variant.total_functional_gadgetsVariant
 
-        self.averageROPQualityDiff = original.averageROPQuality - variant.averageROPQuality
-        self.averageJOPQualityDiff = original.averageJOPQuality - variant.averageJOPQuality
-        self.averageCOPQualityDiff = original.averageCOPQuality - variant.averageCOPQuality
-        self.total_average_quality_diff = original.average_functional_quality - variant.average_functional_quality
+        self.averageROPQualityDiff = original.averageROPQuality - variant.averageROPQualityVariant
+        self.averageJOPQualityDiff = original.averageJOPQuality - variant.averageJOPQualityVariant
+        self.averageCOPQualityDiff = original.averageCOPQuality - variant.averageCOPQualityVariant
+        self.total_average_quality_diff = original.average_functional_quality - variant.average_functional_qualityVariant
 
         if output_console:
             self.printStats(output_locality)
