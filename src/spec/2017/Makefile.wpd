@@ -294,8 +294,8 @@ FINAL_CXXFLAGS += $(EXTRA_OPTIMIZE) $(EXTRA_CXXOPTIMIZE) $(EXTRA_PORTABILITY) $(
 RAW_FFLAGS     += $(EXTRA_OPTIMIZE) $(EXTRA_FOPTIMIZE)   $(EXTRA_PORTABILITY) $(EXTRA_FPORTABILITY)
 
 # cporter flags
-FINAL_CFLAGS   += -c -S -emit-llvm -fPIC
-FINAL_CXXFLAGS += -c -S -emit-llvm -fPIC
+FINAL_CFLAGS   += -c -S -emit-llvm -fPIC -ffunction-sections
+FINAL_CXXFLAGS += -c -S -emit-llvm -fPIC -ffunction-sections
 # cporter flags end
 
 # Filter out defines and undefines from Fortran flags
@@ -363,6 +363,7 @@ base: $(EXEBASE)
       -lm -lrt
 base_loop_simplify: $(EXEBASE)
 	opt \
+      --function-sections \
       -O3 \
       -loop-simplify \
       < $(NUMBER).$(NAME)_linked.bc \
@@ -408,6 +409,36 @@ wpd: $(EXEBASE)
 	readelf -s --wide $(NUMBER).$(NAME)_wpd > readelf.out
 	readelf --sections $(NUMBER).$(NAME)_wpd > readelf-sections.out
 	nm $(NUMBER).$(NAME)_wpd > nm.out
+wpd_custlink: $(EXEBASE)
+	# opt \
+	#   --function-sections \
+    #   -O3 \
+    #   -loop-simplify \
+    #   < $(NUMBER).$(NAME)_linked.bc \
+    #   > $(NUMBER).$(NAME)_baseline_ls_opt.bc
+	opt \
+      --function-sections \
+      -load libWholeProgramDebloat.so \
+      -WholeProgramDebloat \
+      < $(NUMBER).$(NAME)_baseline_ls_opt.bc \
+      > $(NUMBER).$(NAME)_wpd_custlink_opt.bc
+	llc  \
+      --function-sections \
+      $(NUMBER).$(NAME)_wpd_custlink_opt.bc \
+      -relocation-model=pic \
+      -o $(NUMBER).$(NAME)_wpd_custlink_opt.s
+	g++ \
+      -ffunction-sections \
+      -c $(NUMBER).$(NAME)_wpd_custlink_opt.s \
+      -o $(NUMBER).$(NAME)_wpd_custlink_opt.o
+	g++ \
+      -T wpd-linker-script.lds \
+      $(NUMBER).$(NAME)_wpd_custlink_opt.o \
+      -o $(NUMBER).$(NAME)_wpd_custlink \
+      -ldebloat_rt -lm -lrt
+	readelf -s --wide $(NUMBER).$(NAME)_wpd_custlink > readelf-custlink.out
+	readelf --sections $(NUMBER).$(NAME)_wpd_custlink > readelf-sections-custlink.out
+	nm $(NUMBER).$(NAME)_wpd_custlink > nm.out
 
 else
 	$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) @$(OBJNAMES) $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
