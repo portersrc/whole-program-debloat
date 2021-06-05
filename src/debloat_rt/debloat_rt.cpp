@@ -25,7 +25,7 @@
 
 using namespace std;
 
-//#define DEBRT_DEBUG
+#define DEBRT_DEBUG
 
 #define CGPredict
 
@@ -1095,6 +1095,7 @@ void _read_readelf(void)
 
 void _read_readelf_sections(void)
 {
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
     ifstream ifs;
     string line;
     vector<string> elems;
@@ -1105,8 +1106,14 @@ void _read_readelf_sections(void)
     }
     while(getline(ifs, line)){
         elems = split_nonempty(line, ' ');
-        if(elems.size() >= 2 && (elems[1].compare(".text") == 0)){
-            text_offset = stoll(elems[3], 0, 16);
+        int text_offset_idx = 0;
+        if(elems.size() >= 2 && elems[1].compare(".text") == 0){
+            text_offset_idx = 3;
+        }else if(elems.size() >= 3 && elems[2].compare(".text") == 0){
+            text_offset_idx = 4;
+        }
+        if(text_offset_idx){
+            text_offset = stoll(elems[text_offset_idx], 0, 16);
             getline(ifs, line);
             elems = split_nonempty(line, ' ');
             text_size = stoll(elems[0], 0, 16);
@@ -1116,6 +1123,10 @@ void _read_readelf_sections(void)
         }
     }
     ifs.close();
+    if(text_size == 0 || text_offset == 0){
+        fprintf(stderr, "ERROR: text size and offset should be non-zero\n");
+        exit(1);
+    }
 }
 
 
