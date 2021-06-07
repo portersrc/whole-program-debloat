@@ -81,10 +81,14 @@ namespace {
         void extend_encompassed_funcs(void);
         void build_toplevel_funcs(void);
         void create_disjoint_sets(void);
+        bool is_reachable(BasicBlock *B1, BasicBlock *B2);
 
         bool instrument_main(Module &M);
         void instrument(void);
         void instrument_loop(Loop *loop, int func_id);
+        void instrument_loop_sink(int toplevel_func_id,
+                                     Loop *toplevel_loop,
+                                     vector<BasicBlock *> &BBs);
         void instrument_after_invoke(InvokeInst *II,
                                      vector<Value *> &ArgsV,
                                      Function *debrt_func);
@@ -100,6 +104,278 @@ namespace {
         void dump_func_ptrs(void);
         void dump_disjoint_sets(void);
     };
+}
+
+
+void WholeProgramDebloat::instrument_loop_sink(int toplevel_func_id,
+                                                  Loop *toplevel_loop,
+                                                  vector<BasicBlock *> &BBs)
+{
+
+    int loop_id = loop_id_counter;
+
+    // Find preheader
+    //BasicBlock *preheader = toplevel_loop->getLoopPreheader();
+    //assert(preheader); // must run -loop-simplify for this to be OK.
+
+    // TODO for common dominator probably use:
+    //   https://llvm.org/doxygen/classllvm_1_1DominatorTreeBase.html
+
+    //vector<Function *> callees;
+
+    vector<set<BasicBlock *> > Fs; // FIXME isn't confusing that this is called Fs when it's actually basic blocks
+    vector<set<Function *> > Ss;
+    set<BasicBlock *> callee_blocks_set;
+    vector<BasicBlock *> callee_blocks;
+    map<BasicBlock *, Function *> block_to_callee;
+
+    // Find each called function f
+    for(auto B : BBs){
+        for(auto &I : (*B)){
+            CallBase *cb = dyn_cast<CallBase>(&I);
+            if(cb){
+                Function *callee = cb->getCalledFunction();
+                if(func_to_id.count(callee) > 0){
+                    //callees.push_back(callee);
+                    assert(callee_blocks_set.find(B) == callee_blocks_set.end());
+                    callee_blocks_set.insert(B); // FIXME dont want duplicates
+                    callee_blocks.push_back(B);
+                    block_to_callee[B] = callee;
+                }
+            }
+        }
+    }
+
+
+
+    // Identify F sets in BBs
+    int i;
+    int j;
+    for(i = 0; i < callee_blocks.size()-1; i++){
+        for(j = i+1; j < callee_blocks.size(); j++){
+            if(  is_reachable(callee_blocks[i], callee_blocks[j])
+              || is_reachable(callee_blocks[j], callee_blocks[i])){
+                // TODO
+                // merge_Fs(i, j);
+            }
+        }
+    }
+
+    // Identify S sets from F sets
+    for(i = 0; i < Fs.size(); i++){
+        for(auto f : Fs[i]){
+            Ss[i].insert(static_reachability[block_to_callee[f]].begin(), static_reachability[block_to_callee[f]].end());
+        }
+    }
+
+    if(Fs.size() < 2){
+        assert(Ss.size() == 1);
+        for(auto f : Ss[0]){
+            // FIXME: make sure to handle whatever the equivalent of this might
+            // be for this new algorithm.
+            //   "If there was at least one function call inside the loop, then we
+            //   will instrument it."
+            loop_static_reachability[loop_id].insert(f);
+            // FIXME cont. : And this probably includes a bump to loop_id_counter
+        }
+        return;
+    }
+
+
+    // For each S1, S2 pair in S sets
+    for(i = 0; i < Ss.size()-1; i++){
+        for(j = i+1; j < Ss.size(); j++){
+            bool sunk_S1 = false;
+            bool sunk_S2 = false;
+
+            // If there is substantial security benefit to
+            // mapping S1 only when needed, sink its instrumentation
+            set<Function *> set_diff_tmp;
+            set<Function *> set_diff_fin;
+            set_difference(Ss[i].begin(),
+                           Ss[i].end(),
+                           Ss[j].begin(),
+                           Ss[j].end(),
+                           inserter(set_diff_tmp, set_diff_tmp.end()));
+            set_difference(set_diff_tmp.begin(),
+                           set_diff_tmp.end(),
+                           loop_static_reachability[loop_id].begin(),
+                           loop_static_reachability[loop_id].end(),
+                           inserter(set_diff_fin, set_diff_fin.end()));
+            // FIXME: write a function like get_set_diff_size()
+            // FIXME: don't just use the size of set_diff_fin. that's wrong
+            // FIXME: And fix THRESH. not some dumb integer
+            #define THRESH 10 // FIXME
+            if(set_diff_fin.size() > THRESH){
+              // TODO sink instrumentation of S1 to TRICKY TODO NOT NECESSARILY IMM DOM OF F1
+              sunk_S1 = true;
+            }
+
+            // ... similarly for S2
+            set_diff_tmp.clear();
+            set_diff_fin.clear();
+            set_difference(Ss[j].begin(),
+                           Ss[j].end(),
+                           Ss[i].begin(),
+                           Ss[i].end(),
+                           inserter(set_diff_tmp, set_diff_tmp.end()));
+            set_difference(set_diff_tmp.begin(),
+                           set_diff_tmp.end(),
+                           loop_static_reachability[loop_id].begin(),
+                           loop_static_reachability[loop_id].end(),
+                           inserter(set_diff_fin, set_diff_fin.end()));
+            // FIXME
+            // FIXME see above
+            // FIXME
+            if(set_diff_fin.size() > THRESH){
+              // TODO sink instrumentation of S2 to TRICKY TODO NOT NECESSARILY IMM DOM OF F2
+              sunk_S2 = true;
+            }
+
+            // If the intersection is large, then we may find control
+            // divergence deeper in the call chain where the security
+            // benefit warrants sinking the instrumentation. We do this
+            // for either set, as long as we haven't sunk the instrumentation
+            // for it yet.
+
+            set<Function *> set_intersect_fin;
+            set_diff_fin.clear();
+            set_intersection(Ss[i].begin(),
+                             Ss[i].end(),
+                             Ss[j].begin(),
+                             Ss[j].end(),
+                             inserter(set_intersect_fin, set_intersect_fin.end()));
+            set_difference(set_intersect_fin.begin(),
+                           set_intersect_fin.end(),
+                           loop_static_reachability[loop_id].begin(),
+                           loop_static_reachability[loop_id].end(),
+                           inserter(set_diff_fin, set_diff_fin.end()));
+            // FIXME FIXME FIXME
+            // FIXME FIXME FIXME see above about size and THRESH
+
+            if(set_diff_fin.size() > THRESH){
+                set<Function *> tmp_F;
+                if(!sunk_S1 && !sunk_S2){
+                    // FIXME this doesn't work because Fs has basic blocks!!!!
+                    //set_union(Fs[i].begin(),
+                    //          Fs[i].end(),
+                    //          Fs[j].begin(),
+                    //          Fs[j].end(),
+                    //          inserter(tmp_F, tmp_F.end()));
+                }else if(!sunk_S1){
+                    // FIXME: assignment fails
+                    //tmp_F = Fs[i];
+                }else if(!sunk_S2){
+                    // FIXME: assignment fails
+                    //tmp_F = Fs[j];
+                }else{
+                    assert(sunk_S1 && sunk_S2);
+                }
+
+                for(auto f : tmp_F){
+                    // add f to the instrumentation of Li
+                    loop_static_reachability[loop_id].insert(f);
+                    // And then recurse on callees
+                    // FIXME: adj_list comes into play here???
+                    for(auto callee : adj_list[f]){
+                      // RECURSE
+                      // RECURSE
+                      // RECURSE
+                      //instrument_loop_sink(toplevel_func_id, toplevel_loop, callee->getBlocks());
+                    }
+                }
+
+            }else{
+                // Else, the intersection is small.
+                // Thus, we tried already to sink S1 or S2 based on
+                // set difference. And we tried already to recurse when
+                // that didn't work but the intersection was still big.
+                // Now "go back" and make sure that if we didn't sink S1 or
+                // S2, that they are added to the loop preheader instrumentation
+                if(!sunk_S1){
+                    // add S1 to IS0
+                    for(auto f : Ss[i]){
+                        // FIXME meta:  uhhh. are these FIXMEs relevant here???
+                        // FIXME: make sure to handle whatever the equivalent of this might
+                        // be for this new algorithm.
+                        //   "If there was at least one function call inside the loop, then we
+                        //   will instrument it."
+                        loop_static_reachability[loop_id].insert(f);
+                        // FIXME cont. : And this probably includes a bump to loop_id_counter
+                    }
+                }
+                if(!sunk_S2){
+                    // add S2 to IS0
+                    for(auto f : Ss[j]){
+                        // FIXME meta:  uhhh. are these FIXMEs relevant here???
+                        // FIXME: make sure to handle whatever the equivalent of this might
+                        // be for this new algorithm.
+                        //   "If there was at least one function call inside the loop, then we
+                        //   will instrument it."
+                        loop_static_reachability[loop_id].insert(f);
+                        // FIXME cont. : And this probably includes a bump to loop_id_counter
+                    }
+                }
+            }
+        }
+    }
+
+
+
+    /*
+
+    // If there was at least one function call inside the loop, then we
+    // will instrument it.
+    if(loop_static_reachability.find(loop_id) != loop_static_reachability.end()){
+
+        // Extend based on reachability of those callees
+        for(auto loop_callee : loop_static_reachability[loop_id]){
+            for(auto reachable_func : static_reachability[loop_callee]){
+                loop_static_reachability[loop_id].insert(reachable_func);
+            }
+        }
+
+        // Create arguments for the library function
+        // errs() << "Make arguments\n";
+        vector<Value *> ArgsV;
+        errs() << "instrumenting loop id " << loop_id << "\n";
+        ArgsV.push_back(ConstantInt::get(int32Ty, loop_id, false));
+
+        // instrument the preheader of the loop
+        Instruction *TI = preheader->getTerminator();
+        assert(TI);
+        assert(debrt_protect_loop_func);
+        IRBuilder<> builder(TI);
+        builder.CreateCall(debrt_protect_loop_func, ArgsV);
+
+        //Set of functions debloated within loop (Sharjeel)
+        instrumented_sets.push_back(loop_static_reachability[loop_id]);
+        // errs() << "Inserted library function within preheader(" << preheader->getName().str() << "\n";
+
+        // instrument the exit(s) block(s) of the loop
+        SmallVector<BasicBlock *, 8> exit_blocks;
+        loop->getUniqueExitBlocks(exit_blocks);
+
+        // dont assert. can refer to https://llvm.org/docs/LoopTerminology.html
+        // statically infinite loop is possible. we just won't instrument exits in
+        // that case
+        //assert(exit_blocks.size() > 0);
+
+        for(auto exit_block : exit_blocks){
+            Instruction *ebt = exit_block->getTerminator();
+            assert(ebt);
+            IRBuilder<> builder_exit(ebt);
+            builder_exit.CreateCall(debrt_protect_loop_end_func, ArgsV);
+        }
+
+        // Note which function this loop is associated with
+        loop_id_to_func_id[loop_id] = func_id;
+
+        // Bump our ID counter
+        loop_id_counter++;
+    }
+
+    */
 }
 
 
@@ -311,7 +587,12 @@ void WholeProgramDebloat::instrument(void)
         // Instrument outer loops
         LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
         for(auto loop = LI->begin(), e = LI->end(); loop != e; ++loop){
-            instrument_loop(*loop, func_to_id[f]);
+            if(false){
+                vector<BasicBlock *> loop_BBs = (*loop)->getBlocks();
+                instrument_loop_sink(func_to_id[f], *loop, loop_BBs);
+            }else{
+                instrument_loop(*loop, func_to_id[f]);
+            }
         }
 
         // instrument call sites
@@ -661,6 +942,69 @@ bool WholeProgramDebloat::runOnModule_real(Module &M)
 bool WholeProgramDebloat::runOnModule(Module &M)
 {
     runOnModule_real(M);
+}
+
+/*
+void checkPostDominance(BasicBlock *B1, BasicBlock *B2)
+{
+    // Stack of Basicblock
+    std::stack<BasicBlock *> stacktemp;
+
+    // Basicblocks already seen
+    std::map<BasicBlock *, uint8_t> seen;
+
+    // Add the initial successors nodes to the stack
+    Instruction *TI = B1->getTerminator();
+    for(uint64_t i = 0; TI && i < TI->getNumSuccessors(); ++i){
+        stacktemp.push(TI->getSuccessor(i));
+    }
+
+    // While stack is not empty, keep on checking postdominance of all nodes
+    while(!stacktemp.empty()){
+        BasicBlock *Btemp = stacktemp.top();
+        stacktemp.pop();
+
+        // If the last node is B2, it is control dependent on B1
+        if(Btemp == B2){
+            dart(B2->getName().str() + " is control dependent on " + B1->getName().str());
+            break;
+        }
+        // Else, we check if B2 postdominates this basicblock so we can
+        // add the successors
+        else if(!seen[Btemp] && PDT->dominates(B2, Btemp)){
+            Instruction *TI = Btemp->getTerminator();
+            for(uint64_t i = 0; TI && i < TI->getNumSuccessors(); ++i){
+                stacktemp.push(TI->getSuccessor(i));
+            }
+        }
+        seen[Btemp] = 1; 
+    }
+}
+*/
+bool WholeProgramDebloat::is_reachable(BasicBlock *B1, BasicBlock *B2)
+{
+    queue<BasicBlock*> bbqueue;
+    set<BasicBlock*> bbseen;
+    bbqueue.push(B1);
+    while(!bbqueue.empty()){
+        BasicBlock *B = bbqueue.front();
+        bbqueue.pop();
+
+        if(bbseen.count(B) != 0){
+            continue;
+        }
+        bbseen.insert(B);
+
+        if(B == B2){
+            return true;
+        }
+
+        Instruction *TI = B->getTerminator();
+        for(uint64_t i = 0; TI && i < TI->getNumSuccessors(); i++){
+            bbqueue.push(TI->getSuccessor(i));
+        }
+    }
+    return false;
 }
 
 void WholeProgramDebloat::dump_static_reachability(void)
