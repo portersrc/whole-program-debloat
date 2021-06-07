@@ -81,7 +81,6 @@ namespace {
         void extend_encompassed_funcs(void);
         void build_toplevel_funcs(void);
         void create_disjoint_sets(void);
-        bool is_reachable(BasicBlock *B1, BasicBlock *B2);
 
         bool instrument_main(Module &M);
         void instrument(void);
@@ -111,6 +110,8 @@ void WholeProgramDebloat::instrument_loop_sink(int toplevel_func_id,
                                                   Loop *toplevel_loop,
                                                   vector<BasicBlock *> &BBs)
 {
+    int i;
+    int j;
 
     int loop_id = loop_id_counter;
 
@@ -142,21 +143,6 @@ void WholeProgramDebloat::instrument_loop_sink(int toplevel_func_id,
                     callee_blocks.push_back(B);
                     block_to_callee[B] = callee;
                 }
-            }
-        }
-    }
-
-
-
-    // Identify F sets in BBs
-    int i;
-    int j;
-    for(i = 0; i < callee_blocks.size()-1; i++){
-        for(j = i+1; j < callee_blocks.size(); j++){
-            if(  is_reachable(callee_blocks[i], callee_blocks[j])
-              || is_reachable(callee_blocks[j], callee_blocks[i])){
-                // TODO
-                // merge_Fs(i, j);
             }
         }
     }
@@ -945,7 +931,7 @@ bool WholeProgramDebloat::runOnModule(Module &M)
 }
 
 /*
-void checkPostDominance(BasicBlock *B1, BasicBlock *B2)
+void check_postdominance(BasicBlock *B1, BasicBlock *B2)
 {
     // Stack of Basicblock
     std::stack<BasicBlock *> stacktemp;
@@ -981,7 +967,7 @@ void checkPostDominance(BasicBlock *B1, BasicBlock *B2)
     }
 }
 */
-bool WholeProgramDebloat::is_reachable(BasicBlock *B1, BasicBlock *B2)
+/*bool is_reachable(BasicBlock *B1, BasicBlock *B2)
 {
     queue<BasicBlock*> bbqueue;
     set<BasicBlock*> bbseen;
@@ -1005,7 +991,7 @@ bool WholeProgramDebloat::is_reachable(BasicBlock *B1, BasicBlock *B2)
         }
     }
     return false;
-}
+}*/
 
 void WholeProgramDebloat::dump_static_reachability(void)
 {
