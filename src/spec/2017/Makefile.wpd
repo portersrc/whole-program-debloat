@@ -376,6 +376,48 @@ base_loop_simplify: $(EXEBASE)
       $(NUMBER).$(NAME)_baseline_ls_opt.s \
       -o $(NUMBER).$(NAME)_baseline_ls \
       -lm -lrt
+wpd_ls: $(EXEBASE)
+	# opt \
+    #   --function-sections \
+    #   -O3 \
+    #   -loop-simplify \
+    #   < $(NUMBER).$(NAME)_linked.bc \
+    #   > $(NUMBER).$(NAME)_baseline_ls_opt.bc
+	opt \
+	  	--function-sections \
+		-load libLoopSplitting.so \
+		-LoopSplitting -threshold=1.0 \
+      	< $(NUMBER).$(NAME)_baseline_ls_opt.bc \
+     	> $(NUMBER).$(NAME)_baseline_ls_ls_opt.bc 2> err.out
+	# opt \
+	#   	--function-sections \
+	# 	-licm -loop-unswitch \
+    #   	< $(NUMBER).$(NAME)_baseline_ls_opt.bc \
+    #  	> $(NUMBER).$(NAME)_ls_opt.bc
+	opt \
+		--function-sections \
+		-loop-simplify \
+		< $(NUMBER).$(NAME)_baseline_ls_ls_opt.bc \
+		> $(NUMBER).$(NAME)_ls_opt.bc
+	opt \
+		--function-sections \
+		-load libWholeProgramDebloat.so \
+		-WholeProgramDebloat \
+		< $(NUMBER).$(NAME)_ls_opt.bc \
+		> $(NUMBER).$(NAME)_wpd_ls_opt.bc
+	llc  \
+		--function-sections \
+		$(NUMBER).$(NAME)_wpd_ls_opt.bc \
+		-relocation-model=pic \
+		-o $(NUMBER).$(NAME)_wpd_ls_opt.s
+	g++ \
+		-ffunction-sections \
+		$(NUMBER).$(NAME)_wpd_ls_opt.s \
+		-o $(NUMBER).$(NAME)_wpd_ls \
+		-ldebloat_rt -lm -lrt
+	readelf -s --wide $(NUMBER).$(NAME)_wpd > readelf-ls.out
+	readelf --sections $(NUMBER).$(NAME)_wpd > readelf-ls-sections.out
+	nm $(NUMBER).$(NAME)_wpd > nm-ls.out
 wpd: $(EXEBASE)
 	#opt \
     #  -O3 \
@@ -383,12 +425,14 @@ wpd: $(EXEBASE)
     #  -WholeProgramDebloat \
     #  < $(NUMBER).$(NAME)_linked.bc \
     #  > $(NUMBER).$(NAME)_wpd_opt.bc
-	# opt \
-    #   -O3 \
-    #   -loop-simplify \
-    #   < $(NUMBER).$(NAME)_linked.bc \
-    #   > $(NUMBER).$(NAME)_baseline_ls_opt.bc
 	opt \
+	  --function-sections \
+      -O3 \
+      -loop-simplify \
+      < $(NUMBER).$(NAME)_linked.bc \
+      > $(NUMBER).$(NAME)_baseline_ls_opt.bc
+	opt \
+	  --function-sections \
       -load libWholeProgramDebloat.so \
       -WholeProgramDebloat \
       < $(NUMBER).$(NAME)_baseline_ls_opt.bc \
@@ -399,10 +443,12 @@ wpd: $(EXEBASE)
     #  < $(NUMBER).$(NAME)_linked.bc \
     #  > $(NUMBER).$(NAME)_wpd_opt.bc
 	llc  \
+	  --function-sections \
       $(NUMBER).$(NAME)_wpd_opt.bc \
       -relocation-model=pic \
       -o $(NUMBER).$(NAME)_wpd_opt.s
 	g++ \
+	  -ffunction-sections \
       $(NUMBER).$(NAME)_wpd_opt.s \
       -o $(NUMBER).$(NAME)_wpd \
       -ldebloat_rt -lm -lrt
@@ -432,13 +478,14 @@ wpd_custlink: $(EXEBASE)
       -c $(NUMBER).$(NAME)_wpd_custlink_opt.s \
       -o $(NUMBER).$(NAME)_wpd_custlink_opt.o
 	g++ \
+	  -ffunction-sections \
       -T wpd-linker-script.lds \
       $(NUMBER).$(NAME)_wpd_custlink_opt.o \
       -o $(NUMBER).$(NAME)_wpd_custlink \
       -ldebloat_rt -lm -lrt
 	readelf -s --wide $(NUMBER).$(NAME)_wpd_custlink > readelf-custlink.out
 	readelf --sections $(NUMBER).$(NAME)_wpd_custlink > readelf-sections-custlink.out
-	nm $(NUMBER).$(NAME)_wpd_custlink > nm.out
+	nm $(NUMBER).$(NAME)_wpd_custlink > nm_custlink.out
 
 else
 	$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) @$(OBJNAMES) $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)

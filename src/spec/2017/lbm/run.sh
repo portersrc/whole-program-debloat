@@ -25,6 +25,9 @@ elif [ "$1" == "wpd" ]; then
 elif [ "$1" == "wpd_cl" ]; then
     BIN=519.lbm_r_wpd_custlink
     WHICH=wpd_cl
+elif [ "$1" == "wpd_ls" ]; then
+    BIN=519.lbm_r_wpd_ls
+    WHICH=wpd_ls
 else
     usage_exit
 fi

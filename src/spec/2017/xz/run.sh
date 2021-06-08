@@ -22,6 +22,12 @@ elif [ "$1" == "base_ls" ]; then
 elif [ "$1" == "wpd" ]; then
     BIN=557.xz_r_wpd
     WHICH=wpd
+elif [ "$1" == "wp_cl" ]; then
+    BIN=557.xz_r_wpd_clustlink
+    WHICH=wpd_cl
+elif [ "$1" == "wpd_ls" ]; then
+    BIN=557.xalancbmk_r_wpd_ls
+    WHICH=wpd_ls
 else
     usage_exit
 fi
