@@ -449,9 +449,10 @@ wpd: $(EXEBASE)
       -o $(NUMBER).$(NAME)_wpd_opt.s
 	g++ \
 	  -ffunction-sections \
+	  -Wl,--verbose \
       $(NUMBER).$(NAME)_wpd_opt.s \
       -o $(NUMBER).$(NAME)_wpd \
-      -ldebloat_rt -lm -lrt
+      -ldebloat_rt -lm -lrt > linker.lds
 	readelf -s --wide $(NUMBER).$(NAME)_wpd > readelf.out
 	readelf --sections $(NUMBER).$(NAME)_wpd > readelf-sections.out
 	nm $(NUMBER).$(NAME)_wpd > nm.out
