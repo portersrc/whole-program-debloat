@@ -21,13 +21,15 @@
 #include <string>
 #include <map>
 #include <algorithm>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+
 
 using namespace llvm;
 using namespace std;
 
 #define ENABLE_INSTRUMENTATION_SINKING 1
-#define THRESH 10
-#define THRESH_SMALL 1
 
 
 namespace {
@@ -70,8 +72,10 @@ namespace {
         set<Function *> func_has_addr_taken;
         map<int, set<int> > sinks; // sink id to its function IDs
         map<int, int> sink_id_to_func_id; // the function ID that holds the sink, for debugging
+        map<string, long> readelf_func_name_to_size;
         int loop_id_counter;
         int sink_id_counter;
+        long long text_size;
 
 
         void getAnalysisUsage(AnalysisUsage &AU) const
@@ -118,6 +122,9 @@ namespace {
                            pair<Function *, CallBase *> parent_func);
         void get_callees_aux(vector<pair<Function *, CallBase *> > &callees,
                                      Instruction &I);
+        void read_readelf_sections(void);
+        void read_readelf(void);
+        int get_set_byte_size(set<Function *> &functions);
 
 
         string get_demangled_name(const Function &F);
@@ -181,9 +188,23 @@ void WholeProgramDebloat::get_callees(Loop *loop,
     }
 }
 
+int WholeProgramDebloat::get_set_byte_size(set<Function *> &functions)
+{
+    int sum = 0;
+    for(auto f : functions){
+        sum += readelf_func_name_to_size[f->getName().str()];
+    }
+    return sum;
+}
+
 bool WholeProgramDebloat::sinking_condition_satisfied(vector<pair<Function *, CallBase *> > &callees,
                                                       set<Function *> &visited_funcs)
 {
+    static const int UNION_THRESH = text_size * .1f;
+    static const int INTERSECT_THRESH = text_size * .05f;
+    //#define UNION_THRESH 10
+    //#define INTERSECT_THRESH 1
+
     int i;
     vector<set<Function *> > Ss;
 
@@ -235,18 +256,34 @@ bool WholeProgramDebloat::sinking_condition_satisfied(vector<pair<Function *, Ca
                   inserter(set_union_fin, set_union_fin.end()));
     }
 
+    int union_B     = get_set_byte_size(set_union_fin);
+    int intersect_B = get_set_byte_size(set_intersect_fin);
+
     // FIXME: write a function like get_set_diff_size() which actually gets
     //        the total text size of its functions.  Don't just use the size of
     //        set_diff_fin. That's wrong.  And fix THRESH and THRESH_SMALL. not
     //        simple integers, but probably based on proportions of the total
     //        text size.
-    if(set_union_fin.size() > THRESH && set_intersect_fin.size() < THRESH_SMALL){
-        errs() << "THRESH success: set_union_size("<<set_union_fin.size()<<") "
-               << "set_intersect_size("<< set_intersect_fin.size()<<")\n";
+    //if(set_union_fin.size() > UNION_THRESH && set_intersect_fin.size() < INTERSECT_THRESH){
+    //    errs() << "THRESH success: set_union_size("<<set_union_fin.size()<<") "
+    //           << "set_intersect_size("<< set_intersect_fin.size()<<")\n";
+    //    return true;
+    //}
+    //errs() << "THRESH fail: set_union_size("<<set_union_fin.size()<<") "
+    //       << "set_intersect_size("<< set_intersect_fin.size()<<")\n";
+
+
+    errs() << "UNION_THRESH(" << UNION_THRESH << ") "
+           << "INTERSECT_THRESH(" << INTERSECT_THRESH << ")\n";
+    if(union_B > UNION_THRESH && intersect_B < INTERSECT_THRESH){
+        errs() << "THRESH success: "
+               << "union_B(" << union_B << ") "
+               << "intersect_B(" << intersect_B << ")\n";
         return true;
     }
     errs() << "THRESH fail: set_union_size("<<set_union_fin.size()<<") "
            << "set_intersect_size("<< set_intersect_fin.size()<<")\n";
+
     stats.sink_fail_thresh_check++;
     return false;
 }
@@ -862,6 +899,10 @@ void WholeProgramDebloat::wpd_init(Module &M)
 
     memset(&stats, 0, sizeof(stats));
 
+    // FIXME (see fixme within read_readelf_sections)
+    read_readelf_sections();
+    read_readelf();
+
     // Give each application function an ID
     int count = 0;
     for(auto &F : M){
@@ -1180,6 +1221,144 @@ string WholeProgramDebloat::get_demangled_name(const Function &F)
     }
     return IPD.finishDemangle(nullptr, nullptr);
 }
+// don't insert elements that are empty (so for example split(' ') on
+// "a     b" will do the expected thing and return on ['a', 'b'])
+template<typename Out>
+void split_nonempty(const string &s, char delim, Out result)
+{
+    stringstream ss(s);
+    string item;
+    while(getline(ss, item, delim)){
+        if(!item.empty()){
+            *(result++) = item;
+        }
+    }
+}
+vector<string> split_nonempty(const string &s, char delim)
+{
+    vector<string> elems;
+    split_nonempty(s, delim, back_inserter(elems));
+    return elems;
+}
+void WholeProgramDebloat::read_readelf_sections(void)
+{
+    // FIXME This is a hack to get instrumentation-sinking off the ground.
+    // The problem with this function and approach is that it ties this entire
+    // pass to the readelf output, which means a successful build has to happen
+    // before this pass can even run. But the catch-22 is that the readelf
+    // output is from this pass itself.
+    // The fix for this, if we're going to keep this approach for calculating
+    // thresholds, is to output a separate, uniquely named readelf file after
+    // building the baseline, and to enforce users of this pass to build a
+    // baseline first. And by using a different name for the baseline's
+    // readelf output, we won't collide with the readelf output from this pass,
+    // which is used by the runtime for specific offsets and sizes for mapping
+    // pages.
+    ifstream ifs;
+    string line;
+    vector<string> elems;
+    ifs.open("readelf-sections.out");
+    if(!ifs.is_open()){
+        perror("Error openening readelf-sections file");
+        exit(EXIT_FAILURE);
+    }
+    while(getline(ifs, line)){
+        elems = split_nonempty(line, ' ');
+        int text_offset_idx = 0;
+        if(elems.size() >= 2 && elems[1].compare(".text") == 0){
+            text_offset_idx = 3;
+        }else if(elems.size() >= 3 && elems[2].compare(".text") == 0){
+            text_offset_idx = 4;
+        }
+        if(text_offset_idx){
+            //text_offset = stoll(elems[text_offset_idx], 0, 16);
+            getline(ifs, line);
+            elems = split_nonempty(line, ' ');
+            text_size = stoll(elems[0], 0, 16);
+            //DEBRT_PRINTF("text_offset is: 0x%llx\n", text_offset);
+            errs() << "text_size is: " << text_size << "\n";
+            break;
+        }
+    }
+    ifs.close();
+    //if(text_size == 0 || text_offset == 0){
+    if(text_size == 0){
+        //fprintf(stderr, "ERROR: text size and offset should be non-zero\n");
+        fprintf(stderr, "ERROR: text size should be non-zero\n");
+        exit(1);
+    }
+}
+void WholeProgramDebloat::read_readelf(void)
+{
+    string line;
+    ifstream ifs;
+    int token_start;
+    int token_end;
+    int token_count;
+    string token;
+
+    enum READELF_COLS {
+        RELF_NUM = 0,
+        RELF_VALUE,
+        RELF_SIZE,
+        RELF_TYPE,
+        RELF_BIND,
+        RELF_VIS,
+        RELF_NDX,
+        RELF_NAME
+    };
+    int idx;
+    int which_token;
+    string func_name;
+    long long func_addr;
+    long func_size;
+
+    ifs.open("readelf.out");
+    if(!ifs.is_open()){
+        perror("Error opening readelf file");
+        exit(EXIT_FAILURE);
+    }
+
+    while(getline(ifs, line)){
+
+        token_count = 0;
+        idx = 0;
+        while(idx < line.size() && line.at(idx) != '\n'){
+            //DEBRT_PRINTF("%c", line.at(idx));
+            //idx++;
+            while(idx < line.size() && line.at(idx) == ' '){
+                idx++;
+            }
+            token_start = idx;
+            while(idx < line.size() && line.at(idx) != ' ' && line[idx] != '\n'){
+                idx++;
+            }
+            token_end = idx;
+            token = line.substr(token_start, token_end - token_start);
+
+            which_token = token_count;
+
+            // func addr
+            if(which_token == RELF_VALUE){
+                func_addr = strtoll(token.c_str(), NULL, 16);
+
+            }else if(which_token == RELF_SIZE){
+                // infer base by passing "0". almost always 10 but ive seen 16
+                // in at least one perlbench function
+                func_size = strtol(token.c_str(), NULL, 0);
+
+            // func name
+            }else if(which_token == RELF_NAME){
+                func_name = token;
+                readelf_func_name_to_size[func_name] = func_size;
+            }
+            token_count++;
+        }
+        //cout << endl;
+    }
+    ifs.close();
+}
+
 bool WholeProgramDebloat::doFinalization(Module &M)
 {
     dump_encompassed_funcs();
