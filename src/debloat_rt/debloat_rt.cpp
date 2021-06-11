@@ -25,7 +25,7 @@
 
 using namespace std;
 
-#define DEBRT_DEBUG
+//#define DEBRT_DEBUG
 
 #define CGPredict
 
@@ -130,6 +130,7 @@ map<int, vector<long long> >     func_id_to_pages;
 map<int, long long>              func_id_to_addr;
 
 map<int, set<int> >              loop_id_to_reachable_funcs;
+map<int, set<int> >              sink_id_to_funcs;
 
 map<long long, set<int> >        func_addr_to_reachable_funcs;
 map<long long, int>              func_addr_to_id;
@@ -264,10 +265,20 @@ void _dump_encompassed_funcs(void)
     DEBRT_PRINTF("\n");
 }
 
-void _dump_stats_hist(void)
+void _dump_sinks(void)
 {
-    // TODO
+    int sink_id;
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    for(auto p : sink_id_to_funcs){
+        sink_id = p.first;
+        DEBRT_PRINTF("%d: ", sink_id);
+        for(auto func : p.second){
+            DEBRT_PRINTF("%d ", func);
+        }
+        DEBRT_PRINTF("\n");
+    }
 }
+
 
 
 void _remap_permissions(long long addr, long long size, int perm)
@@ -293,6 +304,12 @@ void _remap_permissions(long long addr, long long size, int perm)
     default: assert(0); break;
     }
 
+    perm = RX_PERM; // FIXME DEBUG ONLY
+    perm = RX_PERM; // FIXME DEBUG ONLY
+    perm = RX_PERM; // FIXME DEBUG ONLY
+    perm = RX_PERM; // FIXME DEBUG ONLY
+    perm = RX_PERM; // FIXME DEBUG ONLY
+    perm = RX_PERM; // FIXME DEBUG ONLY
     if(mprotect(aligned_addr_base, size_to_remap, perm) == -1){
         DEBRT_PRINTF("mprotect error\n");
         assert(0 && "mprotect error");
@@ -1409,6 +1426,45 @@ void _read_loop_static_reachability(void)
 
 }
 
+void _read_sinks(void)
+{
+    DEBRT_PRINTF("reading sinks\n");
+    string line;
+    ifstream ifs;
+    vector<string> elems;
+    vector<string> elems_reachable;
+    int sink_id;
+    int func_id;
+
+    ifs.open("wpd_sinks.txt");
+    if(!ifs.is_open()){
+        perror("Error opening wpd_sinks.txt file");
+        exit(EXIT_FAILURE);
+    }
+
+    while(getline(ifs, line)){
+        elems = split(line, ' ');
+        sink_id = atoi(elems[0].c_str());
+        if(elems.size() == 1){
+            continue;
+        }
+        elems_reachable = split(elems[1], ','); // seems to correclty ignore trailing comma
+        //printf("elems_reachable.size()==%lu ", elems_reachable.size());
+        //printf("  %d: ", sink_id);
+        for(auto f : elems_reachable){
+            if(f == ""){
+                continue;
+            }
+            func_id = atoi(f.c_str());
+            sink_id_to_funcs[sink_id].insert(func_id);
+            //printf("%d,", atoi(f.c_str()));
+        }
+        //printf("\n");
+    }
+    ifs.close();
+
+}
+
 
 int _debrt_monitor_init(void)
 {
@@ -1467,6 +1523,12 @@ void _debrt_monitor_destroy(void)
 void _debrt_protect_all_pages(int perm)
 {
     DEBRT_PRINTF("PROTECTING ALL PAGES\n");
+    perm = RX_PERM; // FIXME DEBUG ONLY
+    perm = RX_PERM; // FIXME DEBUG ONLY
+    perm = RX_PERM; // FIXME DEBUG ONLY
+    perm = RX_PERM; // FIXME DEBUG ONLY
+    perm = RX_PERM; // FIXME DEBUG ONLY
+    perm = RX_PERM; // FIXME DEBUG ONLY
     long long text_start = executable_addr_base + text_offset;
     long long text_end   = text_start + text_size;
     text_start_aligned = text_start & ~(0x1000-1);
@@ -1752,11 +1814,13 @@ int debrt_init(int main_func_id)
     _read_static_reachability();
     _read_loop_static_reachability();
     _read_encompassed_funcs();
+    _read_sinks();
 
     _dump_func_id_to_pages();
     _dump_func_id_to_addr_and_size();
     _dump_loop_static_reachability();
     _dump_encompassed_funcs();
+    _dump_sinks();
 
     _init_page_to_count();
 
@@ -1904,5 +1968,33 @@ int debrt_protect_indirect_end(long long callee_addr)
     }
     // top-level function
     return debrt_protect_single_end(func_id);
+}
+}
+
+
+static inline
+int _protect_sink(int sink_id, int addend)
+{
+    DEBRT_PRINTF("sink id: %d\n", sink_id);
+    for(int func : sink_id_to_funcs[sink_id]){
+        update_page_counts(func, addend);
+    }
+    return 0;
+}
+extern "C" {
+int debrt_protect_sink(int sink_id)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+    _protect_sink(sink_id, 1);
+    return 0;
+}
+}
+extern "C" {
+int debrt_protect_sink_end(int sink_id)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+    _protect_sink(sink_id, -1);
 }
 }
