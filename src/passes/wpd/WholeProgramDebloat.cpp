@@ -25,6 +25,10 @@
 using namespace llvm;
 using namespace std;
 
+#define ENABLE_INSTRUMENTATION_SINKING 1
+#define THRESH 10
+#define THRESH_SMALL 1
+
 
 namespace {
     struct WholeProgramDebloat : public ModulePass {
@@ -40,7 +44,9 @@ namespace {
         Function *debrt_protect_loop_func;
         Function *debrt_protect_loop_end_func;
         Function *debrt_protect_indirect_func;
-        Function *debrt_protect_end_indirect_func;
+        Function *debrt_protect_indirect_end_func;
+        Function *debrt_protect_sink_func;
+        Function *debrt_protect_sink_end_func;
         map<Function *, int> func_to_id;
         map<int, string> func_id_to_name;
         map<string, int> func_name_to_id;
@@ -62,7 +68,10 @@ namespace {
         map<int, int> loop_id_to_func_id; // for debugging
         set<string> func_name_has_addr_taken;
         set<Function *> func_has_addr_taken;
+        map<int, set<int> > sinks; // sink id to its function IDs
+        map<int, int> sink_id_to_func_id; // the function ID that holds the sink, for debugging
         int loop_id_counter;
+        int sink_id_counter;
 
 
         void getAnalysisUsage(AnalysisUsage &AU) const
@@ -84,14 +93,31 @@ namespace {
 
         bool instrument_main(Module &M);
         void instrument(void);
-        void instrument_loop(Loop *loop, int func_id);
-        void instrument_loop_sink(int toplevel_func_id,
-                                     Loop *toplevel_loop,
-                                     vector<BasicBlock *> &BBs);
+        void instrument_loop(int func_id, Loop *loop);
+        void instrument_loop_sink(int toplevel_func_id, Loop *toplevel_loop);
+
+        int recurse_sink(Function *toplevel_func,
+                         set<Function *> &toplevel_bridge_list,
+                         set<Function *> &visited_funcs,
+                         pair<Function *, CallBase *> parent_func);
         void instrument_after_invoke(InvokeInst *II,
                                      vector<Value *> &ArgsV,
                                      Function *debrt_func);
         void instrument_indirect(void);
+
+        void get_callees(Loop *loop,
+                         vector<pair<Function *, CallBase *> > &callees);
+        void get_callees(pair<Function *, CallBase *> parent_func,
+                         vector<pair<Function *, CallBase *> > &callees);
+        bool sinking_condition_satisfied(vector<pair<Function *, CallBase *> > &callees,
+                                                set<Function *> &visited_funcs);
+        void instrument_sink_point(pair<Function *, CallBase *> parent_func,
+                                   set<Function *> *toplevel_bridge_list);
+        int iterative_sink(set<Function *> &toplevel_bridge_list,
+                           set<Function *> &visited_funcs,
+                           pair<Function *, CallBase *> parent_func);
+        void get_callees_aux(vector<pair<Function *, CallBase *> > &callees,
+                                     Instruction &I);
 
 
         string get_demangled_name(const Function &F);
@@ -99,273 +125,278 @@ namespace {
         void dump_loop_static_reachability(void);
         void dump_encompassed_funcs(void);
         void dump_loop_id_to_func_id(void);
+        void dump_sink_id_to_func_id(void);
+        void dump_sinks(void);
         void dump_func_name_to_id(void);
         void dump_func_ptrs(void);
         void dump_disjoint_sets(void);
+        void dump_stats(void);
     };
 }
 
+struct wpd_stats{
+    int num_toplevel_loops;
+    int num_instrumented_basic_loops;
+    int num_instrumented_sunk_loops;
+    int num_instrumented_sunk_multilevel_loops;
+    int sink_fail_no_calles;
+    int sink_fail_due_to_visited;
+    int sink_fail_thresh_check;
+}stats;
 
-void WholeProgramDebloat::instrument_loop_sink(int toplevel_func_id,
-                                                  Loop *toplevel_loop,
-                                                  vector<BasicBlock *> &BBs)
+
+void WholeProgramDebloat::get_callees_aux(vector<pair<Function *, CallBase *> > &callees,
+                                                  Instruction &I)
+{
+    pair<Function *, CallBase *> fcb;
+    CallBase   *CB = dyn_cast<CallBase>(&I);
+    CallInst   *CI = dyn_cast<CallInst>(&I);
+    InvokeInst *II = dyn_cast<InvokeInst>(&I);
+    if(CB){
+        Function *callee = CB->getCalledFunction();
+        if(func_to_id.count(callee) > 0){
+            //callee_blocks_set.insert(&B); // FIXME dont want duplicates
+            //callee_blocks.push_back(&B);
+            //block_to_callee[&B] = callee;
+            callees.push_back(make_pair(callee, CB));
+        }
+    }
+}
+void WholeProgramDebloat::get_callees(pair<Function *, CallBase *> parent_func,
+                                      vector<pair<Function *, CallBase *> > &callees)
+{
+    for(auto &B : *(parent_func.first)){
+        for(auto &I : B){
+            get_callees_aux(callees, I);
+        }
+    }
+}
+void WholeProgramDebloat::get_callees(Loop *loop,
+                                      vector<pair<Function *, CallBase *> > &callees)
+{
+    for(auto B : loop->getBlocks()){
+        for(auto &I : (*B)){
+            get_callees_aux(callees, I);
+        }
+    }
+}
+
+bool WholeProgramDebloat::sinking_condition_satisfied(vector<pair<Function *, CallBase *> > &callees,
+                                                      set<Function *> &visited_funcs)
 {
     int i;
-    int j;
-
-    int loop_id = loop_id_counter;
-
-    // Find preheader
-    //BasicBlock *preheader = toplevel_loop->getLoopPreheader();
-    //assert(preheader); // must run -loop-simplify for this to be OK.
-
-    // TODO for common dominator probably use:
-    //   https://llvm.org/doxygen/classllvm_1_1DominatorTreeBase.html
-
-    //vector<Function *> callees;
-
-    vector<set<BasicBlock *> > Fs; // FIXME isn't confusing that this is called Fs when it's actually basic blocks
     vector<set<Function *> > Ss;
-    set<BasicBlock *> callee_blocks_set;
-    vector<BasicBlock *> callee_blocks;
-    map<BasicBlock *, Function *> block_to_callee;
 
-    // Find each called function f
-    for(auto B : BBs){
-        for(auto &I : (*B)){
-            CallBase *cb = dyn_cast<CallBase>(&I);
-            if(cb){
-                Function *callee = cb->getCalledFunction();
-                if(func_to_id.count(callee) > 0){
-                    //callees.push_back(callee);
-                    assert(callee_blocks_set.find(B) == callee_blocks_set.end());
-                    callee_blocks_set.insert(B); // FIXME dont want duplicates
-                    callee_blocks.push_back(B);
-                    block_to_callee[B] = callee;
-                }
-            }
-        }
+    if(callees.size() == 0){
+        stats.sink_fail_no_calles++;
+        errs() << "sinking condition failed early b/c callees size is 0\n";
+        return false;
     }
 
-    // Identify S sets from F sets
-    for(i = 0; i < Fs.size(); i++){
-        for(auto f : Fs[i]){
-            Ss[i].insert(static_reachability[block_to_callee[f]].begin(), static_reachability[block_to_callee[f]].end());
+    // Identify S sets
+    for(auto callee : callees){
+        // XXX Early termination for threshold calculation:
+        // This is a conservative approach for now. Any repeat of a visited
+        // func means the threshold condition is not satisfied.
+        if(visited_funcs.find(callee.first) != visited_funcs.end()){
+            stats.sink_fail_due_to_visited++;
+            errs() << "early teriminate sinking condition due to visited-func\n";
+            return false;
         }
+        Ss.push_back(static_reachability[callee.first]);
     }
 
-    if(Fs.size() < 2){
-        assert(Ss.size() == 1);
-        for(auto f : Ss[0]){
-            // FIXME: make sure to handle whatever the equivalent of this might
-            // be for this new algorithm.
-            //   "If there was at least one function call inside the loop, then we
-            //   will instrument it."
-            loop_static_reachability[loop_id].insert(f);
-            // FIXME cont. : And this probably includes a bump to loop_id_counter
-        }
-        return;
+    // Find intersection across all S sets
+    set<Function *> set_intersect_fin;
+    set<Function *> tmp;
+    set_intersect_fin.insert(Ss[0].begin(), Ss[0].end());
+    for(i = 1; i < Ss.size(); i++){
+        tmp.clear();
+        tmp.insert(set_intersect_fin.begin(), set_intersect_fin.end());
+        set_intersect_fin.clear();
+        set_intersection(tmp.begin(),
+                         tmp.end(),
+                         Ss[i].begin(),
+                         Ss[i].end(),
+                         inserter(set_intersect_fin, set_intersect_fin.end()));
     }
 
-
-    // For each S1, S2 pair in S sets
-    for(i = 0; i < Ss.size()-1; i++){
-        for(j = i+1; j < Ss.size(); j++){
-            bool sunk_S1 = false;
-            bool sunk_S2 = false;
-
-            // If there is substantial security benefit to
-            // mapping S1 only when needed, sink its instrumentation
-            set<Function *> set_diff_tmp;
-            set<Function *> set_diff_fin;
-            set_difference(Ss[i].begin(),
-                           Ss[i].end(),
-                           Ss[j].begin(),
-                           Ss[j].end(),
-                           inserter(set_diff_tmp, set_diff_tmp.end()));
-            set_difference(set_diff_tmp.begin(),
-                           set_diff_tmp.end(),
-                           loop_static_reachability[loop_id].begin(),
-                           loop_static_reachability[loop_id].end(),
-                           inserter(set_diff_fin, set_diff_fin.end()));
-            // FIXME: write a function like get_set_diff_size()
-            // FIXME: don't just use the size of set_diff_fin. that's wrong
-            // FIXME: And fix THRESH. not some dumb integer
-            #define THRESH 10 // FIXME
-            if(set_diff_fin.size() > THRESH){
-              // TODO sink instrumentation of S1 to TRICKY TODO NOT NECESSARILY IMM DOM OF F1
-              sunk_S1 = true;
-            }
-
-            // ... similarly for S2
-            set_diff_tmp.clear();
-            set_diff_fin.clear();
-            set_difference(Ss[j].begin(),
-                           Ss[j].end(),
-                           Ss[i].begin(),
-                           Ss[i].end(),
-                           inserter(set_diff_tmp, set_diff_tmp.end()));
-            set_difference(set_diff_tmp.begin(),
-                           set_diff_tmp.end(),
-                           loop_static_reachability[loop_id].begin(),
-                           loop_static_reachability[loop_id].end(),
-                           inserter(set_diff_fin, set_diff_fin.end()));
-            // FIXME
-            // FIXME see above
-            // FIXME
-            if(set_diff_fin.size() > THRESH){
-              // TODO sink instrumentation of S2 to TRICKY TODO NOT NECESSARILY IMM DOM OF F2
-              sunk_S2 = true;
-            }
-
-            // If the intersection is large, then we may find control
-            // divergence deeper in the call chain where the security
-            // benefit warrants sinking the instrumentation. We do this
-            // for either set, as long as we haven't sunk the instrumentation
-            // for it yet.
-
-            set<Function *> set_intersect_fin;
-            set_diff_fin.clear();
-            set_intersection(Ss[i].begin(),
-                             Ss[i].end(),
-                             Ss[j].begin(),
-                             Ss[j].end(),
-                             inserter(set_intersect_fin, set_intersect_fin.end()));
-            set_difference(set_intersect_fin.begin(),
-                           set_intersect_fin.end(),
-                           loop_static_reachability[loop_id].begin(),
-                           loop_static_reachability[loop_id].end(),
-                           inserter(set_diff_fin, set_diff_fin.end()));
-            // FIXME FIXME FIXME
-            // FIXME FIXME FIXME see above about size and THRESH
-
-            if(set_diff_fin.size() > THRESH){
-                set<Function *> tmp_F;
-                if(!sunk_S1 && !sunk_S2){
-                    // FIXME this doesn't work because Fs has basic blocks!!!!
-                    //set_union(Fs[i].begin(),
-                    //          Fs[i].end(),
-                    //          Fs[j].begin(),
-                    //          Fs[j].end(),
-                    //          inserter(tmp_F, tmp_F.end()));
-                }else if(!sunk_S1){
-                    // FIXME: assignment fails
-                    //tmp_F = Fs[i];
-                }else if(!sunk_S2){
-                    // FIXME: assignment fails
-                    //tmp_F = Fs[j];
-                }else{
-                    assert(sunk_S1 && sunk_S2);
-                }
-
-                for(auto f : tmp_F){
-                    // add f to the instrumentation of Li
-                    loop_static_reachability[loop_id].insert(f);
-                    // And then recurse on callees
-                    // FIXME: adj_list comes into play here???
-                    for(auto callee : adj_list[f]){
-                      // RECURSE
-                      // RECURSE
-                      // RECURSE
-                      //instrument_loop_sink(toplevel_func_id, toplevel_loop, callee->getBlocks());
-                    }
-                }
-
-            }else{
-                // Else, the intersection is small.
-                // Thus, we tried already to sink S1 or S2 based on
-                // set difference. And we tried already to recurse when
-                // that didn't work but the intersection was still big.
-                // Now "go back" and make sure that if we didn't sink S1 or
-                // S2, that they are added to the loop preheader instrumentation
-                if(!sunk_S1){
-                    // add S1 to IS0
-                    for(auto f : Ss[i]){
-                        // FIXME meta:  uhhh. are these FIXMEs relevant here???
-                        // FIXME: make sure to handle whatever the equivalent of this might
-                        // be for this new algorithm.
-                        //   "If there was at least one function call inside the loop, then we
-                        //   will instrument it."
-                        loop_static_reachability[loop_id].insert(f);
-                        // FIXME cont. : And this probably includes a bump to loop_id_counter
-                    }
-                }
-                if(!sunk_S2){
-                    // add S2 to IS0
-                    for(auto f : Ss[j]){
-                        // FIXME meta:  uhhh. are these FIXMEs relevant here???
-                        // FIXME: make sure to handle whatever the equivalent of this might
-                        // be for this new algorithm.
-                        //   "If there was at least one function call inside the loop, then we
-                        //   will instrument it."
-                        loop_static_reachability[loop_id].insert(f);
-                        // FIXME cont. : And this probably includes a bump to loop_id_counter
-                    }
-                }
-            }
-        }
+    // Find union across all S sets
+    set<Function *> set_union_fin;
+    set_union_fin.insert(Ss[0].begin(), Ss[0].end());
+    for(i = 1; i < Ss.size(); i++){
+        tmp.clear();
+        tmp.insert(set_union_fin.begin(), set_union_fin.end());
+        set_union_fin.clear();
+        set_union(tmp.begin(),
+                  tmp.end(),
+                  Ss[i].begin(),
+                  Ss[i].end(),
+                  inserter(set_union_fin, set_union_fin.end()));
     }
 
+    // FIXME: write a function like get_set_diff_size() which actually gets
+    //        the total text size of its functions.  Don't just use the size of
+    //        set_diff_fin. That's wrong.  And fix THRESH and THRESH_SMALL. not
+    //        simple integers, but probably based on proportions of the total
+    //        text size.
+    if(set_union_fin.size() > THRESH && set_intersect_fin.size() < THRESH_SMALL){
+        errs() << "THRESH success: set_union_size("<<set_union_fin.size()<<") "
+               << "set_intersect_size("<< set_intersect_fin.size()<<")\n";
+        return true;
+    }
+    errs() << "THRESH fail: set_union_size("<<set_union_fin.size()<<") "
+           << "set_intersect_size("<< set_intersect_fin.size()<<")\n";
+    stats.sink_fail_thresh_check++;
+    return false;
+}
 
+void WholeProgramDebloat::instrument_sink_point(pair<Function *, CallBase *> parent_func,
+                                                set<Function *> *toplevel_bridge_list)
+{
+    CallBase *CB = parent_func.second;
 
-    /*
+    int sink_id = sink_id_counter;
+    sink_id_counter++;
 
-    // If there was at least one function call inside the loop, then we
-    // will instrument it.
-    if(loop_static_reachability.find(loop_id) != loop_static_reachability.end()){
+    // instrument before callee
+    vector<Value *> ArgsV;
+    ArgsV.push_back(ConstantInt::get(int32Ty, sink_id, false));
+    IRBuilder<> builder(CB);
+    builder.CreateCall(debrt_protect_sink_func, ArgsV);
 
-        // Extend based on reachability of those callees
-        for(auto loop_callee : loop_static_reachability[loop_id]){
-            for(auto reachable_func : static_reachability[loop_callee]){
-                loop_static_reachability[loop_id].insert(reachable_func);
-            }
-        }
-
-        // Create arguments for the library function
-        // errs() << "Make arguments\n";
-        vector<Value *> ArgsV;
-        errs() << "instrumenting loop id " << loop_id << "\n";
-        ArgsV.push_back(ConstantInt::get(int32Ty, loop_id, false));
-
-        // instrument the preheader of the loop
-        Instruction *TI = preheader->getTerminator();
-        assert(TI);
-        assert(debrt_protect_loop_func);
-        IRBuilder<> builder(TI);
-        builder.CreateCall(debrt_protect_loop_func, ArgsV);
-
-        //Set of functions debloated within loop (Sharjeel)
-        instrumented_sets.push_back(loop_static_reachability[loop_id]);
-        // errs() << "Inserted library function within preheader(" << preheader->getName().str() << "\n";
-
-        // instrument the exit(s) block(s) of the loop
-        SmallVector<BasicBlock *, 8> exit_blocks;
-        loop->getUniqueExitBlocks(exit_blocks);
-
-        // dont assert. can refer to https://llvm.org/docs/LoopTerminology.html
-        // statically infinite loop is possible. we just won't instrument exits in
-        // that case
-        //assert(exit_blocks.size() > 0);
-
-        for(auto exit_block : exit_blocks){
-            Instruction *ebt = exit_block->getTerminator();
-            assert(ebt);
-            IRBuilder<> builder_exit(ebt);
-            builder_exit.CreateCall(debrt_protect_loop_end_func, ArgsV);
-        }
-
-        // Note which function this loop is associated with
-        loop_id_to_func_id[loop_id] = func_id;
-
-        // Bump our ID counter
-        loop_id_counter++;
+    CallInst   *CI = dyn_cast<CallInst>(CB);
+    InvokeInst *II = dyn_cast<InvokeInst>(CB);
+    // instrument after callee
+    if(CI){
+        IRBuilder<> builder_end(CI);
+        builder_end.SetInsertPoint(CI->getNextNode());
+        builder_end.CreateCall(debrt_protect_sink_end_func, ArgsV);
+    }else if(II){
+        errs() << "sink-instrument invoke case\n";
+        instrument_after_invoke(II, ArgsV, debrt_protect_sink_end_func);
+    }else{
+        assert(0);
     }
 
-    */
+    // Store the sink ID -> func IDs
+    // If this is a toplevel function call, then the sink ID corresponds
+    // to the bridge list. Otherwise this is an instrumentation point deeper
+    // than the toplevel call, and we need the function itself and its
+    // statically reachable set.
+    set<Function *> temp;
+    if(toplevel_bridge_list){
+        // this is a toplevel function call
+        for(auto func : *toplevel_bridge_list){
+            sinks[sink_id].insert(func_to_id[func]);
+            temp.insert(func);
+        }
+    }else{
+        // not a toplevel function call
+        sinks[sink_id].insert(func_to_id[parent_func.first]);
+        temp.insert(parent_func.first);
+        for(auto func : static_reachability[parent_func.first]){
+            sinks[sink_id].insert(func_to_id[func]);
+            temp.insert(func);
+        }
+    }
+    instrumented_sets.push_back(temp);
+    sink_id_to_func_id[sink_id] = func_to_id[parent_func.first]; // for debugging
 }
 
 
-void WholeProgramDebloat::instrument_loop(Loop *loop, int func_id)
+int WholeProgramDebloat::iterative_sink(set<Function *> &toplevel_bridge_list,
+                                        set<Function *> &visited_funcs,
+                                        pair<Function *, CallBase *> toplevel_func)
+{
+
+    stack<pair<Function *, CallBase *> > s;
+
+    s.push(toplevel_func);
+    while(!s.empty()){
+        vector<pair<Function *, CallBase *> > callees;
+        pair<Function *, CallBase *> parent_func;
+
+        parent_func = s.top();
+        s.pop();
+
+        visited_funcs.insert(parent_func.first);
+
+        get_callees(parent_func, callees);
+
+        if(sinking_condition_satisfied(callees, visited_funcs)){
+            // add parent as a bridge
+            toplevel_bridge_list.insert(parent_func.first);
+
+            // descend to callees
+            for(auto c : callees){
+                s.push(c);
+            }
+        }else{
+
+            // the callees don't satisfy the sink condition, so we need
+            // to sink instrumentation to their parent function
+            instrument_sink_point(parent_func, NULL);
+        }
+    }
+}
+
+
+
+
+void WholeProgramDebloat::instrument_loop_sink(int toplevel_func_id,
+                                               Loop *toplevel_loop)
+{
+    errs() << "Attempting to instrument loop sink for toplevel_func_id: " << toplevel_func_id << "\n";
+    bool multilevel_sink = false; // for stats
+
+    vector<pair<Function *, CallBase *> > callees;
+    set<Function *> visited_funcs;
+    set<Function *> toplevel_bridge_list;
+
+    // Grab the callees within this top-level loop
+    get_callees(toplevel_loop, callees);
+
+    // Check if the sinking condition is even satisfied within this top-level
+    // loop
+    if(sinking_condition_satisfied(callees, visited_funcs)){
+        // The condition is met, so we'll sink instrumentation into the loop,
+        // and possibly into interprocedural points
+        for(auto toplevel_callee : callees){
+            toplevel_bridge_list.clear();
+            visited_funcs.clear();
+
+            // never revisit a toplevel-func
+            for(auto toplevel_callee : callees){
+                visited_funcs.insert(toplevel_callee.first);
+            }
+
+            // for this toplevel-callee, try to sink deeper
+            iterative_sink(toplevel_bridge_list, visited_funcs, toplevel_callee);
+
+            // If the sink went deeper, then our bridge list is populated.
+            // So we need to instrument the toplevel-callee with the bridges
+            if(toplevel_bridge_list.size()){
+                instrument_sink_point(toplevel_callee, &toplevel_bridge_list);
+                multilevel_sink = true; // for stats
+            }
+        }
+        stats.num_instrumented_sunk_loops++;
+        if(multilevel_sink){
+            stats.num_instrumented_sunk_multilevel_loops++;
+        }
+    }else{
+        // Top-level callees did not satisfy threshold for sinking, so we
+        // just do normal loop instrumentation in this case
+        errs() << "Instrument_loop_sink did not satisfy initial sink "
+               << "condition. calling instrument_loop\n";
+        instrument_loop(toplevel_func_id, toplevel_loop);
+    }
+
+}
+
+
+void WholeProgramDebloat::instrument_loop(int func_id, Loop *loop)
 {
     //
     // XXX All this code is intentionally crammed in here. 'loop' is, I think,
@@ -396,6 +427,7 @@ void WholeProgramDebloat::instrument_loop(Loop *loop, int func_id)
     // If there was at least one function call inside the loop, then we
     // will instrument it.
     if(loop_static_reachability.find(loop_id) != loop_static_reachability.end()){
+        stats.num_instrumented_basic_loops++;
 
         // Extend based on reachability of those callees
         for(auto loop_callee : loop_static_reachability[loop_id]){
@@ -537,10 +569,10 @@ void WholeProgramDebloat::instrument_indirect(void)
                                 if(CI){
                                     IRBuilder<> builder_end(CI);
                                     builder_end.SetInsertPoint(CI->getNextNode());
-                                    builder_end.CreateCall(debrt_protect_end_indirect_func, ArgsV);
+                                    builder_end.CreateCall(debrt_protect_indirect_end_func, ArgsV);
                                 }else if(II){
                                     errs() << "indirect func invoke case\n";
-                                    instrument_after_invoke(II, ArgsV, debrt_protect_end_indirect_func);
+                                    instrument_after_invoke(II, ArgsV, debrt_protect_indirect_end_func);
                                 }else{
                                     assert(0);
                                 }
@@ -573,11 +605,11 @@ void WholeProgramDebloat::instrument(void)
         // Instrument outer loops
         LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
         for(auto loop = LI->begin(), e = LI->end(); loop != e; ++loop){
-            if(false){
-                vector<BasicBlock *> loop_BBs = (*loop)->getBlocks();
-                instrument_loop_sink(func_to_id[f], *loop, loop_BBs);
+            stats.num_toplevel_loops++;
+            if(ENABLE_INSTRUMENTATION_SINKING){
+                instrument_loop_sink(func_to_id[f], *loop);
             }else{
-                instrument_loop(*loop, func_to_id[f]);
+                instrument_loop(func_to_id[f], *loop);
             }
         }
 
@@ -826,6 +858,9 @@ void WholeProgramDebloat::wpd_init(Module &M)
 {
     // Init loop count (for handing out IDs)
     loop_id_counter = 0;
+    sink_id_counter = 0;
+
+    memset(&stats, 0, sizeof(stats));
 
     // Give each application function an ID
     int count = 0;
@@ -883,10 +918,20 @@ void WholeProgramDebloat::wpd_init(Module &M)
             Function::ExternalLinkage,
             "debrt_protect_indirect",
             M);
-    debrt_protect_end_indirect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
+    debrt_protect_indirect_end_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
             Function::ExternalLinkage,
             "debrt_protect_indirect_end",
             M);
+    debrt_protect_sink_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+            Function::ExternalLinkage,
+            "debrt_protect_sink",
+            M);
+    debrt_protect_sink_end_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+            Function::ExternalLinkage,
+            "debrt_protect_sink_end",
+            M);
+
+
 }
 
 
@@ -1048,6 +1093,32 @@ void WholeProgramDebloat::dump_loop_id_to_func_id(void)
     }
     fclose(fp_loop_to_func);
 }
+void WholeProgramDebloat::dump_sink_id_to_func_id(void)
+{
+    FILE *fp_sink_to_func = fopen("wpd_sink_to_func.txt", "w");
+    for(auto p : sink_id_to_func_id){
+        int sink_id = p.first;
+        int func_id = p.second;
+        //errs() << l->getName() << ": ";
+        //fprintf(fp_loop_to_func, "%s ", l->getName().str().c_str());
+        fprintf(fp_sink_to_func, "%d: %d (%s)\n", sink_id, func_id, func_id_to_name[func_id].c_str());
+    }
+    fclose(fp_sink_to_func);
+}
+void WholeProgramDebloat::dump_sinks(void)
+{
+    FILE *fp_sinks = fopen("wpd_sinks.txt", "w");
+    for(auto p : sinks){
+        int sink_id = p.first;
+        set<int> &funcs = p.second;
+        fprintf(fp_sinks, "%d ", sink_id);
+        for(auto f : funcs){
+            fprintf(fp_sinks, "%d,", f);
+        }
+        fprintf(fp_sinks, "\n");
+    }
+    fclose(fp_sinks);
+}
 void WholeProgramDebloat::dump_func_ptrs(void)
 {
     FILE *fp_funcptrs = fopen("wpd_func_name_has_addr_taken.txt", "w");
@@ -1077,6 +1148,26 @@ void WholeProgramDebloat::dump_disjoint_sets(void)
     }
     fclose(fp);
 }
+void WholeProgramDebloat::dump_stats(void)
+{
+    FILE *fp = fopen("wpd_stats.txt", "w");
+    fprintf(fp, "Number of toplevel loops: %d\n", stats.num_toplevel_loops);
+    fprintf(fp, "Number of instrumented toplevel loops: %d\n",
+                stats.num_instrumented_basic_loops + stats.num_instrumented_sunk_loops);
+    fprintf(fp, "Number of instrumented toplevel loops without sinking: %d\n",
+                stats.num_instrumented_basic_loops);
+    fprintf(fp, "Number of instrumented toplevel loops with sinking: %d\n",
+                stats.num_instrumented_sunk_loops);
+    fprintf(fp, "Number of instrumented toplevel loops with multilevel sinking: %d\n",
+                stats.num_instrumented_sunk_multilevel_loops);
+    fprintf(fp, "Number of sinking attempts (not necessarily toplevel) that " \
+                "failed because:\n");
+    fprintf(fp, "  there were no callees: %d\n", stats.sink_fail_no_calles);
+    fprintf(fp, "  we revisited a function: %d\n", stats.sink_fail_due_to_visited);
+    fprintf(fp, "  the union and intersection threshold check failed: %d\n",
+                  stats.sink_fail_thresh_check);
+    fclose(fp);
+}
 string WholeProgramDebloat::get_demangled_name(const Function &F)
 {
     ItaniumPartialDemangler IPD;
@@ -1097,7 +1188,10 @@ bool WholeProgramDebloat::doFinalization(Module &M)
     dump_func_name_to_id();
     dump_func_ptrs();
     dump_loop_id_to_func_id();
+    dump_sink_id_to_func_id();
+    dump_sinks();
     dump_disjoint_sets();
+    dump_stats();
     return false;
 }
 bool WholeProgramDebloat::doInitialization(Module &M)
