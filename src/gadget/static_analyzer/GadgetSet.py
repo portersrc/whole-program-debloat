@@ -21,7 +21,7 @@ class GadgetSet(object):
     of gadgets present in the binary's encoding.
     """
 
-    def __init__(self, name, filepath, createCFG, output_console, text_begin, text_size):
+    def __init__(self, name, filepath, createCFG, output_console, text_begin, text_size, text_only):
         """
         GadgetSet constructor
         :param str name: Name for the gadget set
@@ -34,6 +34,8 @@ class GadgetSet(object):
         self.cnt_duplicate = 0
         self.text_begin = text_begin
         self.text_end = text_begin + text_size
+        self.text_page = text_begin // 4096
+        self.text_only = text_only
 
         # Init the CFG with angr for finding functions
         if createCFG:
@@ -45,6 +47,23 @@ class GadgetSet(object):
                 print(str(e))
         else:
             self.cfg = None
+
+        # Map of gadgets to pages used to remove duplicate calls
+        self.GadgetMap = {}
+        self.ROPMap = {}
+        self.JOPMap = {}
+        self.COPMap = {}
+        self.SyscallMap = {}
+        self.JDispatcherMap = {}
+        self.JDataloaderMap = {}
+        self.JInitializerMap = {}
+        self.JTrampolineMap = {}
+        self.CDispatcherMap = {}
+        self.CDataloaderMap = {}
+        self.CInitializerMap = {}
+        self.CTrampolineMap = {}
+        self.CPivotMap = {}
+        self.Excluded = {}
 
         # Initialize functional gadget type lists
         self.allGadgets = []
@@ -193,8 +212,11 @@ class GadgetSet(object):
                     line == "" or \
                     line.startswith("Unique gadgets found"):
                 continue
-            else:
-                self.allGadgets.append(Gadget(line))
+            else: 
+                gadget = Gadget(line)
+                offset = int(gadget.offset[:-1],16)
+                if(not self.text_only or (offset >= self.text_begin and offset <= self.text_end)):
+                    self.allGadgets.append(Gadget(line))
 
     @staticmethod
     def runROPgadget(filepath, flags):
@@ -251,8 +273,10 @@ class GadgetSet(object):
         self.average_functional_qualityVariant = 0.0
         
         # Reject unusable gadgets, sort gadgets into their appropriate category sets, score gadgets
-        for gadget in self.allGadgets:
-            self.analyze_gadget_variant(gadget, sets)
+        # print(self.ROPMap.keys())
+        for set_num in sets:
+            set_num += self.text_page
+            self.analyze_gadget_variant(set_num)
 
         # Calculate gadget set counts / quality metrics
         self.total_sp_gadgetsVariant = 0
@@ -328,6 +352,40 @@ class GadgetSet(object):
         :return: None, but modifies GadgetSet collections and Gadget object members
         """
 
+        offset = int(gadget.offset[:-1],16)
+        curr_page = offset // 4096
+
+        if(curr_page not in self.GadgetMap):
+            self.GadgetMap[curr_page] = []
+        if(curr_page not in self.Excluded):
+            self.Excluded[curr_page] = []
+        if(curr_page not in self.ROPMap):
+            self.ROPMap[curr_page] = []
+        if(curr_page not in self.JOPMap):
+            self.JOPMap[curr_page] = []
+        if(curr_page not in self.COPMap):
+            self.COPMap[curr_page] = []
+        if(curr_page not in self.SyscallMap):
+            self.SyscallMap[curr_page] = []
+        if(curr_page not in self.JDispatcherMap):
+            self.JDispatcherMap[curr_page] = []
+        if(curr_page not in self.JDataloaderMap):
+            self.JDataloaderMap[curr_page] = []
+        if(curr_page not in self.JInitializerMap):
+            self.JInitializerMap[curr_page] = []
+        if(curr_page not in self.JTrampolineMap):
+            self.JTrampolineMap[curr_page] = []
+        if(curr_page not in self.CDispatcherMap):
+            self.CDispatcherMap[curr_page] = []
+        if(curr_page not in self.CDataloaderMap):
+            self.CDataloaderMap[curr_page] = []
+        if(curr_page not in self.CInitializerMap):
+            self.CInitializerMap[curr_page] = []
+        if(curr_page not in self.CTrampolineMap):
+            self.CTrampolineMap[curr_page] = []
+        if(curr_page not in self.CPivotMap):
+            self.CPivotMap[curr_page] = []
+        self.GadgetMap[curr_page].append(gadget)
         # Step 1: Eliminate useless gadgets, defined as:
         # 1) Gadgets that consist only of the GPI (SYSCALL gadgets excluded)
         # 2) Gadgets that have a first opcode that is not useful - we assume that the first instruction is part of the
@@ -349,6 +407,8 @@ class GadgetSet(object):
            gadget.is_rip_relative_indirect_branch() or gadget.clobbers_indirect_target() or \
            gadget.has_invalid_int_handler() or gadget.clobbers_created_value() or gadget.contains_static_call():
             self.cnt_rejected += 1
+
+            self.Excluded[curr_page].append(gadget)
             return
 
         # Step 2: Sort the gadget by type. Gadget type determined by GPI and secondary check for S.P. gadgets. Scoring
@@ -356,6 +416,7 @@ class GadgetSet(object):
         gpi = gadget.instructions[len(gadget.instructions)-1].opcode
 
         if gpi.startswith("ret"):
+            self.ROPMap[curr_page].append(gadget)
             if self.add_if_unique(gadget, self.ROPGadgets):
                 # Determine score, first checking ROP-specific side constraints
                 gadget.check_sp_target_of_operation()  # increase score if stack pointer family is target of certain ops
@@ -368,17 +429,22 @@ class GadgetSet(object):
                 gadget.check_memory_writes()              # increases score for each memory write in the gadget
 
                 self.total_ROP_score += gadget.score
-
         elif gpi.startswith("jmp"):
+
             if gadget.is_JOP_COP_dispatcher():
+                self.JDispatcherMap[curr_page].append(gadget)
                 self.add_if_unique(gadget, self.JOPDispatchers)
             elif gadget.is_JOP_COP_dataloader():
+                self.JDataloaderMap[curr_page].append(gadget)
                 self.add_if_unique(gadget, self.JOPDataLoaders)
             elif gadget.is_JOP_initializer():
+                self.JInitializerMap[curr_page].append(gadget)
                 self.add_if_unique(gadget, self.JOPInitializers)
             elif gadget.is_JOP_trampoline():
+                self.JTrampolineMap[curr_page].append(gadget)
                 self.add_if_unique(gadget, self.JOPTrampolines)
             else:
+                self.JOPMap[curr_page].append(gadget)
                 if self.add_if_unique(gadget, self.JOPGadgets):
                     # Determine score, first checking JOP-specific side constraints
                     gadget.check_branch_target_of_operation()  # increase score if branch register is target of ops
@@ -391,17 +457,24 @@ class GadgetSet(object):
                     self.total_JOP_score += gadget.score
 
         elif gpi.startswith("call"):
+
             if gadget.is_JOP_COP_dispatcher():
+                self.CDispatcherMap[curr_page].append(gadget)
                 self.add_if_unique(gadget, self.COPDispatchers)
             elif gadget.is_JOP_COP_dataloader():
+                self.CDataloaderMap[curr_page].append(gadget)
                 self.add_if_unique(gadget, self.COPDataLoaders)
             elif gadget.is_COP_initializer():
+                self.CInitializerMap[curr_page].append(gadget)
                 self.add_if_unique(gadget, self.COPInitializers)
             elif gadget.is_COP_strong_trampoline():
+                self.CTrampolineMap[curr_page].append(gadget)
                 self.add_if_unique(gadget, self.COPStrongTrampolines)
             elif gadget.is_COP_intrastack_pivot():
+                self.CPivotMap[curr_page].append(gadget)
                 self.add_if_unique(gadget, self.COPIntrastackPivots)
             else:
+                self.COPMap[curr_page].append(gadget)
                 if self.add_if_unique(gadget, self.COPGadgets):
                     # Determine score, first checking COP-specific side constraints
                     gadget.check_branch_target_of_operation()  # increase score if branch register is target of ops
@@ -413,7 +486,43 @@ class GadgetSet(object):
 
                     self.total_COP_score += gadget.score
         else:
+            self.SyscallMap[curr_page].append(gadget)
             self.add_if_unique(gadget, self.SyscallGadgets)
+    
+    def analyze_gadget_variant(self, curr_page):
+        """
+        Analyzes a gadget to determine its properties
+        :param Gadget gadget: gadget to analyze
+        :return: None, but modifies GadgetSet collections and Gadget object members
+        """
+
+        
+        
+        self.allGadgetsVariant.extend(self.GadgetMap[curr_page])
+        self.allGadgetsVariant.extend(self.Excluded[curr_page])
+
+        # print(self.ROPGadgetsVariant)
+        score = self.add_if_uniques(self.ROPMap[curr_page],self.ROPGadgetsVariant)
+        self.total_ROP_scoreVariant += score
+        # print(score)
+        # print(self.ROPGadgetsVariant)
+
+        score = self.add_if_uniques(self.JOPMap[curr_page],self.JOPGadgetsVariant)
+        self.total_JOP_scoreVariant += score
+
+        score = self.add_if_uniques(self.COPMap[curr_page],self.COPGadgetsVariant)
+        self.total_COP_scoreVariant += score
+
+        self.add_if_uniques(self.SyscallMap[curr_page],self.SyscallGadgetsVariant)
+        self.add_if_uniques(self.JDispatcherMap[curr_page],self.JOPDispatchersVariant)
+        self.add_if_uniques(self.JDataloaderMap[curr_page],self.JOPDataLoadersVariant)
+        self.add_if_uniques(self.JInitializerMap[curr_page],self.JOPInitializersVariant)
+        self.add_if_uniques(self.JTrampolineMap[curr_page],self.JOPTrampolinesVariant)
+        self.add_if_uniques(self.CDispatcherMap[curr_page],self.COPDispatchersVariant)
+        self.add_if_uniques(self.CDataloaderMap[curr_page],self.COPDataLoadersVariant)
+        self.add_if_uniques(self.CInitializerMap[curr_page],self.COPInitializersVariant)
+        self.add_if_uniques(self.CTrampolineMap[curr_page],self.COPStrongTrampolinesVariant)
+        self.add_if_uniques(self.CPivotMap[curr_page],self.COPIntrastackPivotsVariant)
 
     def add_if_unique(self, gadget, collection):
         for rhs in collection:
@@ -422,6 +531,20 @@ class GadgetSet(object):
                 return False
         collection.append(gadget)
         return True
+
+    def add_if_uniques(self, gadget_map, collection):
+        score = 0.0
+        for gadget in gadget_map:
+            duplicate = False
+            for rhs in collection:
+                if gadget.is_duplicate(rhs):
+                    self.cnt_duplicate += 1
+                    duplicate = True
+                    break
+            if(not duplicate):
+                score += gadget.score
+                collection.append(gadget)
+        return score
 
     def getFunction(self, rop_addr):
         rop_addr = int(rop_addr, 16)
@@ -1333,111 +1456,6 @@ class GadgetSet(object):
             if "[" in op1 and op1_family not in [None, 6, 7] and "+" not in op1 and "-" not in op1 and "*" not in op1:
                 self.practical_ASLR_ROPVariant[1] = True
 
-    def analyze_gadget_variant(self, gadget, sets):
-        """
-        Analyzes a gadget to determine its properties
-        :param Gadget gadget: gadget to analyze
-        :return: None, but modifies GadgetSet collections and Gadget object members
-        """
-
-        if sets != None:
-            offset = int(gadget.offset[:-1],16)
-            # print("offset: "+str(offset)+" which is "+str(gadget.offset))
-            if offset >= self.text_begin and offset <= self.text_end:
-                start_page = self.text_begin // 4096
-                # print("Start Page: "+str(start_page)+" which is "+str(self.text_begin))
-                curr_page = offset // 4096
-                # print("Curr Page: "+str(curr_page)+" which is "+str(offset))
-                relative_curr_page = curr_page - start_page 
-                # print("Relative Curr Page: "+str(relative_curr_page))
-                if relative_curr_page not in sets:
-                    return
 
 
-        # Step 1: Eliminate useless gadgets, defined as:
-        # 1) Gadgets that consist only of the GPI (SYSCALL gadgets excluded)
-        # 2) Gadgets that have a first opcode that is not useful - we assume that the first instruction is part of the
-        #    desired operation to be performed (otherwise attacker would just use the shorter version)
-        # 3) Gadgets that end in a call/jmp <offset> (ROPgadget should not include these in the first place)
-        # 4) Gadgets that create values in segment or extension registers, or are RIP-relative
-        # 5) Gadgets ending in returns with offsets that are not byte aligned or greater than 32 bytes
-        # 6) Gadgets containing ring-0 instructions / operands
-        # 7) Gadgets that contain an intermediate GPI/interrupt (ROPgadget should not include these in the first place)
-        # 8) ROP Gadgets that perform non-static assignments to the stack pointer register
-        # 9) JOP/COP Gadgets that overwrite the target of and indirect branch GPI
-        # 10) JOP/COP gadgets that are RIP-relative
-        # 11) Syscall gadgets that end in an interrupt handler that is not 0x80 (ROPgadget should not include these)
-        # 12) Gadgets that create value in the first instruction only to overwrite that value before the GPI
-        # 13) Gadgets that contain intermediate static calls
-        if gadget.is_gpi_only() or gadget.is_useless_op() or gadget.is_invalid_branch() or \
-           gadget.creates_unusable_value() or gadget.has_invalid_ret_offset() or gadget.contains_unusable_op() or \
-           gadget.contains_intermediate_GPI() or gadget.clobbers_stack_pointer() or \
-           gadget.is_rip_relative_indirect_branch() or gadget.clobbers_indirect_target() or \
-           gadget.has_invalid_int_handler() or gadget.clobbers_created_value() or gadget.contains_static_call():
-            self.cnt_rejected += 1
-            return
-
-        # Step 2: Sort the gadget by type. Gadget type determined by GPI and secondary check for S.P. gadgets. Scoring
-        #         is only performed for unique functional gadgets.
-        gpi = gadget.instructions[len(gadget.instructions)-1].opcode
-
-        if gpi.startswith("ret"):
-            if self.add_if_unique(gadget, self.ROPGadgetsVariant):
-                # Determine score, first checking ROP-specific side constraints
-                gadget.check_sp_target_of_operation()  # increase score if stack pointer family is target of certain ops
-                gadget.check_contains_leave()          # +2 if gadget contains an intermediate "leave" instruction
-                gadget.check_negative_sp_offsets()     # +2 if gadget's cumulative stack pointer offsets are negative
-
-                # Next check general side-constraints
-                gadget.check_contains_conditional_op()    # increase score if gadget contains conditional operations
-                gadget.check_register_ops()               # increases score for ops on value and bystander register
-                gadget.check_memory_writes()              # increases score for each memory write in the gadget
-
-                self.total_ROP_scoreVariant += gadget.score
-
-        elif gpi.startswith("jmp"):
-            if gadget.is_JOP_COP_dispatcher():
-                self.add_if_unique(gadget, self.JOPDispatchersVariant)
-            elif gadget.is_JOP_COP_dataloader():
-                self.add_if_unique(gadget, self.JOPDataLoadersVariant)
-            elif gadget.is_JOP_initializer():
-                self.add_if_unique(gadget, self.JOPInitializersVariant)
-            elif gadget.is_JOP_trampoline():
-                self.add_if_unique(gadget, self.JOPTrampolinesVariant)
-            else:
-                if self.add_if_unique(gadget, self.JOPGadgetsVariant):
-                    # Determine score, first checking JOP-specific side constraints
-                    gadget.check_branch_target_of_operation()  # increase score if branch register is target of ops
-
-                    # Next check general side-constraints
-                    gadget.check_contains_conditional_op()  # increase score if gadget contains conditional operations
-                    gadget.check_register_ops()  # increases score for ops on value and bystander register
-                    gadget.check_memory_writes()  # increases score for each memory write in the gadget
-
-                    self.total_JOP_scoreVariant += gadget.score
-
-        elif gpi.startswith("call"):
-            if gadget.is_JOP_COP_dispatcher():
-                self.add_if_unique(gadget, self.COPDispatchersVariant)
-            elif gadget.is_JOP_COP_dataloader():
-                self.add_if_unique(gadget, self.COPDataLoadersVariant)
-            elif gadget.is_COP_initializer():
-                self.add_if_unique(gadget, self.COPInitializersVariant)
-            elif gadget.is_COP_strong_trampoline():
-                self.add_if_unique(gadget, self.COPStrongTrampolinesVariant)
-            elif gadget.is_COP_intrastack_pivot():
-                self.add_if_unique(gadget, self.COPIntrastackPivotsVariant)
-            else:
-                if self.add_if_unique(gadget, self.COPGadgetsVariant):
-                    # Determine score, first checking COP-specific side constraints
-                    gadget.check_branch_target_of_operation()  # increase score if branch register is target of ops
-
-                    # Next check general side-constraints
-                    gadget.check_contains_conditional_op()  # increase score if gadget contains conditional operations
-                    gadget.check_register_ops()  # increases score for ops on value and bystander register
-                    gadget.check_memory_writes()  # increases score for each memory write in the gadget
-
-                    self.total_COP_scoreVariant += gadget.score
-        else:
-            self.add_if_unique(gadget, self.SyscallGadgetsVariant)          
 

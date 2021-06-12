@@ -41,24 +41,27 @@ with open(folder+"wpd-linker-script.lds", "w") as w:
                 if(line == ""):
                     break
                 
-                if("*(.text .stub .text.* .gnu.linkonce.t.*)" in line):
-                    w.write("*(.stub .gnu.linkonce.t.*)\n")
-                    w.write("*(.text)\n")
+                if(len(size) != 0):
+                    if("*(.text .stub .text.* .gnu.linkonce.t.*)" in line):
+                        w.write("*(.stub .gnu.linkonce.t.*)\n")
+                        w.write("*(.text)\n")
 
-                    for key in sets:
+                        for key in sets:
+                            w.write(". = ALIGN(0x1000);\n")
+                            s = "*("
+                            for val in sets[key]:
+                                s += ".text."+id_to_func[int(val)]+" "
+                            s = s[:-1] + ")\n"
+                            w.write(s)
+
                         w.write(". = ALIGN(0x1000);\n")
-                        s = "*("
-                        for val in sets[key]:
-                            s += ".text."+id_to_func[int(val)]+" "
-                        s = s[:-1] + ")\n"
-                        w.write(s)
-
-                    w.write(". = ALIGN(0x1000);\n")
-                    w.write("*(.text.*)\n")
-                elif(line.split() == [".text",":"]):
-                    w.write(".text ALIGN(0x1000):\n")
-                elif(line.split() == [".fini",":"]):
-                    w.write(".fini ALIGN(0x1000):\n")
+                        w.write("*(.text.*)\n")
+                    elif(line.split() == [".text",":"]):
+                        w.write(".text ALIGN(0x1000):\n")
+                    elif(line.split() == [".fini",":"]):
+                        w.write(".fini ALIGN(0x1000):\n")
+                    else:
+                        w.write(line+"\n")
                 else:
                     w.write(line+"\n")
             

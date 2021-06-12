@@ -32,6 +32,14 @@ class Gadget(object):
 
         # Initialize score
         self.score = 0.0
+    
+    def __eq__(self, other):
+        if not isinstance(other, Gadget):
+            return False
+        return self.offset == other.offset
+    
+    def __hash__(self):
+        return hash(self.offset)
 
     def is_useless_op(self):
         """

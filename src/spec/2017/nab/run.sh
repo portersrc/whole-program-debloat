@@ -23,10 +23,10 @@ elif [ "$1" == "wpd" ]; then
     BIN=544.nab_r_wpd
     WHICH=wpd
 elif [ "$1" == "wpd_cl" ]; then
-    BIN=519.nab_r_wpd_custlink
+    BIN=544.nab_r_wpd_custlink
     WHICH=wpd_cl
 elif [ "$1" == "wpd_ls" ]; then
-    BIN=519.nab_r_wpd_ls
+    BIN=544.nab_r_wpd_ls
     WHICH=wpd_ls
 else
     usage_exit
@@ -43,3 +43,5 @@ elif [ "$2" == "large" ]; then
 else
     usage_exit
 fi
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_$1.out
+cp debrt.out debrt_$1.out

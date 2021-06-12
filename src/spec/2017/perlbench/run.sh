@@ -51,3 +51,6 @@ elif [ "$2" == "large" ]; then
 else
     usage_exit
 fi
+
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_$1.out
+cp debrt.out debrt_$1.out

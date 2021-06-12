@@ -22,8 +22,8 @@ elif [ "$1" == "base_ls" ]; then
 elif [ "$1" == "wpd" ]; then
     BIN=557.xz_r_wpd
     WHICH=wpd
-elif [ "$1" == "wp_cl" ]; then
-    BIN=557.xz_r_wpd_clustlink
+elif [ "$1" == "wpd_cl" ]; then
+    BIN=557.xz_r_wpd_custlink
     WHICH=wpd_cl
 elif [ "$1" == "wpd_ls" ]; then
     BIN=557.xalancbmk_r_wpd_ls
@@ -47,3 +47,6 @@ elif [ "$2" == "large" ]; then
 else
     usage_exit
 fi
+
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_$1.out
+cp debrt.out debrt_$1.out
