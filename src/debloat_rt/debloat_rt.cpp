@@ -27,6 +27,7 @@ using namespace std;
 
 //#define DEBRT_DEBUG
 //#define DEBRT_ENABLE_STATS
+#define DEBRT_USE_CUSTLINK
 
 #define CGPredict
 
@@ -999,7 +1000,11 @@ void _read_nm(void)
     ifstream ifs;
     vector<string> elems;
 
+#ifdef DEBRT_USE_CUSTLINK
+    ifs.open("nm-custlink.out");
+#else
     ifs.open("nm.out");
+#endif
     if(!ifs.is_open()){
         perror("Error opening nm file");
         exit(EXIT_FAILURE);
@@ -1051,7 +1056,11 @@ void _read_readelf(void)
     long long func_addr;
     long func_size;
 
+#ifdef DEBRT_USE_CUSTLINK
+    ifs.open("readelf-custlink.out");
+#else
     ifs.open("readelf.out");
+#endif
     if(!ifs.is_open()){
         perror("Error opening readelf file");
         exit(EXIT_FAILURE);
@@ -1121,7 +1130,11 @@ void _read_readelf_sections(void)
     ifstream ifs;
     string line;
     vector<string> elems;
+#ifdef DEBRT_USE_CUSTLINK
+    ifs.open("readelf-sections-custlink.out");
+#else
     ifs.open("readelf-sections.out");
+#endif
     if(!ifs.is_open()){
         perror("Error openening readelf-sections file");
         exit(EXIT_FAILURE);
