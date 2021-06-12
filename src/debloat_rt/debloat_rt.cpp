@@ -25,9 +25,9 @@
 
 using namespace std;
 
-//#define DEBRT_DEBUG
-//#define DEBRT_ENABLE_STATS
-#define DEBRT_USE_CUSTLINK
+#define DEBRT_DEBUG
+#define DEBRT_ENABLE_STATS
+//#define DEBRT_USE_CUSTLINK
 
 #define CGPredict
 
@@ -389,12 +389,30 @@ mapped_func_node_t *deq(void)
     return mapped_funcs_free_mem;
 }
 
-void update_page_counts(int func_id, int addend)
+static inline
+void _write_mapped_pages_to_file(int yes_stats_got_updated)
+{
+#ifdef DEBRT_ENABLE_STATS
+    long long page;
+    int count;
+    if(yes_stats_got_updated){
+        _stats_update_hist();
+        for(auto p2c : page_to_count){
+            page  = p2c.first;
+            count = p2c.second;
+            if(count > 0){
+                fprintf(fp_mapped_pages, "%lld ", (page - text_start_aligned) >> 12);
+            }
+        }
+        fprintf(fp_mapped_pages, "\n");
+    }
+#endif
+}
+
+int update_page_counts(int func_id, int addend)
 {
     int i;
     long long addr;
-    long long page;
-    int count;
     vector<long long> &pages = func_id_to_pages[func_id];
     int yes_stats_got_updated = 0;
 
@@ -459,19 +477,7 @@ void update_page_counts(int func_id, int addend)
             DEBRT_PRINTF("done RO\n");
         }
     }
-#ifdef DEBRT_ENABLE_STATS
-    if(yes_stats_got_updated){
-        _stats_update_hist();
-        for(auto p2c : page_to_count){
-            page  = p2c.first;
-            count = p2c.second;
-            if(count > 0){
-                fprintf(fp_mapped_pages, "%lld ", (page - text_start_aligned) >> 12);
-            }
-        }
-        fprintf(fp_mapped_pages, "\n");
-    }
-#endif
+    return yes_stats_got_updated;
 }
 
 void _map_new_func_id(int func_id)
@@ -1867,7 +1873,9 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     // page and main are still executable.
     DEBRT_PRINTF("ensuring first protect caller is still RX\n");
     assert(main_func_id == func_name_to_id["main"]);
-    update_page_counts(main_func_id, 1);
+    int rv;
+    rv = update_page_counts(main_func_id, 1);
+    _write_mapped_pages_to_file(rv);
 
     lib_initialized = 1;
 
@@ -1878,10 +1886,12 @@ int debrt_init(int main_func_id, int sink_is_enabled)
 extern "C" {
 int debrt_protect_single(int callee_func_id)
 {
+    int rv;
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
     DEBRT_PRINTF("INC page count for func_id %d\n", callee_func_id);
-    update_page_counts(callee_func_id, 1);
+    rv = update_page_counts(callee_func_id, 1);
+    _write_mapped_pages_to_file(rv);
     return 0;
 }
 }
@@ -1890,10 +1900,12 @@ int debrt_protect_single(int callee_func_id)
 extern "C" {
 int debrt_protect_single_end(int callee_func_id)
 {
+    int rv;
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
     DEBRT_PRINTF("DEC page count for func_id %d\n", callee_func_id);
-    update_page_counts(callee_func_id, -1);
+    rv = update_page_counts(callee_func_id, -1);
+    _write_mapped_pages_to_file(rv);
     return 0;
 }
 }
@@ -1901,11 +1913,13 @@ int debrt_protect_single_end(int callee_func_id)
 static inline
 int _protect_reachable(int callee_func_id, int addend)
 {
+    int rv = 0;
     DEBRT_PRINTF("callee_func_id: %d\n", callee_func_id);
-    update_page_counts(callee_func_id, addend);
+    rv += update_page_counts(callee_func_id, addend);
     for(int reachable_func : func_id_to_reachable_funcs[callee_func_id]){
-        update_page_counts(reachable_func, addend);
+        rv += update_page_counts(reachable_func, addend);
     }
+    _write_mapped_pages_to_file(rv);
     DEBRT_PRINTF("leaving _protect_reachable\n");
     return 0;
 }
@@ -1930,10 +1944,12 @@ int debrt_protect_reachable_end(int callee_func_id)
 static inline
 int _protect_loop_reachable(int loop_id, int addend)
 {
+    int rv = 0;
     DEBRT_PRINTF("loop id: %d\n", loop_id);
     for(int reachable_func : loop_id_to_reachable_funcs[loop_id]){
-        update_page_counts(reachable_func, addend);
+        rv += update_page_counts(reachable_func, addend);
     }
+    _write_mapped_pages_to_file(rv);
     return 0;
 }
 extern "C" {
@@ -2008,10 +2024,12 @@ int debrt_protect_indirect_end(long long callee_addr)
 static inline
 int _protect_sink(int sink_id, int addend)
 {
+    int rv = 0;
     DEBRT_PRINTF("sink id: %d\n", sink_id);
     for(int func : sink_id_to_funcs[sink_id]){
-        update_page_counts(func, addend);
+        rv += update_page_counts(func, addend);
     }
+    _write_mapped_pages_to_file(rv);
     return 0;
 }
 extern "C" {
