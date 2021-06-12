@@ -29,7 +29,7 @@
 using namespace llvm;
 using namespace std;
 
-#define ENABLE_INSTRUMENTATION_SINKING 1
+const int ENABLE_INSTRUMENTATION_SINKING = 1; // 0 for disable, 1 for enable
 
 
 namespace {
@@ -732,6 +732,7 @@ bool WholeProgramDebloat::instrument_main(Module &M)
             assert(I);
             IRBuilder<> builder(I);
             ArgsV.push_back(ConstantInt::get(int32Ty, func_to_id[&F], false));
+            ArgsV.push_back(ConstantInt::get(int32Ty, ENABLE_INSTRUMENTATION_SINKING, false));
             builder.CreateCall(debrt_init_func, ArgsV);
             found_main = 1;
             break;
@@ -925,9 +926,10 @@ void WholeProgramDebloat::wpd_init(Module &M)
     int32Ty = IntegerType::getInt32Ty(M.getContext());
     int64Ty = IntegerType::getInt64Ty(M.getContext());
     Type *ArgTypes[] = { int32Ty };
+    Type *ArgTypes2[] = { int32Ty, int32Ty };
     Type *ArgTypes64[] = { int64Ty };
 
-    debrt_init_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+    debrt_init_func = Function::Create(FunctionType::get(int32Ty, ArgTypes2, false),
             Function::ExternalLinkage,
             "debrt_init",
             M);
@@ -1101,7 +1103,12 @@ void WholeProgramDebloat::dump_static_reachability(void)
 }
 void WholeProgramDebloat::dump_loop_static_reachability(void)
 {
-    FILE *fp_loop_reachability = fopen("wpd_loop_static_reachability.txt", "w");
+    FILE *fp_loop_reachability;
+    if(ENABLE_INSTRUMENTATION_SINKING){
+        fp_loop_reachability = fopen("wpd_loop_static_reachability_sinkenabled.txt", "w");
+    }else{
+        fp_loop_reachability = fopen("wpd_loop_static_reachability.txt", "w");
+    }
     for(auto p : loop_static_reachability){
         int loop_id = p.first;
         set<Function *> &reachable_funcs = p.second;
