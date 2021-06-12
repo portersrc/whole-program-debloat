@@ -26,6 +26,7 @@
 using namespace std;
 
 //#define DEBRT_DEBUG
+//#define DEBRT_ENABLE_STATS
 
 #define CGPredict
 
@@ -189,9 +190,11 @@ vector<string> split_nonempty(const string &s, char delim)
 
 void _stats_update_hist(void)
 {
+#ifdef DEBRT_ENABLE_STATS
     // dynamically sized, so this assert should never hit
     assert(stats_total_mapped_pages <= max_protected_text_pages + 1);
     stats_hist[stats_total_mapped_pages]++;
+#endif
 }
 
 
@@ -455,6 +458,7 @@ void update_page_counts(int func_id, int addend)
             DEBRT_PRINTF("done RO\n");
         }
     }
+#ifdef DEBRT_ENABLE_STATS
     if(yes_stats_got_updated){
         _stats_update_hist();
         for(auto p2c : page_to_count){
@@ -466,6 +470,7 @@ void update_page_counts(int func_id, int addend)
         }
         fprintf(fp_mapped_pages, "\n");
     }
+#endif
 }
 
 void _map_new_func_id(int func_id)
@@ -1582,12 +1587,14 @@ void _debrt_protect_all_pages(int perm)
                  text_end_aligned - text_start_aligned + 0x1000,
                  max_protected_text_pages);
 
+#ifdef DEBRT_ENABLE_STATS
     // kind of a hack. this func gets called at both start-up and teardown.
     // just initialize on start-up
     if(stats_hist == NULL){
         // + 1 because our 0th index represents 0 mapped pages
         stats_hist = (int *) calloc(max_protected_text_pages + 1, sizeof(int));
     }
+#endif
 }
 
 void _debrt_map_ptd_to_funcs(void)
@@ -1677,12 +1684,14 @@ void _debrt_protect_destroy(void)
     fprintf(fp_out, "num_mispredictions: %d\n", num_mispredictions);
     fprintf(fp_out, "total_predictions:  %d\n", total_predictions);
 
+#ifdef DEBRT_ENABLE_STATS
     fprintf(fp_out, "hist: ");
     for(i = 0; i < max_protected_text_pages+1; i++){
         fprintf(fp_out, "%d ", stats_hist[i]);
     }
     fprintf(fp_out, "\n");
     free(stats_hist);
+#endif
 
     // max_protected_text_pages doesn't include the first and/or last page,
     // if those pages collided with another section (for now). If there
