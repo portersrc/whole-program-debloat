@@ -304,12 +304,12 @@ void _remap_permissions(long long addr, long long size, int perm)
     default: assert(0); break;
     }
 
-    perm = RX_PERM; // FIXME DEBUG ONLY
-    perm = RX_PERM; // FIXME DEBUG ONLY
-    perm = RX_PERM; // FIXME DEBUG ONLY
-    perm = RX_PERM; // FIXME DEBUG ONLY
-    perm = RX_PERM; // FIXME DEBUG ONLY
-    perm = RX_PERM; // FIXME DEBUG ONLY
+    //perm = RX_PERM; // FIXME DEBUG ONLY
+    //perm = RX_PERM; // FIXME DEBUG ONLY
+    //perm = RX_PERM; // FIXME DEBUG ONLY
+    //perm = RX_PERM; // FIXME DEBUG ONLY
+    //perm = RX_PERM; // FIXME DEBUG ONLY
+    //perm = RX_PERM; // FIXME DEBUG ONLY
     if(mprotect(aligned_addr_base, size_to_remap, perm) == -1){
         DEBRT_PRINTF("mprotect error\n");
         assert(0 && "mprotect error");
@@ -1387,7 +1387,7 @@ void _read_encompassed_funcs(void)
 
 }
 
-void _read_loop_static_reachability(void)
+void _read_loop_static_reachability(int sink_is_enabled)
 {
     DEBRT_PRINTF("reading loop static reachability\n");
     string line;
@@ -1397,7 +1397,11 @@ void _read_loop_static_reachability(void)
     int func_id;
     int reachable_func_id;
 
-    ifs.open("wpd_loop_static_reachability.txt");
+    if(sink_is_enabled){
+        ifs.open("wpd_loop_static_reachability_sinkenabled.txt");
+    }else{
+        ifs.open("wpd_loop_static_reachability.txt");
+    }
     if(!ifs.is_open()){
         perror("Error opening wpd_loop_static_reachability.txt file");
         exit(EXIT_FAILURE);
@@ -1523,12 +1527,12 @@ void _debrt_monitor_destroy(void)
 void _debrt_protect_all_pages(int perm)
 {
     DEBRT_PRINTF("PROTECTING ALL PAGES\n");
-    perm = RX_PERM; // FIXME DEBUG ONLY
-    perm = RX_PERM; // FIXME DEBUG ONLY
-    perm = RX_PERM; // FIXME DEBUG ONLY
-    perm = RX_PERM; // FIXME DEBUG ONLY
-    perm = RX_PERM; // FIXME DEBUG ONLY
-    perm = RX_PERM; // FIXME DEBUG ONLY
+    //perm = RX_PERM; // FIXME DEBUG ONLY
+    //perm = RX_PERM; // FIXME DEBUG ONLY
+    //perm = RX_PERM; // FIXME DEBUG ONLY
+    //perm = RX_PERM; // FIXME DEBUG ONLY
+    //perm = RX_PERM; // FIXME DEBUG ONLY
+    //perm = RX_PERM; // FIXME DEBUG ONLY
     long long text_start = executable_addr_base + text_offset;
     long long text_end   = text_start + text_size;
     text_start_aligned = text_start & ~(0x1000-1);
@@ -1776,10 +1780,13 @@ int debrt_protect_end(int argc, ...)
 
 
 extern "C" {
-int debrt_init(int main_func_id)
+int debrt_init(int main_func_id, int sink_is_enabled)
 {
     int e;
     const char *output_filename;
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("main_func_id: %d\n", main_func_id);
+    DEBRT_PRINTF("sink_is_enabled: %d\n", sink_is_enabled);
 
     output_filename = getenv("DEBRT_OUT");
     if(!output_filename){
@@ -1812,7 +1819,7 @@ int debrt_init(int main_func_id)
     _read_readelf();
     _read_readelf_sections();
     _read_static_reachability();
-    _read_loop_static_reachability();
+    _read_loop_static_reachability(sink_is_enabled);
     _read_encompassed_funcs();
     _read_sinks();
 
