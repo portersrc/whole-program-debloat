@@ -1408,7 +1408,11 @@ void _read_loop_static_reachability(int sink_is_enabled)
         ifs.open("wpd_loop_static_reachability.txt");
     }
     if(!ifs.is_open()){
-        perror("Error opening wpd_loop_static_reachability.txt file");
+        if(sink_is_enabled){
+            perror("Error opening wpd_loop_static_reachability_sinkenabled.txt file");
+        }else{
+            perror("Error opening wpd_loop_static_reachability.txt file");
+        }
         exit(EXIT_FAILURE);
     }
 
