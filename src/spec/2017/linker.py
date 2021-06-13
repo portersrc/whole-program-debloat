@@ -41,7 +41,7 @@ with open(folder+"wpd-linker-script.lds", "w") as w:
                 if(line == ""):
                     break
                 
-                if(len(size) != 0):
+                if(len(sets) != 0):
                     if("*(.text .stub .text.* .gnu.linkonce.t.*)" in line):
                         w.write("*(.stub .gnu.linkonce.t.*)\n")
                         w.write("*(.text)\n")

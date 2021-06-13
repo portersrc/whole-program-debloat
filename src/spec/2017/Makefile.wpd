@@ -425,12 +425,12 @@ wpd: $(EXEBASE)
     #  -WholeProgramDebloat \
     #  < $(NUMBER).$(NAME)_linked.bc \
     #  > $(NUMBER).$(NAME)_wpd_opt.bc
-	opt \
-	  --function-sections \
-      -O3 \
-      -loop-simplify \
-      < $(NUMBER).$(NAME)_linked.bc \
-      > $(NUMBER).$(NAME)_baseline_ls_opt.bc
+	# opt \
+	#   --function-sections \
+    #   -O3 \
+    #   -loop-simplify \
+    #   < $(NUMBER).$(NAME)_linked.bc \
+    #   > $(NUMBER).$(NAME)_baseline_ls_opt.bc
 	opt \
 	  --function-sections \
       -load libWholeProgramDebloat.so \
@@ -456,7 +456,26 @@ wpd: $(EXEBASE)
 	readelf -s --wide $(NUMBER).$(NAME)_wpd > readelf.out
 	readelf --sections $(NUMBER).$(NAME)_wpd > readelf-sections.out
 	nm $(NUMBER).$(NAME)_wpd > nm.out
-wpd_custlink: $(EXEBASE)
+	cp $(NUMBER).$(NAME)_wpd $(NUMBER).$(NAME)_wpd_base
+	cp readelf.out readelf-base.out
+	cp readelf-sections.out readelf-sections-base.out
+	cp nm.out nm_base.out
+	cp wpd_disjoint_sets.txt wpd_disjoint_sets_base.txt
+	cp wpd_encompassed_funcs.txt wpd_encompassed_funcs_base.txt
+	cp wpd_static_reachability.txt wpd_static_reachability_base.txt
+	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_base.txt
+	cp wpd_loop_static_reachability_sinkenabled.txt wpd_loop_static_reachability_sinkenabled_base.txt
+	cp wpd_loop_static_reachability_actual.txt wpd_loop_static_reachability_actual_base.txt
+	cp wpd_loop_to_func.txt wpd_loop_to_func_base.txt
+	cp wpd_static_reachability.txt wpd_static_reachability_base.txt
+	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_base.txt
+wpd_sink: $(EXEBASE)
+	#opt \
+    #  -O3 \
+    #  -load libWholeProgramDebloat.so \
+    #  -WholeProgramDebloat \
+    #  < $(NUMBER).$(NAME)_linked.bc \
+    #  > $(NUMBER).$(NAME)_wpd_opt.bc
 	# opt \
 	#   --function-sections \
     #   -O3 \
@@ -464,19 +483,62 @@ wpd_custlink: $(EXEBASE)
     #   < $(NUMBER).$(NAME)_linked.bc \
     #   > $(NUMBER).$(NAME)_baseline_ls_opt.bc
 	opt \
-      --function-sections \
+	  --function-sections \
       -load libWholeProgramDebloat.so \
       -WholeProgramDebloat \
       < $(NUMBER).$(NAME)_baseline_ls_opt.bc \
-      > $(NUMBER).$(NAME)_wpd_custlink_opt.bc
+      > $(NUMBER).$(NAME)_wpd_opt.bc
 	llc  \
-      --function-sections \
-      $(NUMBER).$(NAME)_wpd_custlink_opt.bc \
+	  --function-sections \
+      $(NUMBER).$(NAME)_wpd_opt.bc \
       -relocation-model=pic \
-      -o $(NUMBER).$(NAME)_wpd_custlink_opt.s
+      -o $(NUMBER).$(NAME)_wpd_opt.s
+	g++ \
+	  -ffunction-sections \
+	  -Wl,--verbose \
+      $(NUMBER).$(NAME)_wpd_opt.s \
+      -o $(NUMBER).$(NAME)_wpd \
+      -ldebloat_rt -lm -lrt > linker.lds
+	readelf -s --wide $(NUMBER).$(NAME)_wpd > readelf.out
+	readelf --sections $(NUMBER).$(NAME)_wpd > readelf-sections.out
+	nm $(NUMBER).$(NAME)_wpd > nm.out
+	cp $(NUMBER).$(NAME)_wpd $(NUMBER).$(NAME)_wpd_sink
+	cp readelf.out readelf-sink.out
+	cp readelf-sections.out readelf-sections-sink.out
+	cp nm.out nm_sink.out
+	cp wpd_disjoint_sets.txt wpd_disjoint_sets_sink.txt
+	cp wpd_encompassed_funcs.txt wpd_encompassed_funcs_sink.txt
+	cp wpd_static_reachability.txt wpd_static_reachability_sink.txt
+	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_sink.txt
+	cp wpd_loop_static_reachability_sinkenabled.txt wpd_loop_static_reachability_sinkenabled_sink.txt
+	cp wpd_loop_static_reachability_actual.txt wpd_loop_static_reachability_actual_sink.txt
+	cp wpd_static_reachability.txt wpd_static_reachability_sink.txt
+	cp wpd_loop_to_func.txt wpd_loop_to_func_sink.txt
+	cp wpd_sink_to_func.txt wpd_sink_to_func_sink.txt
+	cp wpd_loop_static_reachability_sinkenabled.txt wpd_loop_static_reachability_sinkenabled_sink.txt
+	cp wpd_sinks.txt wpd_sinks_sink.txt
+	cp wpd_stats.txt wpd_stats_stats.txt
+wpd_custlink: $(EXEBASE)
+	# opt \
+	#   --function-sections \
+    #   -O3 \
+    #   -loop-simplify \
+    #   < $(NUMBER).$(NAME)_linked.bc \
+    #   > $(NUMBER).$(NAME)_baseline_ls_opt.bc
+	# opt \
+    #   --function-sections \
+    #   -load libWholeProgramDebloat.so \
+    #   -WholeProgramDebloat \
+    #   < $(NUMBER).$(NAME)_baseline_ls_opt.bc \
+    #   > $(NUMBER).$(NAME)_wpd_custlink_opt.bc
+	# llc  \
+    #   --function-sections \
+    #   $(NUMBER).$(NAME)_wpd_custlink_opt.bc \
+    #   -relocation-model=pic \
+    #   -o $(NUMBER).$(NAME)_wpd_custlink_opt.s
 	g++ \
       -ffunction-sections \
-      -c $(NUMBER).$(NAME)_wpd_custlink_opt.s \
+      -c $(NUMBER).$(NAME)_wpd_opt.s \
       -o $(NUMBER).$(NAME)_wpd_custlink_opt.o
 	g++ \
 	  -ffunction-sections \
@@ -487,7 +549,42 @@ wpd_custlink: $(EXEBASE)
 	readelf -s --wide $(NUMBER).$(NAME)_wpd_custlink > readelf-custlink.out
 	readelf --sections $(NUMBER).$(NAME)_wpd_custlink > readelf-sections-custlink.out
 	nm $(NUMBER).$(NAME)_wpd_custlink > nm_custlink.out
-
+	cp $(NUMBER).$(NAME)_wpd_custlink $(NUMBER).$(NAME)_wpd_custlink_base
+wpd_custlink_sink: $(EXEBASE)
+	# opt \
+	#   --function-sections \
+    #   -O3 \
+    #   -loop-simplify \
+    #   < $(NUMBER).$(NAME)_linked.bc \
+    #   > $(NUMBER).$(NAME)_baseline_ls_opt.bc
+	# opt \
+    #   --function-sections \
+    #   -load libWholeProgramDebloat.so \
+    #   -WholeProgramDebloat \
+    #   < $(NUMBER).$(NAME)_baseline_ls_opt.bc \
+    #   > $(NUMBER).$(NAME)_wpd_custlink_opt.bc
+	# llc  \
+    #   --function-sections \
+    #   $(NUMBER).$(NAME)_wpd_custlink_opt.bc \
+    #   -relocation-model=pic \
+    #   -o $(NUMBER).$(NAME)_wpd_custlink_opt.s
+	g++ \
+      -ffunction-sections \
+      -c $(NUMBER).$(NAME)_wpd_opt.s \
+      -o $(NUMBER).$(NAME)_wpd_custlink_opt.o
+	g++ \
+	  -ffunction-sections \
+      -T wpd-linker-script.lds \
+      $(NUMBER).$(NAME)_wpd_custlink_opt.o \
+      -o $(NUMBER).$(NAME)_wpd_custlink \
+      -ldebloat_rt -lm -lrt
+	readelf -s --wide $(NUMBER).$(NAME)_wpd_custlink > readelf-custlink.out
+	readelf --sections $(NUMBER).$(NAME)_wpd_custlink > readelf-sections-custlink.out
+	nm $(NUMBER).$(NAME)_wpd_custlink > nm_custlink.out
+	cp $(NUMBER).$(NAME)_wpd_custlink $(NUMBER).$(NAME)_wpd_custlink_sink
+	cp readelf-custlink.out readelf-custlink-sink.out
+	cp readelf-sections-custlink.out readelf-sections-custlink-sink.out
+	cp nm_custlink.out nm_custlink_sink.out
 else
 	$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) @$(OBJNAMES) $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
 endif
