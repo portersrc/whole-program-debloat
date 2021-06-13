@@ -29,7 +29,7 @@
 using namespace llvm;
 using namespace std;
 
-const int ENABLE_INSTRUMENTATION_SINKING = 1; // 0 for disable, 1 for enable
+const int ENABLE_INSTRUMENTATION_SINKING = 0; // 0 for disable, 1 for enable
 
 
 namespace {
@@ -901,8 +901,10 @@ void WholeProgramDebloat::wpd_init(Module &M)
     memset(&stats, 0, sizeof(stats));
 
     // FIXME (see fixme within read_readelf_sections)
-    read_readelf_sections();
-    read_readelf();
+    if(ENABLE_INSTRUMENTATION_SINKING){
+        read_readelf_sections();
+        read_readelf();
+    }
 
     // Give each application function an ID
     int count = 0;
