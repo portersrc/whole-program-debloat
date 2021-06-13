@@ -20,11 +20,17 @@ elif [ "$1" == "base_ls" ]; then
     BIN=508.namd_r_baseline_ls
     WHICH=base_ls
 elif [ "$1" == "wpd" ]; then
-    BIN=508.namd_r_wpd
+    BIN=508.namd_r_wpd_base
     WHICH=wpd
+elif [ "$1" == "wpd_sink" ]; then
+    BIN=508.namd_r_wpd_sink
+    WHICH=wpd_sink
 elif [ "$1" == "wpd_cl" ]; then
     BIN=508.namd_r_wpd_custlink
     WHICH=wpd_cl
+elif [ "$1" == "wpd_cl_sink" ]; then
+    BIN=508.namd_r_wpd_custlink_sink
+    WHICH=wpd_cl_sink
 elif [ "$1" == "wpd_ls" ]; then
     BIN=508.namd_r_wpd_ls
     WHICH=wpd_ls
