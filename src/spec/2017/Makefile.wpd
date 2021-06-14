@@ -538,9 +538,11 @@ wpd_custlink: $(EXEBASE)
       $(NUMBER).$(NAME)_wpd_custlink_opt.o \
       -o $(NUMBER).$(NAME)_wpd_custlink \
       -ldebloat_rt -lm -lrt
-	readelf -s --wide $(NUMBER).$(NAME)_wpd_custlink > readelf-custlink.out
-	readelf --sections $(NUMBER).$(NAME)_wpd_custlink > readelf-sections-custlink.out
+	readelf -s --wide $(NUMBER).$(NAME)_wpd_custlink > readelf.out
+	readelf --sections $(NUMBER).$(NAME)_wpd_custlink > readelf-sections.out
 	cp $(NUMBER).$(NAME)_wpd_custlink $(NUMBER).$(NAME)_wpd_custlink_base
+	cp readelf.out readelf-custlink.out
+	cp readelf-sections.out readelf-sections-custlink.out
 wpd_custlink_sink: $(EXEBASE)
 	# opt \
 	#   --function-sections \
@@ -569,11 +571,11 @@ wpd_custlink_sink: $(EXEBASE)
       $(NUMBER).$(NAME)_wpd_custlink_opt.o \
       -o $(NUMBER).$(NAME)_wpd_custlink \
       -ldebloat_rt -lm -lrt
-	readelf -s --wide $(NUMBER).$(NAME)_wpd_custlink > readelf-custlink.out
-	readelf --sections $(NUMBER).$(NAME)_wpd_custlink > readelf-sections-custlink.out
+	readelf -s --wide $(NUMBER).$(NAME)_wpd_custlink > readelf.out
+	readelf --sections $(NUMBER).$(NAME)_wpd_custlink > readelf-sections.out
 	cp $(NUMBER).$(NAME)_wpd_custlink $(NUMBER).$(NAME)_wpd_custlink_sink
-	cp readelf-custlink.out readelf-custlink-sink.out
-	cp readelf-sections-custlink.out readelf-sections-custlink-sink.out
+	cp readelf.out readelf-custlink-sink.out
+	cp readelf-sections.out readelf-sections-custlink-sink.out
 else
 	$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) @$(OBJNAMES) $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
 endif
