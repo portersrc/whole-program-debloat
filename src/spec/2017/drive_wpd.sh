@@ -46,7 +46,6 @@ GROUP_A=(
 GROUP_B=(
     500.perlbench_r
     508.namd_r
-    510.parest_r
     511.povray_r
     520.omnetpp_r
     523.xalancbmk_r
@@ -54,6 +53,7 @@ GROUP_B=(
 )
 
 GROUP_C=(
+    510.parest_r
     526.blender_r
     538.imagick_r
 )
