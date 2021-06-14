@@ -417,7 +417,6 @@ wpd_ls: $(EXEBASE)
 		-ldebloat_rt -lm -lrt
 	readelf -s --wide $(NUMBER).$(NAME)_wpd > readelf-ls.out
 	readelf --sections $(NUMBER).$(NAME)_wpd > readelf-ls-sections.out
-	nm $(NUMBER).$(NAME)_wpd > nm-ls.out
 wpd: $(EXEBASE)
 	#opt \
     #  -O3 \
@@ -455,11 +454,9 @@ wpd: $(EXEBASE)
       -ldebloat_rt -lm -lrt > linker.lds
 	readelf -s --wide $(NUMBER).$(NAME)_wpd > readelf.out
 	readelf --sections $(NUMBER).$(NAME)_wpd > readelf-sections.out
-	nm $(NUMBER).$(NAME)_wpd > nm.out
 	cp $(NUMBER).$(NAME)_wpd $(NUMBER).$(NAME)_wpd_base
 	cp readelf.out readelf-base.out
 	cp readelf-sections.out readelf-sections-base.out
-	cp nm.out nm_base.out
 	cp wpd_disjoint_sets.txt wpd_disjoint_sets_base.txt
 	cp wpd_encompassed_funcs.txt wpd_encompassed_funcs_base.txt
 	cp wpd_static_reachability.txt wpd_static_reachability_base.txt
@@ -500,11 +497,9 @@ wpd_sink: $(EXEBASE)
       -ldebloat_rt -lm -lrt > linker.lds
 	readelf -s --wide $(NUMBER).$(NAME)_wpd > readelf.out
 	readelf --sections $(NUMBER).$(NAME)_wpd > readelf-sections.out
-	nm $(NUMBER).$(NAME)_wpd > nm.out
 	cp $(NUMBER).$(NAME)_wpd $(NUMBER).$(NAME)_wpd_sink
 	cp readelf.out readelf-sink.out
 	cp readelf-sections.out readelf-sections-sink.out
-	cp nm.out nm_sink.out
 	cp wpd_disjoint_sets.txt wpd_disjoint_sets_sink.txt
 	cp wpd_encompassed_funcs.txt wpd_encompassed_funcs_sink.txt
 	cp wpd_static_reachability.txt wpd_static_reachability_sink.txt
@@ -545,7 +540,6 @@ wpd_custlink: $(EXEBASE)
       -ldebloat_rt -lm -lrt
 	readelf -s --wide $(NUMBER).$(NAME)_wpd_custlink > readelf-custlink.out
 	readelf --sections $(NUMBER).$(NAME)_wpd_custlink > readelf-sections-custlink.out
-	nm $(NUMBER).$(NAME)_wpd_custlink > nm_custlink.out
 	cp $(NUMBER).$(NAME)_wpd_custlink $(NUMBER).$(NAME)_wpd_custlink_base
 wpd_custlink_sink: $(EXEBASE)
 	# opt \
@@ -577,11 +571,9 @@ wpd_custlink_sink: $(EXEBASE)
       -ldebloat_rt -lm -lrt
 	readelf -s --wide $(NUMBER).$(NAME)_wpd_custlink > readelf-custlink.out
 	readelf --sections $(NUMBER).$(NAME)_wpd_custlink > readelf-sections-custlink.out
-	nm $(NUMBER).$(NAME)_wpd_custlink > nm_custlink.out
 	cp $(NUMBER).$(NAME)_wpd_custlink $(NUMBER).$(NAME)_wpd_custlink_sink
 	cp readelf-custlink.out readelf-custlink-sink.out
 	cp readelf-sections-custlink.out readelf-sections-custlink-sink.out
-	cp nm_custlink.out nm_custlink_sink.out
 else
 	$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) @$(OBJNAMES) $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
 endif
