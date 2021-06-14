@@ -5,7 +5,8 @@ set -exo pipefail
 # This will force commands like `./run.sh wpd large` to run in the foreground,
 # which serializes each run so the machine isn't overloaded and affecting
 # the result.
-RUN_BMARKS_IN_FG=false
+#RUN_BMARKS_IN_FG=false
+RUN_BMARKS_IN_FG=true
 
 # set env if needed
 [ $SPEC ]     || pushd ~/wo/spec/spec2017; source shrc; popd
@@ -73,28 +74,47 @@ declare -A GROUP_TO_BMARKS=(
 
 
 CMDS=(
-    "make wpd"
-    "python3 linker.py ."
-    "make wpd_custlink"
-    "cp readelf-base.out readelf.out"
-    "cp readelf-sections-base.out readelf-sections.out"
-    "./run.sh wpd large"
+    # XXX ensure WPD pass' ENABLE_INSTRUMENTATION_SINKING variable is set to 0
+    # and that you rebuild the pass before building binaries for wpd or
+    # wpd_custlink
+    #"make wpd"
+    #"python3 linker.py ."
+    #"make wpd_custlink"
+    #"cp readelf-base.out readelf.out"
+    #"cp readelf-sections-base.out readelf-sections.out"
+    #"./run.sh wpd large"
     "cp readelf-custlink.out readelf.out"
     "cp readelf-sections-custlink.out readelf-sections.out"
     "./run.sh wpd_cl large"
-    "make wpd_sink"
-    "python3 linker.py ."
-    "make wpd_custlink_sink"
-    "cp readelf-sink.out readelf.out"
-    "cp readelf-sections-sink.out readelf-sections.out"
-    "./run.sh wpd_sink large"
-    "cp readelf-custlink-sink.out readelf.out"
-    "cp readelf-sections-custlink-sink.out readelf-sections.out"
-    "./run.sh wpd_cl_sink large"
+    # XXX ensure WPD pass' ENABLE_INSTRUMENTATION_SINKING variable is set to 1
+    # and that you rebuild the pass before building binaries for wpd_sink or
+    # wpd_custlink_sink
+    #"make wpd_sink"
+    #"python3 linker.py ."
+    #"make wpd_custlink_sink"
+    #"cp readelf-sink.out readelf.out"
+    #"cp readelf-sections-sink.out readelf-sections.out"
+    #"./run.sh wpd_sink large"
+    #"cp readelf-custlink-sink.out readelf.out"
+    #"cp readelf-sections-custlink-sink.out readelf-sections.out"
+    #"./run.sh wpd_cl_sink large"
 )
 
 
-
+# TODO: put this code in a proper place
+# copy results
+#mkdir tmp_result
+#pushd tmp_result
+#for GROUP in "${!GROUP_TO_BMARKS[@]}"; do
+#    for BMARK in ${GROUP_TO_BMARKS[$GROUP]}; do
+#        mkdir $BMARK
+#        cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/large*.out $BMARK
+#        cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/debrt*.out $BMARK
+#        cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/wpd_stats*.txt $BMARK
+#    done
+#done
+#popd
+#exit 42
 
 for GROUP in "${!GROUP_TO_BMARKS[@]}"; do
 
