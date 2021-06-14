@@ -514,7 +514,7 @@ wpd_sink: $(EXEBASE)
 	cp wpd_sink_to_func.txt wpd_sink_to_func_sink.txt
 	cp wpd_loop_static_reachability_sinkenabled.txt wpd_loop_static_reachability_sinkenabled_sink.txt
 	cp wpd_sinks.txt wpd_sinks_sink.txt
-	cp wpd_stats.txt wpd_stats_stats.txt
+	cp wpd_stats.txt wpd_stats_sink.txt
 wpd_custlink: $(EXEBASE)
 	# opt \
 	#   --function-sections \
