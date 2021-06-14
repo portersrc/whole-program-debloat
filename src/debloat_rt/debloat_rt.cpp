@@ -138,7 +138,6 @@ map<long long, set<int> >        func_addr_to_reachable_funcs;
 map<long long, int>              func_addr_to_id;
 
 map<string, int>       func_name_to_id;
-map<string, long long> func_name_to_offset;
 
 set<int> encompassed_funcs;
 
@@ -999,40 +998,6 @@ void _read_func_sets(void)
 }
 
 
-void _read_nm(void)
-{
-    int k;
-    string line;
-    ifstream ifs;
-    vector<string> elems;
-
-#ifdef DEBRT_USE_CUSTLINK
-    ifs.open("nm_custlink.out");
-#else
-    ifs.open("nm.out");
-#endif
-    if(!ifs.is_open()){
-        perror("Error opening nm file");
-        exit(EXIT_FAILURE);
-    }
-
-    while(getline(ifs, line)){
-        vector<string> line_vec;
-        elems = split(line, ' ');
-        if(elems.size() == 3){
-            //for(k = 0; k < elems.size(); k++){
-            //    cout << elems[k] << " ";
-            //}
-            //cout << endl;
-            long long offset;
-            string func_name;
-            offset = strtoll(elems[0].c_str(), NULL, 16);
-            func_name = elems[2];
-            func_name_to_offset[func_name] = offset;
-        }
-    }
-    ifs.close();
-}
 
 
 void _read_readelf(void)
@@ -1679,7 +1644,6 @@ int _debrt_protect_init(int please_read_func_sets)
     _read_func_name_to_id();
     //_dump_func_name_to_id();
     _read_func_ptrs(); // XXX has to happen after read-func-name-to-id
-    _read_nm();
     _read_readelf();
     _read_readelf_sections();
 
