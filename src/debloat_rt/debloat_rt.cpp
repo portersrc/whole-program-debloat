@@ -1007,7 +1007,7 @@ void _read_nm(void)
     vector<string> elems;
 
 #ifdef DEBRT_USE_CUSTLINK
-    ifs.open("nm-custlink.out");
+    ifs.open("nm_custlink.out");
 #else
     ifs.open("nm.out");
 #endif
