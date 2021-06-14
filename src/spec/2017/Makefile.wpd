@@ -465,6 +465,7 @@ wpd: $(EXEBASE)
 	cp wpd_loop_to_func.txt wpd_loop_to_func_base.txt
 	cp wpd_static_reachability.txt wpd_static_reachability_base.txt
 	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_base.txt
+	cp wpd_stats.txt wpd_stats_base.txt
 wpd_sink: $(EXEBASE)
 	#opt \
     #  -O3 \
