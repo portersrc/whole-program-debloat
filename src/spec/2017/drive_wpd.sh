@@ -1,12 +1,30 @@
 #!/bin/bash
 set -exo pipefail
 
-# Set this flag to true if this is a performance experiment and runtime matters
-# This will force commands like `./run.sh wpd large` to run in the foreground,
-# which serializes each run so the machine isn't overloaded and affecting
-# the result.
-#RUN_BMARKS_IN_FG=false
-RUN_BMARKS_IN_FG=true
+
+function usage() {
+    echo
+    echo "Usage:"
+    echo "  $0 <security_or_performance>"
+    echo
+    exit 1
+}
+
+
+# parse command-line args
+IS_SECURITY_RUN=false
+if [ $# == 1 ]; then
+    if [ $1 == "security" ]; then
+        IS_SECURITY_RUN=true
+    elif [ $1 == "performance" ]; then
+        :
+    else
+        usage
+    fi
+else
+    usage
+fi
+
 
 # set env if needed
 [ $SPEC ]     || pushd ~/wo/spec/spec2017; source shrc; popd
@@ -74,30 +92,24 @@ declare -A GROUP_TO_BMARKS=(
 
 
 CMDS=(
-    # XXX ensure WPD pass' ENABLE_INSTRUMENTATION_SINKING variable is set to 0
-    # and that you rebuild the pass before building binaries for wpd or
-    # wpd_custlink
-    #"make wpd"
-    #"python3 linker.py ."
-    #"make wpd_custlink"
-    #"cp readelf-base.out readelf.out"
-    #"cp readelf-sections-base.out readelf-sections.out"
-    #"./run.sh wpd large"
+    "make wpd"
+    "python3 linker.py ."
+    "make wpd_custlink"
+    "cp readelf-base.out readelf.out"
+    "cp readelf-sections-base.out readelf-sections.out"
+    "./run.sh wpd large"
     "cp readelf-custlink.out readelf.out"
     "cp readelf-sections-custlink.out readelf-sections.out"
     "./run.sh wpd_cl large"
-    # XXX ensure WPD pass' ENABLE_INSTRUMENTATION_SINKING variable is set to 1
-    # and that you rebuild the pass before building binaries for wpd_sink or
-    # wpd_custlink_sink
-    #"make wpd_sink"
-    #"python3 linker.py ."
-    #"make wpd_custlink_sink"
-    #"cp readelf-sink.out readelf.out"
-    #"cp readelf-sections-sink.out readelf-sections.out"
-    #"./run.sh wpd_sink large"
-    #"cp readelf-custlink-sink.out readelf.out"
-    #"cp readelf-sections-custlink-sink.out readelf-sections.out"
-    #"./run.sh wpd_cl_sink large"
+    "make wpd_sink"
+    "python3 linker.py ."
+    "make wpd_custlink_sink"
+    "cp readelf-sink.out readelf.out"
+    "cp readelf-sections-sink.out readelf-sections.out"
+    "./run.sh wpd_sink large"
+    "cp readelf-custlink-sink.out readelf.out"
+    "cp readelf-sections-custlink-sink.out readelf-sections.out"
+    "./run.sh wpd_cl_sink large"
 )
 
 
@@ -127,13 +139,14 @@ for GROUP in "${!GROUP_TO_BMARKS[@]}"; do
             pushd $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX &> /dev/null
             pwd
 
-            # if this is a run command, launch in foreground (if timing
-            # matters), else launch in background.
+            # if this is a run command...
             if [[ $CMD == *"run.sh "* ]]; then
-                if $RUN_BMARKS_IN_FG; then
-                    $CMD
+                # launch in background with stats for security runs.
+                if $IS_SECURITY_RUN; then
+                    DEBRT_ENABLE_STATS=1 $CMD &
+                # otherwise launch serialized in foreground for performance
                 else
-                    $CMD &
+                    $CMD
                 fi
 
             else
