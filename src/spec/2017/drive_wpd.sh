@@ -2,30 +2,6 @@
 set -exo pipefail
 
 
-function usage() {
-    echo
-    echo "Usage:"
-    echo "  $0 <security_or_performance>"
-    echo
-    exit 1
-}
-
-
-# parse command-line args
-IS_SECURITY_RUN=false
-if [ $# == 1 ]; then
-    if [ $1 == "security" ]; then
-        IS_SECURITY_RUN=true
-    elif [ $1 == "performance" ]; then
-        :
-    else
-        usage
-    fi
-else
-    usage
-fi
-
-
 # set env if needed
 [ $SPEC ]     || pushd ~/wo/spec/spec2017; source shrc; popd
 [ $LLVM_BIN ] || source ~/wo/whole-program-debloat/setenv
@@ -85,8 +61,8 @@ declare -A TARGET_EQUALS=(
 )
 
 declare -A GROUP_TO_BMARKS=(
-    [GROUP_A]=${GROUP_A[@]}
-    #[GROUP_B]=${GROUP_B[@]}
+    #[GROUP_A]=${GROUP_A[@]}
+    [GROUP_B]=${GROUP_B[@]}
     #[GROUP_C]=${GROUP_C[@]}
 )
 
@@ -113,21 +89,71 @@ CMDS=(
 )
 
 
-# TODO: put this code in a proper place
-# copy results
-#mkdir tmp_result
-#pushd tmp_result
-#for GROUP in "${!GROUP_TO_BMARKS[@]}"; do
-#    for BMARK in ${GROUP_TO_BMARKS[$GROUP]}; do
-#        mkdir $BMARK
-#        cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/large*.out $BMARK
-#        cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/debrt*.out $BMARK
-#        cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/wpd_stats*.txt $BMARK
-#    done
-#done
-#popd
-#exit 42
 
+
+function usage() {
+    echo
+    echo "Usage:"
+    echo "  $0 <cmd>"
+    echo
+    echo "where cmd is one of: "
+    echo "  security: to drive security results"
+    echo "  performance: to drive performance results"
+    echo "  copy_results: to copy last set of results to ./tmp_result"
+    echo
+    exit 1
+}
+
+
+function copy_results() {
+    mkdir tmp_result
+    pushd tmp_result
+    for GROUP in "${!GROUP_TO_BMARKS[@]}"; do
+        for BMARK in ${GROUP_TO_BMARKS[$GROUP]}; do
+            mkdir $BMARK
+            cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/large*.out $BMARK
+            cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/debrt*.out $BMARK
+            cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/wpd_stats*.txt $BMARK
+        done
+    done
+    popd
+}
+
+
+
+
+#
+# Parse command-line args
+#
+IS_COPY_RESULTS=false
+IS_SECURITY_RUN=false
+if [ $# == 1 ]; then
+    if [ $1 == "copy_results" ]; then
+        IS_COPY_RESULTS=true
+    elif [ $1 == "security" ]; then
+        IS_SECURITY_RUN=true
+    elif [ $1 == "performance" ]; then
+        :
+    else
+        usage
+    fi
+else
+    usage
+fi
+
+
+#
+# If we're just copying results, perform copies and then exit.
+#
+if $IS_COPY_RESULTS; then
+    copy_results
+    exit 0
+fi
+
+
+#
+# Main driver...
+#
 for GROUP in "${!GROUP_TO_BMARKS[@]}"; do
 
     echo $GROUP
