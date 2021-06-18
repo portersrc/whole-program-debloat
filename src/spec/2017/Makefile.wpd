@@ -483,17 +483,18 @@ wpd_sink: $(EXEBASE)
 	  --function-sections \
       -load libWholeProgramDebloat.so \
       -WholeProgramDebloat \
+      --enable-instrumentation-sinking=true \
       < $(NUMBER).$(NAME)_baseline_ls_opt.bc \
-      > $(NUMBER).$(NAME)_wpd_opt.bc
+      > $(NUMBER).$(NAME)_wpd_sink_opt.bc
 	llc  \
 	  --function-sections \
-      $(NUMBER).$(NAME)_wpd_opt.bc \
+      $(NUMBER).$(NAME)_wpd_sink_opt.bc \
       -relocation-model=pic \
-      -o $(NUMBER).$(NAME)_wpd_opt.s
+      -o $(NUMBER).$(NAME)_wpd_sink_opt.s
 	g++ \
 	  -ffunction-sections \
 	  -Wl,--verbose \
-      $(NUMBER).$(NAME)_wpd_opt.s \
+      $(NUMBER).$(NAME)_wpd_sink_opt.s \
       -o $(NUMBER).$(NAME)_wpd \
       -ldebloat_rt -lm -lrt > linker.lds
 	readelf -s --wide $(NUMBER).$(NAME)_wpd > readelf.out
@@ -564,12 +565,12 @@ wpd_custlink_sink: $(EXEBASE)
     #   -o $(NUMBER).$(NAME)_wpd_custlink_opt.s
 	g++ \
       -ffunction-sections \
-      -c $(NUMBER).$(NAME)_wpd_opt.s \
-      -o $(NUMBER).$(NAME)_wpd_custlink_opt.o
+      -c $(NUMBER).$(NAME)_wpd_sink_opt.s \
+      -o $(NUMBER).$(NAME)_wpd_custlink_sink_opt.o
 	g++ \
 	  -ffunction-sections \
       -T wpd-linker-script.lds \
-      $(NUMBER).$(NAME)_wpd_custlink_opt.o \
+      $(NUMBER).$(NAME)_wpd_custlink_sink_opt.o \
       -o $(NUMBER).$(NAME)_wpd_custlink \
       -ldebloat_rt -lm -lrt
 	readelf -s --wide $(NUMBER).$(NAME)_wpd_custlink > readelf.out
