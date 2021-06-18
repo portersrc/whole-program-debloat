@@ -26,7 +26,7 @@
 using namespace std;
 
 #define DEBRT_DEBUG
-int DEBRT_ENABLE_STATS = 0; // to enable, set env var of same name to 1
+int ENV_DEBRT_ENABLE_STATS = 0; // to enable, set env var DEBRT_ENABLE_STATS=1
 
 #define CGPredict
 
@@ -190,7 +190,7 @@ vector<string> split_nonempty(const string &s, char delim)
 static inline
 void _stats_update_hist(void)
 {
-    if(DEBRT_ENABLE_STATS){
+    if(ENV_DEBRT_ENABLE_STATS){
         // dynamically sized, so this assert should never hit
         assert(stats_total_mapped_pages <= max_protected_text_pages + 1);
         stats_hist[stats_total_mapped_pages]++;
@@ -393,7 +393,7 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated)
 {
     long long page;
     int count;
-    if(DEBRT_ENABLE_STATS){
+    if(ENV_DEBRT_ENABLE_STATS){
         if(yes_stats_got_updated){
             _stats_update_hist();
             for(auto p2c : page_to_count){
@@ -1567,7 +1567,7 @@ void _debrt_protect_all_pages(int perm)
                  text_end_aligned - text_start_aligned + 0x1000,
                  max_protected_text_pages);
 
-    if(DEBRT_ENABLE_STATS){
+    if(ENV_DEBRT_ENABLE_STATS){
         // kind of a hack. this func gets called at both start-up and teardown.
         // just initialize on start-up
         if(stats_hist == NULL){
@@ -1663,7 +1663,7 @@ void _debrt_protect_destroy(void)
     fprintf(fp_out, "num_mispredictions: %d\n", num_mispredictions);
     fprintf(fp_out, "total_predictions:  %d\n", total_predictions);
 
-    if(DEBRT_ENABLE_STATS){
+    if(ENV_DEBRT_ENABLE_STATS){
         fprintf(fp_out, "hist: ");
         for(i = 0; i < max_protected_text_pages+1; i++){
             fprintf(fp_out, "%d ", stats_hist[i]);
@@ -1777,7 +1777,7 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     DEBRT_PRINTF("sink_is_enabled: %d\n", sink_is_enabled);
 
     if(getenv("DEBRT_ENABLE_STATS")){
-        DEBRT_ENABLE_STATS = 1;
+        ENV_DEBRT_ENABLE_STATS = 1;
     }
     output_filename = getenv("DEBRT_OUT");
     if(!output_filename){
