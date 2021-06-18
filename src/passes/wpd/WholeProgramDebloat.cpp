@@ -14,6 +14,7 @@
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/InlineAsm.h"
+#include "llvm/Support/CommandLine.h"
 
 #include <set>
 #include <stack>
@@ -29,7 +30,11 @@
 using namespace llvm;
 using namespace std;
 
-const int ENABLE_INSTRUMENTATION_SINKING = 0; // 0 for disable, 1 for enable
+bool ENABLE_INSTRUMENTATION_SINKING = false; // can set via command line option below
+cl::opt<bool> EnableInstrumentationSinking(
+    "enable-instrumentation-sinking", cl::init(false), cl::Hidden,
+    cl::desc("Attempts to sink instrumentation into loops."));
+
 
 
 namespace {
@@ -897,6 +902,9 @@ void WholeProgramDebloat::wpd_init(Module &M)
     // Init loop count (for handing out IDs)
     loop_id_counter = 0;
     sink_id_counter = 0;
+
+    ENABLE_INSTRUMENTATION_SINKING = EnableInstrumentationSinking;
+    errs() << "ENABLE_INSTRUMENTATION_SINKING: " << ENABLE_INSTRUMENTATION_SINKING << "\n";
 
     memset(&stats, 0, sizeof(stats));
 
