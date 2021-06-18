@@ -26,7 +26,7 @@
 using namespace std;
 
 #define DEBRT_DEBUG
-#define DEBRT_ENABLE_STATS
+int DEBRT_ENABLE_STATS = 0; // to enable, set env var of same name to 1
 
 #define CGPredict
 
@@ -187,13 +187,14 @@ vector<string> split_nonempty(const string &s, char delim)
 
 
 
+static inline
 void _stats_update_hist(void)
 {
-#ifdef DEBRT_ENABLE_STATS
-    // dynamically sized, so this assert should never hit
-    assert(stats_total_mapped_pages <= max_protected_text_pages + 1);
-    stats_hist[stats_total_mapped_pages]++;
-#endif
+    if(DEBRT_ENABLE_STATS){
+        // dynamically sized, so this assert should never hit
+        assert(stats_total_mapped_pages <= max_protected_text_pages + 1);
+        stats_hist[stats_total_mapped_pages]++;
+    }
 }
 
 
@@ -390,21 +391,21 @@ mapped_func_node_t *deq(void)
 static inline
 void _write_mapped_pages_to_file(int yes_stats_got_updated)
 {
-#ifdef DEBRT_ENABLE_STATS
     long long page;
     int count;
-    if(yes_stats_got_updated){
-        _stats_update_hist();
-        for(auto p2c : page_to_count){
-            page  = p2c.first;
-            count = p2c.second;
-            if(count > 0){
-                fprintf(fp_mapped_pages, "%lld ", (page - text_start_aligned) >> 12);
+    if(DEBRT_ENABLE_STATS){
+        if(yes_stats_got_updated){
+            _stats_update_hist();
+            for(auto p2c : page_to_count){
+                page  = p2c.first;
+                count = p2c.second;
+                if(count > 0){
+                    fprintf(fp_mapped_pages, "%lld ", (page - text_start_aligned) >> 12);
+                }
             }
+            fprintf(fp_mapped_pages, "\n");
         }
-        fprintf(fp_mapped_pages, "\n");
     }
-#endif
 }
 
 int update_page_counts(int func_id, int addend)
@@ -1566,14 +1567,14 @@ void _debrt_protect_all_pages(int perm)
                  text_end_aligned - text_start_aligned + 0x1000,
                  max_protected_text_pages);
 
-#ifdef DEBRT_ENABLE_STATS
-    // kind of a hack. this func gets called at both start-up and teardown.
-    // just initialize on start-up
-    if(stats_hist == NULL){
-        // + 1 because our 0th index represents 0 mapped pages
-        stats_hist = (int *) calloc(max_protected_text_pages + 1, sizeof(int));
+    if(DEBRT_ENABLE_STATS){
+        // kind of a hack. this func gets called at both start-up and teardown.
+        // just initialize on start-up
+        if(stats_hist == NULL){
+            // + 1 because our 0th index represents 0 mapped pages
+            stats_hist = (int *) calloc(max_protected_text_pages + 1, sizeof(int));
+        }
     }
-#endif
 }
 
 void _debrt_map_ptd_to_funcs(void)
@@ -1662,14 +1663,14 @@ void _debrt_protect_destroy(void)
     fprintf(fp_out, "num_mispredictions: %d\n", num_mispredictions);
     fprintf(fp_out, "total_predictions:  %d\n", total_predictions);
 
-#ifdef DEBRT_ENABLE_STATS
-    fprintf(fp_out, "hist: ");
-    for(i = 0; i < max_protected_text_pages+1; i++){
-        fprintf(fp_out, "%d ", stats_hist[i]);
+    if(DEBRT_ENABLE_STATS){
+        fprintf(fp_out, "hist: ");
+        for(i = 0; i < max_protected_text_pages+1; i++){
+            fprintf(fp_out, "%d ", stats_hist[i]);
+        }
+        fprintf(fp_out, "\n");
+        free(stats_hist);
     }
-    fprintf(fp_out, "\n");
-    free(stats_hist);
-#endif
 
     // max_protected_text_pages doesn't include the first and/or last page,
     // if those pages collided with another section (for now). If there
@@ -1775,6 +1776,9 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     DEBRT_PRINTF("main_func_id: %d\n", main_func_id);
     DEBRT_PRINTF("sink_is_enabled: %d\n", sink_is_enabled);
 
+    if(getenv("DEBRT_ENABLE_STATS")){
+        DEBRT_ENABLE_STATS = 1;
+    }
     output_filename = getenv("DEBRT_OUT");
     if(!output_filename){
         output_filename = DEFAULT_OUTPUT_FILENAME;
