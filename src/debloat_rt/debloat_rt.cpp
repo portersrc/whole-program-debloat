@@ -1776,6 +1776,8 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     DEBRT_PRINTF("main_func_id: %d\n", main_func_id);
     DEBRT_PRINTF("sink_is_enabled: %d\n", sink_is_enabled);
 
+    // FIXME should test that this is the string "1", in case someone passes
+    // "0" and this returns true (which is correct but unexpected behavior)
     if(getenv("DEBRT_ENABLE_STATS")){
         ENV_DEBRT_ENABLE_STATS = 1;
     }
