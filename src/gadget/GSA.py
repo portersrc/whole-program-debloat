@@ -30,6 +30,7 @@ parser.add_argument("set_file", help="File containing the set of pages being map
 parser.add_argument("text_begin", help="The offset to the text code within binary", type=lambda x: int(x,16))
 parser.add_argument("text_size", help="The size of the text code region within binary", type=lambda x: int(x,16))
 parser.add_argument("--text_only", help="Generate the gadgets for only the code section of the application", action='store_true')
+parser.add_argument("--binary_version", help="Figure out the binary version that is being utilized", action="store", type=str, default="")
 parser.add_argument("--result_folder_name", help="Optionally specifies a specific output file name for the results folder.", action="store", type=str)
 parser.add_argument("--original_name", help="Optionally specifies a specific name for the 'original' binary.", action="store", type=str, default="Original")
 parser.add_argument("--output_console", help="Output gadget set and comparison data to console.", action="store_true")
@@ -45,6 +46,8 @@ with open(args.set_file,"r") as f:
         line_list = [int(i) for i in line_split]
         if(line_list[0] == -1):
             line_list = line_list[1:]
+        if(args.binary_version == "wpd" or args.binary_version == "wpd"):
+            line_list.append(args.text_size // 4096)
         sets.append(line_list)
         line = f.readline()
 
@@ -62,12 +65,14 @@ file8 = {}
 print("Analyzing original package [" + args.original_name + "] located at: " + args.original)
 original = GadgetSet(args.original_name, args.original, False, args.output_console, args.text_begin, args.text_size, args.text_only)
 
+directory = "results"+args.binary_version+"/"
+
 # Create a timestamped results folder
 try:
     if args.result_folder_name is None:
-        directory_name = create_output_directory("results/analyzer_results_")
+        directory_name = create_output_directory(directory+"analyzer_results")
     else:
-        directory_name = create_output_directory("results/" + args.result_folder_name, False)
+        directory_name = create_output_directory(directory + args.result_folder_name, False)
 except OSError as osErr:
     print("An OS Error occurred during creation of results directory: " + osErr.strerror)
     sys.exit("Results cannot be logged, aborting operation...")

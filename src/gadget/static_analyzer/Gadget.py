@@ -36,10 +36,16 @@ class Gadget(object):
     def __eq__(self, other):
         if not isinstance(other, Gadget):
             return False
-        return self.offset == other.offset
+        return self.is_duplicate(other)
     
     def __hash__(self):
-        return hash(self.offset)
+        t = 0
+        for i in self.instructions:
+            if i.opcode.startswith("j") and Instruction.is_constant(i.op1) and i.op2 is None :
+                t += hash(i.opcode)
+            else:
+                t += hash(i.raw)
+        return t
 
     def is_useless_op(self):
         """

@@ -34,6 +34,7 @@ class GadgetSet(object):
         self.cnt_duplicate = 0
         self.text_begin = text_begin
         self.text_end = text_begin + text_size
+        self.text_end_page = self.text_end // 4096
         self.text_page = text_begin // 4096
         self.text_only = text_only
 
@@ -64,6 +65,7 @@ class GadgetSet(object):
         self.CTrampolineMap = {}
         self.CPivotMap = {}
         self.Excluded = {}
+        self.DuplicateMap = {}
 
         # Initialize functional gadget type lists
         self.allGadgets = []
@@ -271,9 +273,13 @@ class GadgetSet(object):
         self.averageJOPQualityVariant = 0.0
         self.averageCOPQualityVariant = 0.0
         self.average_functional_qualityVariant = 0.0
+
+        self.DuplicateMap = {}
         
         # Reject unusable gadgets, sort gadgets into their appropriate category sets, score gadgets
         # print(self.ROPMap.keys())
+        # if(sets[-1] != self.text_end_page - self.text_page):
+        #     sets.append(self.text_end_page - self.text_page)
         for set_num in sets:
             set_num += self.text_page
             self.analyze_gadget_variant(set_num)
@@ -407,7 +413,6 @@ class GadgetSet(object):
            gadget.is_rip_relative_indirect_branch() or gadget.clobbers_indirect_target() or \
            gadget.has_invalid_int_handler() or gadget.clobbers_created_value() or gadget.contains_static_call():
             self.cnt_rejected += 1
-
             self.Excluded[curr_page].append(gadget)
             return
 
@@ -495,9 +500,37 @@ class GadgetSet(object):
         :param Gadget gadget: gadget to analyze
         :return: None, but modifies GadgetSet collections and Gadget object members
         """
+        if(curr_page not in self.GadgetMap):
+            self.GadgetMap[curr_page] = []
+        if(curr_page not in self.Excluded):
+            self.Excluded[curr_page] = []
+        if(curr_page not in self.ROPMap):
+            self.ROPMap[curr_page] = []
+        if(curr_page not in self.JOPMap):
+            self.JOPMap[curr_page] = []
+        if(curr_page not in self.COPMap):
+            self.COPMap[curr_page] = []
+        if(curr_page not in self.SyscallMap):
+            self.SyscallMap[curr_page] = []
+        if(curr_page not in self.JDispatcherMap):
+            self.JDispatcherMap[curr_page] = []
+        if(curr_page not in self.JDataloaderMap):
+            self.JDataloaderMap[curr_page] = []
+        if(curr_page not in self.JInitializerMap):
+            self.JInitializerMap[curr_page] = []
+        if(curr_page not in self.JTrampolineMap):
+            self.JTrampolineMap[curr_page] = []
+        if(curr_page not in self.CDispatcherMap):
+            self.CDispatcherMap[curr_page] = []
+        if(curr_page not in self.CDataloaderMap):
+            self.CDataloaderMap[curr_page] = []
+        if(curr_page not in self.CInitializerMap):
+            self.CInitializerMap[curr_page] = []
+        if(curr_page not in self.CTrampolineMap):
+            self.CTrampolineMap[curr_page] = []
+        if(curr_page not in self.CPivotMap):
+            self.CPivotMap[curr_page] = []
 
-        
-        
         self.allGadgetsVariant.extend(self.GadgetMap[curr_page])
         self.allGadgetsVariant.extend(self.Excluded[curr_page])
 
@@ -525,26 +558,48 @@ class GadgetSet(object):
         self.add_if_uniques(self.CPivotMap[curr_page],self.COPIntrastackPivotsVariant)
 
     def add_if_unique(self, gadget, collection):
-        for rhs in collection:
-            if gadget.is_duplicate(rhs):
-                self.cnt_duplicate += 1
-                return False
-        collection.append(gadget)
-        return True
+        if(gadget not in self.DuplicateMap):
+            self.DuplicateMap[gadget] = 1
+            collection.append(gadget)
+            return True
+        return False
 
     def add_if_uniques(self, gadget_map, collection):
         score = 0.0
         for gadget in gadget_map:
-            duplicate = False
-            for rhs in collection:
-                if gadget.is_duplicate(rhs):
-                    self.cnt_duplicate += 1
-                    duplicate = True
-                    break
-            if(not duplicate):
+            if(gadget not in self.DuplicateMap):
+                self.DuplicateMap[gadget] = 1
                 score += gadget.score
                 collection.append(gadget)
         return score
+
+    # def add_if_unique(self, gadget, collection):
+    #     for rhs in collection:
+    #         if gadget.is_duplicate(rhs):
+    #             self.cnt_duplicate += 1
+    #             if(gadget.__hash__() != rhs.__hash__()):
+    #                 print("#######################")
+    #                 print(gadget.instruction_string)
+    #                 print(gadget.__hash__())
+    #                 print(rhs.instruction_string)
+    #                 print(rhs.__hash__())
+    #             return False
+    #     collection.append(gadget)
+    #     return True
+
+    # def add_if_uniques(self, gadget_map, collection):
+    #     score = 0.0
+    #     for gadget in gadget_map:
+    #         duplicate = False
+    #         for rhs in collection:
+    #             if gadget.is_duplicate(rhs):
+    #                 self.cnt_duplicate += 1
+    #                 duplicate = True
+    #                 break
+    #         if(not duplicate):
+    #             score += gadget.score
+    #             collection.append(gadget)
+    #     return score
 
     def getFunction(self, rop_addr):
         rop_addr = int(rop_addr, 16)
