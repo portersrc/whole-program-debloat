@@ -26,7 +26,12 @@
 using namespace std;
 
 #define DEBRT_DEBUG
-int ENV_DEBRT_ENABLE_STATS = 0; // to enable, set env var DEBRT_ENABLE_STATS=1
+
+// to enable, set env var DEBRT_ENABLE_STATS=1
+int ENV_DEBRT_ENABLE_STATS = 0;
+// to enable, set env var DEBRT_ENABLE_STACK_CLEANING=1
+int ENV_DEBRT_ENABLE_STACK_CLEANING = 0;
+
 
 #define CGPredict
 
@@ -86,6 +91,7 @@ int next_prediction_func_set_id;
 int num_mispredictions;
 int total_predictions;
 stack<set<int> *> pred_set_stack;
+vector<int> single_stack;
 
 
 int  _debrt_monitor_init(void);
@@ -1776,11 +1782,17 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     DEBRT_PRINTF("main_func_id: %d\n", main_func_id);
     DEBRT_PRINTF("sink_is_enabled: %d\n", sink_is_enabled);
 
-    // FIXME should test that this is the string "1", in case someone passes
-    // "0" and this returns true (which is correct but unexpected behavior)
+    // FIXME should test these env vars are the string "1". Otherwise if
+    // someone passes "0", these if-checks evaluate to true, which isn't what
+    // we want.
     if(getenv("DEBRT_ENABLE_STATS")){
         ENV_DEBRT_ENABLE_STATS = 1;
     }
+    if(getenv("DEBRT_ENABLE_STACK_CLEANING")){
+        ENV_DEBRT_ENABLE_STACK_CLEANING = 1;
+    }
+    DEBRT_PRINTF("ENV_DEBRT_ENABLE_STATS: %d\n", ENV_DEBRT_ENABLE_STATS);
+    DEBRT_PRINTF("ENV_DEBRT_ENABLE_STACK_CLEANING: %d\n", ENV_DEBRT_ENABLE_STACK_CLEANING);
     output_filename = getenv("DEBRT_OUT");
     if(!output_filename){
         output_filename = DEFAULT_OUTPUT_FILENAME;
@@ -1847,11 +1859,22 @@ int debrt_init(int main_func_id, int sink_is_enabled)
 extern "C" {
 int debrt_protect_single(int callee_func_id)
 {
-    int rv;
+    int rv = 0;
+    int boomer;
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
     DEBRT_PRINTF("INC page count for func_id %d\n", callee_func_id);
-    rv = update_page_counts(callee_func_id, 1);
+    rv += update_page_counts(callee_func_id, 1);
+    if(ENV_DEBRT_ENABLE_STACK_CLEANING){
+        single_stack.push_back(callee_func_id);
+        if(single_stack.size() > 2){
+            // -1: last element
+            // -2: we've already pushed; can't unmap caller (we'd crash);
+            //     unmap caller's caller
+            boomer = single_stack[single_stack.size()-1-2];
+            rv += update_page_counts(boomer, -1);
+        }
+    }
     _write_mapped_pages_to_file(rv);
     return 0;
 }
@@ -1861,11 +1884,21 @@ int debrt_protect_single(int callee_func_id)
 extern "C" {
 int debrt_protect_single_end(int callee_func_id)
 {
-    int rv;
+    int rv = 0;
+    int boomer;
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
     DEBRT_PRINTF("DEC page count for func_id %d\n", callee_func_id);
-    rv = update_page_counts(callee_func_id, -1);
+    rv += update_page_counts(callee_func_id, -1);
+    if(ENV_DEBRT_ENABLE_STACK_CLEANING){
+        single_stack.pop_back();
+        if(single_stack.size() > 1){
+            // -1: last element
+            // -1: we've already popped; map caller's caller
+            boomer = single_stack[single_stack.size()-1-1];
+            rv += update_page_counts(boomer, 1);
+        }
+    }
     _write_mapped_pages_to_file(rv);
     return 0;
 }
