@@ -61,7 +61,7 @@ declare -A TARGET_EQUALS=(
 )
 
 declare -A GROUP_TO_BMARKS=(
-    #[GROUP_A]=${GROUP_A[@]}
+    [GROUP_A]=${GROUP_A[@]}
     [GROUP_B]=${GROUP_B[@]}
     #[GROUP_C]=${GROUP_C[@]}
 )
@@ -94,18 +94,22 @@ CMDS=(
 function usage() {
     echo
     echo "Usage:"
-    echo "  $0 <cmd>"
+    echo "  $0 <cmd> [stack-cleaning]"
     echo
     echo "where cmd is one of: "
     echo "  security: to drive security results"
     echo "  performance: to drive performance results"
-    echo "  copy_results: to copy last set of results to ./tmp_result"
+    echo "  copy-results: to copy last set of results to ./tmp_result"
+    echo
+    echo "and passing stack-cleaning will turn on stack cleaning for a security"
+    echo "or performance run"
     echo
     exit 1
 }
 
 
 function copy_results() {
+    echo "Copying results..."
     mkdir tmp_result
     pushd tmp_result
     for GROUP in "${!GROUP_TO_BMARKS[@]}"; do
@@ -114,6 +118,9 @@ function copy_results() {
             cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/large*.out $BMARK
             cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/debrt*.out $BMARK
             cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/wpd_stats*.txt $BMARK
+
+            # hacky copy in case im checking wpd stats for sinking behavior:
+            #cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/wpd_stats_sink.txt $BMARK
         done
     done
     popd
@@ -127,19 +134,34 @@ function copy_results() {
 #
 IS_COPY_RESULTS=false
 IS_SECURITY_RUN=false
-if [ $# == 1 ]; then
-    if [ $1 == "copy_results" ]; then
-        IS_COPY_RESULTS=true
-    elif [ $1 == "security" ]; then
-        IS_SECURITY_RUN=true
-    elif [ $1 == "performance" ]; then
-        :
+IS_PERFORMANCE_RUN=false
+IS_STACK_CLEANING_RUN=false
+if [ $# -gt 2 ]; then
+    usage
+fi
+if [ $# -lt 1 ]; then
+    usage
+fi
+
+if [ $# == 2 ]; then
+    if [ $2 == "stack-cleaning" ]; then
+        IS_STACK_CLEANING_RUN=true
     else
         usage
     fi
+fi
+
+if [ $1 == "copy-results" ]; then
+    IS_COPY_RESULTS=true
+elif [ $1 == "security" ]; then
+    IS_SECURITY_RUN=true
+elif [ $1 == "performance" ]; then
+    IS_PERFORMANCE_RUN=true
 else
     usage
 fi
+
+
 
 
 #
@@ -169,10 +191,18 @@ for GROUP in "${!GROUP_TO_BMARKS[@]}"; do
             if [[ $CMD == *"run.sh "* ]]; then
                 # launch in background with stats for security runs.
                 if $IS_SECURITY_RUN; then
-                    DEBRT_ENABLE_STATS=1 $CMD &
+                    if $IS_STACK_CLEANING_RUN; then
+                        DEBRT_ENABLE_STATS=1 DEBRT_ENABLE_STACK_CLEANING=1 $CMD &
+                    else
+                        DEBRT_ENABLE_STATS=1 $CMD &
+                    fi
                 # otherwise launch serialized in foreground for performance
                 else
-                    $CMD
+                    if $IS_STACK_CLEANING_RUN; then
+                        DEBRT_ENABLE_STACK_CLEANING=1 $CMD
+                    else
+                        $CMD
+                    fi
                 fi
 
             else
