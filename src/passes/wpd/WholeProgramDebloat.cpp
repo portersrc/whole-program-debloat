@@ -205,10 +205,18 @@ int WholeProgramDebloat::get_set_byte_size(set<Function *> &functions)
 bool WholeProgramDebloat::sinking_condition_satisfied(vector<pair<Function *, CallBase *> > &callees,
                                                       set<Function *> &visited_funcs)
 {
-    static const int UNION_THRESH = text_size * .1f;
-    static const int INTERSECT_THRESH = text_size * .05f;
+    // Debug/dev attempt
     //#define UNION_THRESH 10
     //#define INTERSECT_THRESH 1
+    // Thresh settings 1
+    static const int UNION_THRESH = text_size * .1f;
+    static const int INTERSECT_THRESH = text_size * .05f;
+    // Thresh settings 2
+    //static const int UNION_THRESH = text_size * .05f;
+    //static const int INTERSECT_THRESH = text_size * .05f;
+    // Thresh settings 3
+    //static const int UNION_THRESH = text_size * .01f;
+    //static const int INTERSECT_THRESH = text_size * 1.0f;
 
     int i;
     vector<set<Function *> > Ss;
