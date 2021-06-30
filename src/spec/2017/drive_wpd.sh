@@ -1,5 +1,6 @@
 #!/bin/bash
-set -exo pipefail
+set -x
+set -eo pipefail
 
 
 # set env if needed
@@ -86,6 +87,15 @@ CMDS=(
     "cp readelf-custlink-sink.out readelf.out"
     "cp readelf-sections-custlink-sink.out readelf-sections.out"
     "./run.sh wpd_cl_sink large"
+    "make wpd_ics"
+    "python3 linker.py ."
+    "make wpd_custlink_ics"
+    "cp readelf-ics.out readelf.out"
+    "cp readelf-sections-ics.out readelf-sections.out"
+    "./run.sh wpd_ics large"
+    "cp readelf-custlink-ics.out readelf.out"
+    "cp readelf-sections-custlink-ics.out readelf-sections.out"
+    "./run.sh wpd_cl_ics large"
 )
 
 
@@ -94,15 +104,17 @@ CMDS=(
 function usage() {
     echo
     echo "Usage:"
-    echo "  $0 <cmd> [stack-cleaning]"
+    echo "  $0 <cmd> [stack-cleaning indirect-call-sinking]"
     echo
     echo "where cmd is one of: "
     echo "  security: to drive security results"
     echo "  performance: to drive performance results"
     echo "  copy-results: to copy last set of results to ./tmp_result"
     echo
-    echo "and passing stack-cleaning will turn on stack cleaning for a security"
-    echo "or performance run"
+    echo "Passing stack-cleaning will turn on stack cleaning for a security"
+    echo "or performance run. Passing indirect-call-sinking will turn on"
+    echo "indirect call sinking for a security or performance run. You can"
+    echo "pass one, both, or neither, and order doesn't matter."
     echo
     exit 1
 }
@@ -121,6 +133,9 @@ function copy_results() {
 
             # hacky copy in case im checking wpd stats for sinking behavior:
             #cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/wpd_stats_sink.txt $BMARK
+
+            # hacky check for large*.out timestamps
+            #ls -l $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/large*.out
         done
     done
     popd
@@ -136,16 +151,28 @@ IS_COPY_RESULTS=false
 IS_SECURITY_RUN=false
 IS_PERFORMANCE_RUN=false
 IS_STACK_CLEANING_RUN=false
-if [ $# -gt 2 ]; then
+IS_INDIRECT_CALL_SINKING_RUN=false
+if [ $# -gt 3 ]; then
     usage
 fi
 if [ $# -lt 1 ]; then
     usage
 fi
 
-if [ $# == 2 ]; then
+if [ $# -gt 1 ]; then
     if [ $2 == "stack-cleaning" ]; then
         IS_STACK_CLEANING_RUN=true
+    elif [ $2 == "indirect-call-sinking" ]; then
+        IS_INDIRECT_CALL_SINKING_RUN=true
+    else
+        usage
+    fi
+fi
+if [ $# -gt 2 ]; then
+    if [ $3 == "stack-cleaning" ]; then
+        IS_STACK_CLEANING_RUN=true
+    elif [ $3 == "indirect-call-sinking" ]; then
+        IS_INDIRECT_CALL_SINKING_RUN=true
     else
         usage
     fi
@@ -192,16 +219,33 @@ for GROUP in "${!GROUP_TO_BMARKS[@]}"; do
                 # launch in background with stats for security runs.
                 if $IS_SECURITY_RUN; then
                     if $IS_STACK_CLEANING_RUN; then
-                        DEBRT_ENABLE_STATS=1 DEBRT_ENABLE_STACK_CLEANING=1 $CMD &
+                        if $IS_INDIRECT_CALL_SINKING_RUN; then
+                            DEBRT_ENABLE_STATS=1 DEBRT_ENABLE_STACK_CLEANING=1 DEBRT_ENABLE_INDIRECT_CALL_SINKING=1 $CMD &
+                        else
+                            DEBRT_ENABLE_STATS=1 DEBRT_ENABLE_STACK_CLEANING=1 $CMD &
+                        fi
                     else
-                        DEBRT_ENABLE_STATS=1 $CMD &
+
+                        if $IS_INDIRECT_CALL_SINKING_RUN; then
+                            DEBRT_ENABLE_STATS=1 DEBRT_ENABLE_INDIRECT_CALL_SINKING=1 $CMD &
+                        else
+                            DEBRT_ENABLE_STATS=1 $CMD &
+                        fi
                     fi
                 # otherwise launch serialized in foreground for performance
                 else
                     if $IS_STACK_CLEANING_RUN; then
-                        DEBRT_ENABLE_STACK_CLEANING=1 $CMD
+                        if $IS_INDIRECT_CALL_SINKING_RUN; then
+                            DEBRT_ENABLE_STACK_CLEANING=1 DEBRT_ENABLE_INDIRECT_CALL_SINKING=1 $CMD
+                        else
+                            DEBRT_ENABLE_STACK_CLEANING=1 $CMD
+                        fi
                     else
-                        $CMD
+                        if $IS_INDIRECT_CALL_SINKING_RUN; then
+                            DEBRT_ENABLE_INDIRECT_CALL_SINKING=1 $CMD
+                        else
+                            $CMD
+                        fi
                     fi
                 fi
 
