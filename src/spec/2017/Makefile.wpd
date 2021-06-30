@@ -612,6 +612,37 @@ wpd_svf: $(EXEBASE)
 	cp wpd_static_reachability.txt wpd_static_reachability_base.txt
 	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_base.txt
 	cp wpd_stats.txt wpd_stats_base.txt
+wpd_ics: $(EXEBASE)
+	opt \
+	  --function-sections \
+      -load libWholeProgramDebloat.so \
+      -WholeProgramDebloat \
+      --enable-indirect-call-sinking=true \
+      < $(NUMBER).$(NAME)_baseline_ls_opt.bc \
+      > $(NUMBER).$(NAME)_wpd_ics_opt.bc
+	llc  \
+	  --function-sections \
+      $(NUMBER).$(NAME)_wpd_ics_opt.bc \
+      -relocation-model=pic \
+      -o $(NUMBER).$(NAME)_wpd_ics_opt.s
+	g++ \
+	  -ffunction-sections \
+	  -Wl,--verbose \
+      $(NUMBER).$(NAME)_wpd_ics_opt.s \
+      -o $(NUMBER).$(NAME)_wpd_ics \
+      -ldebloat_rt -lm -lrt > linker.lds
+	readelf -s --wide $(NUMBER).$(NAME)_wpd_ics > readelf.out
+	readelf --sections $(NUMBER).$(NAME)_wpd_ics > readelf-sections.out
+	cp readelf.out readelf-ics.out
+	cp readelf-sections.out readelf-sections-ics.out
+	cp wpd_disjoint_sets.txt wpd_disjoint_sets_ics.txt
+	cp wpd_encompassed_funcs.txt wpd_encompassed_funcs_ics.txt
+	cp wpd_static_reachability.txt wpd_static_reachability_ics.txt
+	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_ics.txt
+	cp wpd_loop_to_func.txt wpd_loop_to_func_ics.txt
+	cp wpd_static_reachability.txt wpd_static_reachability_ics.txt
+	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_ics.txt
+	cp wpd_stats.txt wpd_stats_ics.txt
 else
 	$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) @$(OBJNAMES) $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
 endif
