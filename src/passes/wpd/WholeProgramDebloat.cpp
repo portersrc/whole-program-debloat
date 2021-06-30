@@ -34,6 +34,10 @@ bool ENABLE_INSTRUMENTATION_SINKING = false; // can set via command line option 
 cl::opt<bool> EnableInstrumentationSinking(
     "enable-instrumentation-sinking", cl::init(false), cl::Hidden,
     cl::desc("Attempts to sink instrumentation into loops."));
+bool ENABLE_INDIRECT_CALL_SINKING = false; // can set via command line option below
+cl::opt<bool> EnableIndirectCallSinking(
+    "enable-indirect-call-sinking", cl::init(false), cl::Hidden,
+    cl::desc("Attempts to sink indirect call instrumentation into loops."));
 
 
 
@@ -608,7 +612,8 @@ void WholeProgramDebloat::instrument_indirect(void)
                             continue;
                         }
                         if(v->getType()->isPointerTy()){
-                            if(encompassed_funcs.find(f) == encompassed_funcs.end()){
+                            if(ENABLE_INDIRECT_CALL_SINKING
+                            || encompassed_funcs.find(f) == encompassed_funcs.end()){
                                 // instrument before indirect func call
                                 vector<Value *> ArgsV;
                                 IRBuilder<> builder(CB);
@@ -913,6 +918,8 @@ void WholeProgramDebloat::wpd_init(Module &M)
 
     ENABLE_INSTRUMENTATION_SINKING = EnableInstrumentationSinking;
     errs() << "ENABLE_INSTRUMENTATION_SINKING: " << ENABLE_INSTRUMENTATION_SINKING << "\n";
+    ENABLE_INDIRECT_CALL_SINKING = EnableIndirectCallSinking;
+    errs() << "ENABLE_INDIRECT_CALL_SINKING: " << ENABLE_INDIRECT_CALL_SINKING << "\n";
 
     memset(&stats, 0, sizeof(stats));
 
