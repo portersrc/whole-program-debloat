@@ -31,6 +31,8 @@ using namespace std;
 int ENV_DEBRT_ENABLE_STATS = 0;
 // to enable, set env var DEBRT_ENABLE_STACK_CLEANING=1
 int ENV_DEBRT_ENABLE_STACK_CLEANING = 0;
+// to enable, set env var DEBRT_ENABLE_INDIRECT_CALL_SINKING=1
+int ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING = 0;
 
 
 #define CGPredict
@@ -445,12 +447,21 @@ int update_page_counts(int func_id, int addend)
             _remap_permissions(addr, 1, RX_PERM);
             DEBRT_PRINTF("done RX\n");
 
-            if( (addr >= text_start_aligned)
-            &&  (addr <=  text_end_aligned)
-            &&  (ptd_to_func_ids.find(func_id) == ptd_to_func_ids.end()))
-            {
-                stats_total_mapped_pages += 1;
-                yes_stats_got_updated = 1;
+            if(ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING){
+                if( (addr >= text_start_aligned)
+                &&  (addr <=  text_end_aligned))
+                {
+                    stats_total_mapped_pages += 1;
+                    yes_stats_got_updated = 1;
+                }
+            }else{
+                if( (addr >= text_start_aligned)
+                &&  (addr <=  text_end_aligned)
+                &&  (ptd_to_func_ids.find(func_id) == ptd_to_func_ids.end()))
+                {
+                    stats_total_mapped_pages += 1;
+                    yes_stats_got_updated = 1;
+                }
             }
 
         }else if(page_to_count[addr] == 0){
@@ -467,16 +478,23 @@ int update_page_counts(int func_id, int addend)
                 DEBRT_PRINTF("addr is above text end or part of last page. " \
                              "possibly part of .fini. ignoring mapping RO\n");
             }else{
-                if(ptd_to_func_ids.find(func_id) != ptd_to_func_ids.end()){
-                    DEBRT_PRINTF("NOT UNMAPPING page for func id %d (%s) b/c " \
-                                 "it is pointed to\n",
-                                 func_id,
-                                 func_id_to_name[func_id].c_str());
-                }else{
+                if(ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING){
                     _remap_permissions(addr, 1, RO_PERM);
                     //_remap_permissions(addr, 1, RX_PERM);
                     stats_total_mapped_pages -= 1;
                     yes_stats_got_updated = 1;
+                }else{
+                    if(ptd_to_func_ids.find(func_id) != ptd_to_func_ids.end()){
+                        DEBRT_PRINTF("NOT UNMAPPING page for func id %d (%s) b/c " \
+                                     "it is pointed to\n",
+                                     func_id,
+                                     func_id_to_name[func_id].c_str());
+                    }else{
+                        _remap_permissions(addr, 1, RO_PERM);
+                        //_remap_permissions(addr, 1, RX_PERM);
+                        stats_total_mapped_pages -= 1;
+                        yes_stats_got_updated = 1;
+                    }
                 }
             }
             DEBRT_PRINTF("done RO\n");
@@ -1791,8 +1809,12 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     if(getenv("DEBRT_ENABLE_STACK_CLEANING")){
         ENV_DEBRT_ENABLE_STACK_CLEANING = 1;
     }
+    if(getenv("DEBRT_ENABLE_INDIRECT_CALL_SINKING")){
+        ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING = 1;
+    }
     DEBRT_PRINTF("ENV_DEBRT_ENABLE_STATS: %d\n", ENV_DEBRT_ENABLE_STATS);
     DEBRT_PRINTF("ENV_DEBRT_ENABLE_STACK_CLEANING: %d\n", ENV_DEBRT_ENABLE_STACK_CLEANING);
+    DEBRT_PRINTF("ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING: %d\n", ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING);
     output_filename = getenv("DEBRT_OUT");
     if(!output_filename){
         output_filename = DEFAULT_OUTPUT_FILENAME;
@@ -1839,7 +1861,9 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     atexit(_debrt_protect_destroy);
 
     _debrt_protect_all_pages(RO_PERM);
-    _debrt_map_ptd_to_funcs();
+    if(!ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING){
+        _debrt_map_ptd_to_funcs();
+    }
 
 
     // if this is the first protect call, we need to make sure the caller's
