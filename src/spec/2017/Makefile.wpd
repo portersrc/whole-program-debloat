@@ -643,6 +643,22 @@ wpd_ics: $(EXEBASE)
 	cp wpd_static_reachability.txt wpd_static_reachability_ics.txt
 	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_ics.txt
 	cp wpd_stats.txt wpd_stats_ics.txt
+wpd_custlink_ics: $(EXEBASE)
+	g++ \
+      -ffunction-sections \
+      -c $(NUMBER).$(NAME)_wpd_ics_opt.s \
+      -o $(NUMBER).$(NAME)_wpd_custlink_ics_opt.o
+	g++ \
+	  -ffunction-sections \
+      -T wpd-linker-script.lds \
+      $(NUMBER).$(NAME)_wpd_custlink_ics_opt.o \
+      -o $(NUMBER).$(NAME)_wpd_custlink \
+      -ldebloat_rt -lm -lrt
+	readelf -s --wide $(NUMBER).$(NAME)_wpd_custlink > readelf.out
+	readelf --sections $(NUMBER).$(NAME)_wpd_custlink > readelf-sections.out
+	cp $(NUMBER).$(NAME)_wpd_custlink $(NUMBER).$(NAME)_wpd_custlink_ics
+	cp readelf.out readelf-custlink-ics.out
+	cp readelf-sections.out readelf-sections-custlink-ics.out
 else
 	$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) @$(OBJNAMES) $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
 endif
