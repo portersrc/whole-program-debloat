@@ -25,12 +25,18 @@ elif [ "$1" == "wpd" ]; then
 elif [ "$1" == "wpd_sink" ]; then
     BIN=519.lbm_r_wpd_sink
     WHICH=wpd_sink
+elif [ "$1" == "wpd_ics" ]; then
+    BIN=519.lbm_r_wpd_ics
+    WHICH=wpd_ics
 elif [ "$1" == "wpd_cl" ]; then
     BIN=519.lbm_r_wpd_custlink
     WHICH=wpd_cl
 elif [ "$1" == "wpd_cl_sink" ]; then
     BIN=519.lbm_r_wpd_custlink_sink
     WHICH=wpd_cl_sink
+elif [ "$1" == "wpd_cl_ics" ]; then
+    BIN=519.lbm_r_wpd_custlink_ics
+    WHICH=wpd_cl_ics
 elif [ "$1" == "wpd_ls" ]; then
     BIN=519.lbm_r_wpd_ls
     WHICH=wpd_ls
