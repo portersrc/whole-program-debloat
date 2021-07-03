@@ -666,16 +666,23 @@ void WholeProgramDebloat::instrument_indirect(void)
                                 ArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
                                 builder.CreateCall(debrt_protect_indirect_func, ArgsV);
                                 
-                                // instrument after indirect func call
-                                if(CI){
-                                    IRBuilder<> builder_end(CI);
-                                    builder_end.SetInsertPoint(CI->getNextNode());
-                                    builder_end.CreateCall(debrt_protect_indirect_end_func, ArgsV);
-                                }else if(II){
-                                    errs() << "indirect func invoke case\n";
-                                    instrument_after_invoke(II, ArgsV, debrt_protect_indirect_end_func);
-                                }else{
-                                    assert(0);
+                                // optimization: only instrument after the
+                                // indirect call if we are not inside an
+                                // encompassed func. That is, the runtime
+                                // will handle this ICS optimization to clear
+                                // the pages at the end of the loop.
+                                if(encompassed_funcs.find(f) == encompassed_funcs.end()){
+                                    // instrument after indirect func call
+                                    if(CI){
+                                        IRBuilder<> builder_end(CI);
+                                        builder_end.SetInsertPoint(CI->getNextNode());
+                                        builder_end.CreateCall(debrt_protect_indirect_end_func, ArgsV);
+                                    }else if(II){
+                                        errs() << "indirect func invoke case\n";
+                                        instrument_after_invoke(II, ArgsV, debrt_protect_indirect_end_func);
+                                    }else{
+                                        assert(0);
+                                    }
                                 }
                             }else{
                                 errs() << "WARNING: Unhandled functionality "
