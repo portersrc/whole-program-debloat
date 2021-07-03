@@ -96,6 +96,7 @@ int num_mispredictions;
 int total_predictions;
 stack<set<int> *> pred_set_stack;
 vector<int> single_stack;
+vector<pair<int, bool> > ics_stack;
 
 
 int  _debrt_monitor_init(void);
@@ -1994,6 +1995,16 @@ int debrt_protect_loop_end(int loop_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
+    for(int i = 0; i < ics_stack.size(); i++){
+        int func_id = ics_stack[i].first;
+        bool is_encompassed = ics_stack[i].second;
+        if(is_encompassed){
+            debrt_protect_reachable_end(func_id); // ignoring return value
+        }else{
+            debrt_protect_single_end(func_id); // ignoring return value
+        }
+    }
+    ics_stack.clear();
     _protect_loop_reachable(loop_id, -1);
     return 0;
 }
@@ -2018,8 +2029,10 @@ int debrt_protect_indirect(long long callee_addr)
     DEBRT_PRINTF("func_id is: %d\n", func_id);
     if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
         // encompassed function
+        ics_stack.push_back(make_pair(func_id, true));
         return debrt_protect_reachable(func_id);
     }
+    ics_stack.push_back(make_pair(func_id, false));
     // top-level function
     return debrt_protect_single(func_id);
 }
@@ -2038,6 +2051,7 @@ int debrt_protect_indirect_end(long long callee_addr)
     }
     int func_id = func_addr_to_id[callee_addr];
     DEBRT_PRINTF("func_id is: %d\n", func_id);
+    ics_stack.clear();
     if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
         // encompassed function
         return debrt_protect_reachable_end(func_id);
