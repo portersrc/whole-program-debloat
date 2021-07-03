@@ -38,6 +38,10 @@ bool ENABLE_INDIRECT_CALL_SINKING = false; // can set via command line option be
 cl::opt<bool> EnableIndirectCallSinking(
     "enable-indirect-call-sinking", cl::init(false), cl::Hidden,
     cl::desc("Attempts to sink indirect call instrumentation into loops."));
+bool ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = false; // can set via command line option below
+cl::opt<bool> EnableBasicIndirectCallStaticAnalysis(
+    "enable-basic-indirect-call-static-analysis", cl::init(false), cl::Hidden,
+    cl::desc("Attempts to apply basic static analysis to indirect calls for mapping them at loop headers."));
 
 
 
@@ -59,11 +63,14 @@ namespace {
         Function *debrt_protect_sink_func;
         Function *debrt_protect_sink_end_func;
         map<Function *, int> func_to_id;
+        map<int, Function *> func_id_to_func;
         map<int, string> func_id_to_name;
         map<string, int> func_name_to_id;
         Type *int32Ty;
         Type *int64Ty;
         map<Function *, set<Function *> > adj_list;
+        map<Function *, set<Function *> > rev_adj_list;
+        map<Function *, set<Function *> > adj_list_fps;
         set<Function *> all_funcs;
         // "encompassed funcs" are functions that we aren't
         // allowed to instrument _inside of_, because they are either
@@ -79,6 +86,8 @@ namespace {
         map<int, int> loop_id_to_func_id; // for debugging
         set<string> func_name_has_addr_taken;
         set<Function *> func_has_addr_taken;
+        map<Function *, set<Function *> > func_to_fps;
+        map<Function *, set<Function *> > func_to_parents;
         map<int, set<int> > sinks; // sink id to its function IDs
         map<int, int> sink_id_to_func_id; // the function ID that holds the sink, for debugging
         map<string, long> readelf_func_name_to_size;
@@ -99,7 +108,10 @@ namespace {
 
         void wpd_init(Module &M);
         void build_basic_structs(Module &M);
+        void extend_adj_list(void);
         void build_static_reachability(void);
+        //void extend_static_reachability(void);
+        void build_func_to_parents(void);
         void extend_encompassed_funcs(void);
         void build_toplevel_funcs(void);
         void create_disjoint_sets(void);
@@ -134,6 +146,8 @@ namespace {
         void read_readelf_sections(void);
         void read_readelf(void);
         int get_set_byte_size(set<Function *> &functions);
+        void get_address_taken_uses(Function &F, vector<User *> &offenders);
+        void build_func_to_fps(Module &M);
 
 
         string get_demangled_name(const Function &F);
@@ -205,6 +219,28 @@ int WholeProgramDebloat::get_set_byte_size(set<Function *> &functions)
     }
     return sum;
 }
+
+
+// Based on llvm 11 source tree's hasAddressTaken.
+// For some function F, adds to offenders any "users" that take the address
+// of F.
+void WholeProgramDebloat::get_address_taken_uses(Function &F, vector<User *> &offenders)
+{
+  for (const Use &U : F.uses()) {
+    User *FU = U.getUser();
+    if (isa<BlockAddress>(FU))
+      continue;
+
+    const auto *Call = dyn_cast<CallBase>(FU);
+    if (!Call) {
+      offenders.push_back(FU);
+    }
+    if (!Call->isCallee(&U)) {
+      offenders.push_back(FU);
+    }
+  }
+}
+
 
 bool WholeProgramDebloat::sinking_condition_satisfied(vector<pair<Function *, CallBase *> > &callees,
                                                       set<Function *> &visited_funcs)
@@ -471,8 +507,18 @@ void WholeProgramDebloat::instrument_loop(int func_id, Loop *loop)
             CallBase *cb = dyn_cast<CallBase>(&I);
             if(cb){
                 Function *callee = cb->getCalledFunction();
+                // Normal callee: just prime this loop's static reachability
+                // with it.
                 if(func_to_id.count(callee) > 0){
                     loop_static_reachability[loop_id].insert(callee);
+                }
+                // Indirect call: We will prime the loop's static reachability
+                // with any function pointers that could have been invoked.
+                // This is based on the adj-list-fps for this function.
+                if(cb->getCalledFunction() == NULL){
+                    loop_static_reachability[loop_id].insert(
+                      adj_list_fps[func_id_to_func[func_id]].begin(),
+                      adj_list_fps[func_id_to_func[func_id]].end());
                 }
             }
         }
@@ -662,6 +708,16 @@ void WholeProgramDebloat::instrument(void)
         for(auto loop = LI->begin(), e = LI->end(); loop != e; ++loop){
             stats.num_toplevel_loops++;
             if(ENABLE_INSTRUMENTATION_SINKING){
+                // TODO
+                // TODO If we try to do loop sinking again, then i think we
+                // need to agument get_callees_aux() (or somewhere around
+                // there) with ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS
+                // support.  (assuming we want to support it for
+                // instrumentation-sinking).  Can look at how instrument_loop()
+                // does it. Be aware of course that instrument-loop-sink may
+                // invoke instrument-loop as a fallback case (not sure if that
+                // matters though).
+                // TODO
                 instrument_loop_sink(func_to_id[f], *loop);
             }else{
                 instrument_loop(func_to_id[f], *loop);
@@ -788,6 +844,14 @@ void WholeProgramDebloat::build_basic_structs(Module &M)
             }
         }
     }
+    // build reverse adjacency list
+    for(auto caller_callees : adj_list){
+        auto caller  = caller_callees.first;
+        auto callees = caller_callees.second;
+        for(auto callee : callees){
+            rev_adj_list[callee].insert(caller);
+        }
+    }
 }
 
 void WholeProgramDebloat::create_disjoint_sets(void)
@@ -875,6 +939,81 @@ void WholeProgramDebloat::create_disjoint_sets(void)
     }
 }
 
+///
+// XXX Commented out, leaving for posterity. This function is wrong, I think,
+// because it doesn't take into account convergence. A better way to do this is
+// to just extend adj_list based on func pointers, and then just leverage
+// build_static_reachability() with that augmented adj-list.
+//
+// Extend static reachability based on "simple" function pointer analysis.
+// This is not leveraging true pointer analysis. Rather, for any function
+// F, we add to its statically reachable set any function pointer that
+// could be invoked on some (flow-insensitive) path to F in the callgraph.
+// "Could be invoked" is very conservative: It's true if a function has
+// its address taken along that path, and false otherwise.
+/*void WholeProgramDebloat::extend_static_reachability(void)
+{
+    for(auto func_parents : func_to_parents){
+        auto func    = func_parents.first;
+        auto parents = func_parents.second;
+
+        // first take care of the "base" function itself.
+        // For any function pointers that it uses, add those function pointers
+        // to its statically reachable set.
+        auto fps = func_to_fps[func];
+        for(auto fp : fps){
+            if(fp != func){
+                static_reachability[func].insert(
+                  static_reachability[fp].begin(),
+                  static_reachability[fp].end()
+                );
+            }
+        }
+
+        // now take care of all of its parents. for each parent, grab any
+        // function pointers that it uses, and add that to the statically
+        // reachable set of our base func.
+        for(auto parent : parents){
+            auto fps = func_to_fps[parent];
+            for(auto fp : fps){
+                if(fp != func){
+                    static_reachability[func].insert(
+                      static_reachability[fp].begin(),
+                      static_reachability[fp].end()
+                    );
+                }
+            }
+
+        }
+    }
+}*/
+
+void WholeProgramDebloat::extend_adj_list(void)
+{
+    for(auto func_parents : func_to_parents){
+        auto func    = func_parents.first;
+        auto parents = func_parents.second;
+
+        // First take care of the "base" function itself.
+        // For any functions that it takes the address of, add them to
+        // its adj-list-fps
+        auto fps = func_to_fps[func];
+        adj_list_fps[func].insert(fps.begin(), fps.end());
+
+        // Now take care of all of its parents. For each parent, grab any
+        // functions that it takes the address of, and add those to the
+        // adj-list-fps our base func.
+        for(auto parent : parents){
+            auto fps = func_to_fps[parent];
+            adj_list_fps[func].insert(fps.begin(), fps.end());
+        }
+
+        // update the func's adj-list with its adj-list-fps
+        adj_list[func].insert(adj_list_fps[func].begin(),
+                              adj_list_fps[func].end());
+    }
+}
+
 void WholeProgramDebloat::build_static_reachability(void)
 {
     for(auto F : all_funcs){
@@ -899,6 +1038,61 @@ void WholeProgramDebloat::build_static_reachability(void)
         }
     }
 }
+void WholeProgramDebloat::build_func_to_parents(void)
+{
+    for(auto F : all_funcs){
+        queue<Function *> q;
+        for(auto parent : rev_adj_list[F]){
+            q.push(parent);
+        }
+        while(!q.empty()){
+            Function *f = q.front();
+            q.pop();
+            func_to_parents[F].insert(f);
+            for(auto qparent : rev_adj_list[f]){
+                if(func_to_parents[F].find(qparent) == func_to_parents[F].end()){
+                    q.push(qparent);
+                }
+            }
+        }
+    }
+}
+
+// Can think of this as building a map that tells us where function pointers
+// get created -- so for some function, I can tell you which fps are created
+// inside of it.  More specifically, we build a map of function -> set of
+// functions that it takes the address of.  We do this by first finding all
+// points ('uses') where a function has its address taken. If that point is a
+// valid instruction, then we add to our map: the key is the instruction's
+// function (i.e. the function where we take another function's address); the
+// value is the function whose address we take.
+void WholeProgramDebloat::build_func_to_fps(Module &M)
+{
+    int s;
+    int f;
+    s = 0;
+    f = 0;
+    for(auto &F : M){
+        if(F.hasName() && !F.isDeclaration()){
+            vector<User *> offenders;
+            get_address_taken_uses(F, offenders);
+            // offenders will be non-empty if F has its address taken
+            for(User *user : offenders){
+                Instruction *i = dyn_cast<Instruction>(user);
+                if(i){
+                    Function *f = i->getFunction();
+                    //errs() << "function pointer user: " << f->getName() << "\n";
+                    func_to_fps[f].insert(&F);
+                    s++;
+                }else{
+                    f++;
+                }
+            }
+        }
+    }
+    //errs() << "s: " << s << "\n";
+    //errs() << "f: " << f << "\n";
+}
 
 void WholeProgramDebloat::build_toplevel_funcs(void)
 {
@@ -920,6 +1114,9 @@ void WholeProgramDebloat::wpd_init(Module &M)
     errs() << "ENABLE_INSTRUMENTATION_SINKING: " << ENABLE_INSTRUMENTATION_SINKING << "\n";
     ENABLE_INDIRECT_CALL_SINKING = EnableIndirectCallSinking;
     errs() << "ENABLE_INDIRECT_CALL_SINKING: " << ENABLE_INDIRECT_CALL_SINKING << "\n";
+    ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = EnableBasicIndirectCallStaticAnalysis;
+    errs() << "ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS: " << ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS << "\n";
+
 
     memset(&stats, 0, sizeof(stats));
 
@@ -936,6 +1133,7 @@ void WholeProgramDebloat::wpd_init(Module &M)
             func_name_to_id[F.getName().str()] = count;
             func_to_id[&F] = count;
             func_id_to_name[count] = F.getName().str();
+            func_id_to_func[count] = &F;
             if(F.hasAddressTaken()){
                 //errs() << "F.hasAddressTaken() is: " << F.getName() << "\n";
                 func_name_has_addr_taken.insert(F.getName().str());
@@ -1012,6 +1210,22 @@ bool WholeProgramDebloat::runOnModule_real(Module &M)
     // Build all_funcs, adj_list, func_to_loop_info
     // Paritlally build encompassed_funcs
     build_basic_structs(M);
+
+    if(ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS){
+        // Build a map of func -> set of parents that can reach it.
+        build_func_to_parents();
+
+        // Build a map of func -> functions that it takes the address of
+        build_func_to_fps(M);
+
+        // Add statically reachable functions based on _simple_ function pointer
+        // analysis (not true pointer analysis)
+        //extend_static_reachability();
+
+        // Extend adj-list based on the func pointers. This augmented adj-list
+        // will be picked up (correctly) during build_static_reachability().
+        extend_adj_list();
+    }
 
     // Build a map of func -> set of statically reachable funcs
     // (also add funcs that are recursive or part of SCCs to encompassed-funcs)
