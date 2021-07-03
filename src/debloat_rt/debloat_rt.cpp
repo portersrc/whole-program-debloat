@@ -25,7 +25,7 @@
 
 using namespace std;
 
-#define DEBRT_DEBUG
+//#define DEBRT_DEBUG
 
 // to enable, set env var DEBRT_ENABLE_STATS=1
 int ENV_DEBRT_ENABLE_STATS = 0;
@@ -33,6 +33,8 @@ int ENV_DEBRT_ENABLE_STATS = 0;
 int ENV_DEBRT_ENABLE_STACK_CLEANING = 0;
 // to enable, set env var DEBRT_ENABLE_INDIRECT_CALL_SINKING=1
 int ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING = 0;
+// to enable, set env var DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS=1
+int ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = 0;
 
 
 #define CGPredict
@@ -447,7 +449,8 @@ int update_page_counts(int func_id, int addend)
             _remap_permissions(addr, 1, RX_PERM);
             DEBRT_PRINTF("done RX\n");
 
-            if(ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING){
+            if(ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING
+            || ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS){
                 if( (addr >= text_start_aligned)
                 &&  (addr <=  text_end_aligned))
                 {
@@ -478,7 +481,8 @@ int update_page_counts(int func_id, int addend)
                 DEBRT_PRINTF("addr is above text end or part of last page. " \
                              "possibly part of .fini. ignoring mapping RO\n");
             }else{
-                if(ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING){
+                if(ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING
+                || ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS){
                     _remap_permissions(addr, 1, RO_PERM);
                     //_remap_permissions(addr, 1, RX_PERM);
                     stats_total_mapped_pages -= 1;
@@ -1812,9 +1816,13 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     if(getenv("DEBRT_ENABLE_INDIRECT_CALL_SINKING")){
         ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING = 1;
     }
+    if(getenv("DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS")){
+        ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = 1;
+    }
     DEBRT_PRINTF("ENV_DEBRT_ENABLE_STATS: %d\n", ENV_DEBRT_ENABLE_STATS);
     DEBRT_PRINTF("ENV_DEBRT_ENABLE_STACK_CLEANING: %d\n", ENV_DEBRT_ENABLE_STACK_CLEANING);
     DEBRT_PRINTF("ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING: %d\n", ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING);
+    DEBRT_PRINTF("ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS: %d\n", ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS);
     output_filename = getenv("DEBRT_OUT");
     if(!output_filename){
         output_filename = DEFAULT_OUTPUT_FILENAME;
@@ -1861,7 +1869,8 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     atexit(_debrt_protect_destroy);
 
     _debrt_protect_all_pages(RO_PERM);
-    if(!ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING){
+    if( (ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING == 0)
+    &&  (ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS == 0) ){
         _debrt_map_ptd_to_funcs();
     }
 
