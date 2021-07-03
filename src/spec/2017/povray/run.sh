@@ -28,6 +28,9 @@ elif [ "$1" == "wpd_sink" ]; then
 elif [ "$1" == "wpd_ics" ]; then
     BIN=511.povray_r_wpd_ics
     WHICH=wpd_ics
+elif [ "$1" == "wpd_bicsa" ]; then
+    BIN=511.povray_r_wpd_bicsa
+    WHICH=wpd_bicsa
 elif [ "$1" == "wpd_cl" ]; then
     BIN=511.povray_r_wpd_custlink
     WHICH=wpd_cl
@@ -37,6 +40,9 @@ elif [ "$1" == "wpd_cl_sink" ]; then
 elif [ "$1" == "wpd_cl_ics" ]; then
     BIN=511.povray_r_wpd_custlink_ics
     WHICH=wpd_cl_ics
+elif [ "$1" == "wpd_cl_bicsa" ]; then
+    BIN=511.povray_r_wpd_custlink_bicsa
+    WHICH=wpd_cl_bicsa
 elif [ "$1" == "wpd_ls" ]; then
     BIN=511.povray_r_wpd_ls
     WHICH=wpd_ls
