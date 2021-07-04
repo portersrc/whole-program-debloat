@@ -46,7 +46,7 @@ with open(args.set_file,"r") as f:
         line_list = [int(i) for i in line_split]
         if(line_list[0] == -1):
             line_list = line_list[1:]
-        if(args.binary_version == "wpd" or args.binary_version == "wpd"):
+        if(args.binary_version == "wpd" or args.binary_version == "wpd_bisca" or args.binary_version == "wpd_ics"):
             line_list.append(args.text_size // 4096)
         sets.append(line_list)
         line = f.readline()
