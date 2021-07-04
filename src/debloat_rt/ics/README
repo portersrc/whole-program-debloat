@@ -1,0 +1,6 @@
+2021.07.03 cporter
+
+Include make's .ll output with the source code of a benchmark so that it can be compiled
+directly into the benchmark.
+Assumptions abound here... spec Makefile is set up for this ics compilation,
+etc. etc.
