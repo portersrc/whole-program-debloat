@@ -62,6 +62,8 @@ namespace {
         Function *debrt_protect_indirect_end_func;
         Function *debrt_protect_sink_func;
         Function *debrt_protect_sink_end_func;
+        //Function *ics_map_indirect_call_func;
+        //Function *ics_unmap_indirect_calls_func;
         map<Function *, int> func_to_id;
         map<int, Function *> func_id_to_func;
         map<int, string> func_id_to_name;
@@ -512,13 +514,15 @@ void WholeProgramDebloat::instrument_loop(int func_id, Loop *loop)
                 if(func_to_id.count(callee) > 0){
                     loop_static_reachability[loop_id].insert(callee);
                 }
-                // Indirect call: We will prime the loop's static reachability
-                // with any function pointers that could have been invoked.
-                // This is based on the adj-list-fps for this function.
-                if(cb->getCalledFunction() == NULL){
-                    loop_static_reachability[loop_id].insert(
-                      adj_list_fps[func_id_to_func[func_id]].begin(),
-                      adj_list_fps[func_id_to_func[func_id]].end());
+                if(ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS){
+                    // Indirect call: We will prime the loop's static reachability
+                    // with any function pointers that could have been invoked.
+                    // This is based on the adj-list-fps for this function.
+                    if(cb->getCalledFunction() == NULL){
+                        loop_static_reachability[loop_id].insert(
+                          adj_list_fps[func_id_to_func[func_id]].begin(),
+                          adj_list_fps[func_id_to_func[func_id]].end());
+                    }
                 }
             }
         }
@@ -664,6 +668,11 @@ void WholeProgramDebloat::instrument_indirect(void)
                                 vector<Value *> ArgsV;
                                 IRBuilder<> builder(CB);
                                 ArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
+                                //if(ENABLE_INDIRECT_CALL_SINKING){
+                                //    builder.CreateCall(ics_map_indirect_call_func, ArgsV);
+                                //}else{
+                                //    builder.CreateCall(debrt_protect_indirect_func, ArgsV);
+                                //}
                                 builder.CreateCall(debrt_protect_indirect_func, ArgsV);
                                 
                                 // optimization: only instrument after the
@@ -1203,6 +1212,16 @@ void WholeProgramDebloat::wpd_init(Module &M)
             Function::ExternalLinkage,
             "debrt_protect_sink_end",
             M);
+
+    // FIXME ? not sure if external linkage is what i want here.. could try internal
+    //ics_map_indirect_call_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
+    //        Function::InternalLinkage,
+    //        "ics_map_indirect_call",
+    //        M);
+    //ics_unmap_indirect_calls_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
+    //        Function::InternalLinkage,
+    //        "ics_unmap_indirect_calls",
+    //        M);
 
 
 }
