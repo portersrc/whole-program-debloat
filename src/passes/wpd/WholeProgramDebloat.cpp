@@ -62,8 +62,8 @@ namespace {
         Function *debrt_protect_indirect_end_func;
         Function *debrt_protect_sink_func;
         Function *debrt_protect_sink_end_func;
-        //Function *ics_map_indirect_call_func;
-        //Function *ics_unmap_indirect_calls_func;
+        Function *ics_map_indirect_call_func;
+        Function *ics_unmap_indirect_calls_func;
         map<Function *, int> func_to_id;
         map<int, Function *> func_id_to_func;
         map<int, string> func_id_to_name;
@@ -668,12 +668,11 @@ void WholeProgramDebloat::instrument_indirect(void)
                                 vector<Value *> ArgsV;
                                 IRBuilder<> builder(CB);
                                 ArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
-                                //if(ENABLE_INDIRECT_CALL_SINKING){
-                                //    builder.CreateCall(ics_map_indirect_call_func, ArgsV);
-                                //}else{
-                                //    builder.CreateCall(debrt_protect_indirect_func, ArgsV);
-                                //}
-                                builder.CreateCall(debrt_protect_indirect_func, ArgsV);
+                                if(ENABLE_INDIRECT_CALL_SINKING){
+                                    builder.CreateCall(ics_map_indirect_call_func, ArgsV);
+                                }else{
+                                    builder.CreateCall(debrt_protect_indirect_func, ArgsV);
+                                }
                                 
                                 // optimization: only instrument after the
                                 // indirect call if we are not inside an
@@ -1213,15 +1212,15 @@ void WholeProgramDebloat::wpd_init(Module &M)
             "debrt_protect_sink_end",
             M);
 
-    // FIXME ? not sure if external linkage is what i want here.. could try internal
-    //ics_map_indirect_call_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
-    //        Function::InternalLinkage,
-    //        "ics_map_indirect_call",
-    //        M);
-    //ics_unmap_indirect_calls_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
-    //        Function::InternalLinkage,
-    //        "ics_unmap_indirect_calls",
-    //        M);
+    // FIXME ? not sure if external weak linkage is what i want here
+    ics_map_indirect_call_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
+            Function::ExternalWeakLinkage,
+            "ics_map_indirect_call",
+            M);
+    ics_unmap_indirect_calls_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
+            Function::ExternalWeakLinkage,
+            "ics_unmap_indirect_calls",
+            M);
 
 
 }
