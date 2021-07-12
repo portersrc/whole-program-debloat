@@ -96,7 +96,6 @@ int num_mispredictions;
 int total_predictions;
 stack<set<int> *> pred_set_stack;
 vector<int> single_stack;
-vector<pair<int, bool> > ics_stack;
 
 
 int  _debrt_monitor_init(void);
@@ -421,8 +420,13 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated)
 
 int update_page_counts(int func_id, int addend)
 {
+    static int debug_i = 0;
     int i;
     long long addr;
+    //if(func_id_to_pages.find(func_id) == func_id_to_pages.end()){
+    //    DEBRT_PRINTF("func id not in func-id-to-pages\n");
+    //    *(int*)0 = 0;
+    //}
     vector<long long> &pages = func_id_to_pages[func_id];
     int yes_stats_got_updated = 0;
 
@@ -435,10 +439,19 @@ int update_page_counts(int func_id, int addend)
 
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     DEBRT_PRINTF("func_id is %d\n", func_id);
+    DEBRT_PRINTF("addend is %d\n", addend);
     DEBRT_PRINTF("pages.size(): %lu\n", pages.size());
     for(i = 0; i < pages.size(); i++){
         addr = pages[i];
         DEBRT_PRINTF("updating addr 0x%llx\n", addr);
+        //if(page_to_count.find(addr) == page_to_count.end()){
+        //    DEBRT_PRINTF("addr not in page-to-count\n");
+        //    *(int*)0 = 0;
+        //}
+        //if(addr == 0x555555593000){
+        //    debug_i++;
+        //    DEBRT_PRINTF("seeing EXACT addr (%d)\n", debug_i);
+        //}
         page_to_count[addr] += addend;
         if(page_to_count[addr] < 0){
             DEBRT_PRINTF("page_to_count[addr] < 0. exiting. " \
@@ -1207,6 +1220,9 @@ void _set_addr_of_main_mapping(void)
         char *binary_name;
         char *c = line;
         state = GET_BASE_ADDR;
+        //vector<string> elems = split_nonempty(line, ' ');
+        //cout << "last elem: " << elems[5] << endl;
+        //goto workaround;
         while(*c){
             if(state == GET_BASE_ADDR && *c == '-'){
                 //printf("state was GET_BASE_ADDR\n");
@@ -1215,6 +1231,13 @@ void _set_addr_of_main_mapping(void)
                 c++;
                 addr_end = strtoll(c, NULL, 16);
                 state++;
+                // FIXME super hacky now.. looks like executable is
+                // always that first line. So just grab it and ignore all
+                // the rest. this entire function needs to be rewritten.
+                num_executable_binary_lines++;
+                executable_addr_base = addr_base;
+                executable_addr_end  = addr_end;
+                goto workaround;
                 continue;
             }
             if(state == GET_IS_EXECUTABLE && *c == ' '){
@@ -1248,6 +1271,8 @@ void _set_addr_of_main_mapping(void)
                         num_executable_binary_lines++;
                         executable_addr_base = addr_base;
                         executable_addr_end  = addr_end;
+                        DEBRT_PRINTF("healthy workaround\n");
+                        goto workaround;
                     }
                     // XXX hacky fix. Seems that this complicated parsing code
                     // wasn't necessary , b/c the executable section seems to
@@ -1259,17 +1284,27 @@ void _set_addr_of_main_mapping(void)
                         num_executable_binary_lines++;
                         executable_addr_base = addr_base;
                         executable_addr_end  = addr_end;
+                        DEBRT_PRINTF("gdb workaround\n");
                         goto gdb_workaround;
                     }
+                    //if(strstr("valgrind", getenv("_"))){
+                    //    DEBRT_PRINTF("valgrind workaround\n");
+                    //    num_executable_binary_lines++;
+                    //    executable_addr_base = addr_base;
+                    //    executable_addr_end  = addr_end;
+                    //    goto gdb_workaround;
+                    //}
                 }
             }
             c++;
         }
     }
+workaround:
 gdb_workaround:
     //DEBRT_PRINTF("num exec lines: %d\n", num_executable_binary_lines);
     //cout << "2 my pid is " << getpid() << endl;
     //cout << "2 getenv is " << getenv("_") << endl;
+    //cout << "2 check maps file: /proc/" << getpid() << "/maps" << endl;
     //while(1){
     //    sleep(10);
     //}
@@ -1890,13 +1925,11 @@ int debrt_init(int main_func_id, int sink_is_enabled)
 }
 }
 
-extern "C" {
-int debrt_protect_single(int callee_func_id)
+static inline
+int _protect_single(int callee_func_id)
 {
     int rv = 0;
     int boomer;
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
-    _WARN_RETURN_IF_NOT_INITIALIZED();
     DEBRT_PRINTF("INC page count for func_id %d\n", callee_func_id);
     rv += update_page_counts(callee_func_id, 1);
     if(ENV_DEBRT_ENABLE_STACK_CLEANING){
@@ -1912,16 +1945,12 @@ int debrt_protect_single(int callee_func_id)
     _write_mapped_pages_to_file(rv);
     return 0;
 }
-}
 
-
-extern "C" {
-int debrt_protect_single_end(int callee_func_id)
+static inline
+int _protect_single_end(int callee_func_id)
 {
     int rv = 0;
     int boomer;
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
-    _WARN_RETURN_IF_NOT_INITIALIZED();
     DEBRT_PRINTF("DEC page count for func_id %d\n", callee_func_id);
     rv += update_page_counts(callee_func_id, -1);
     if(ENV_DEBRT_ENABLE_STACK_CLEANING){
@@ -1935,6 +1964,24 @@ int debrt_protect_single_end(int callee_func_id)
     }
     _write_mapped_pages_to_file(rv);
     return 0;
+}
+
+extern "C" {
+int debrt_protect_single(int callee_func_id)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+    return _protect_single(callee_func_id);
+}
+}
+
+
+extern "C" {
+int debrt_protect_single_end(int callee_func_id)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+    return _protect_single_end(callee_func_id);
 }
 }
 
@@ -1995,16 +2042,6 @@ int debrt_protect_loop_end(int loop_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
-    for(int i = 0; i < ics_stack.size(); i++){
-        int func_id = ics_stack[i].first;
-        bool is_encompassed = ics_stack[i].second;
-        if(is_encompassed){
-            debrt_protect_reachable_end(func_id); // ignoring return value
-        }else{
-            debrt_protect_single_end(func_id); // ignoring return value
-        }
-    }
-    ics_stack.clear();
     _protect_loop_reachable(loop_id, -1);
     return 0;
 }
@@ -2029,13 +2066,29 @@ int debrt_protect_indirect(long long callee_addr)
     DEBRT_PRINTF("func_id is: %d\n", func_id);
     if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
         // encompassed function
-        ics_stack.push_back(make_pair(func_id, true));
-        return debrt_protect_reachable(func_id);
+        return _protect_reachable(func_id, 1);
     }
-    ics_stack.push_back(make_pair(func_id, false));
     // top-level function
-    return debrt_protect_single(func_id);
+    return _protect_single(func_id);
 }
+}
+
+static inline
+int _protect_indirect_end(long long callee_addr)
+{
+    if(func_addr_to_id.find(callee_addr) == func_addr_to_id.end()){
+        // See debrt_protect_indirect() for why this is OK.
+        DEBRT_PRINTF("WARNING: callee_addr not found.\n");
+        return 0;
+    }
+    int func_id = func_addr_to_id[callee_addr];
+    DEBRT_PRINTF("func_id is: %d\n", func_id);
+    if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
+        // encompassed function
+        return _protect_reachable(func_id, -1);
+    }
+    // top-level function
+    return _protect_single_end(func_id);
 }
 
 extern "C" {
@@ -2044,22 +2097,22 @@ int debrt_protect_indirect_end(long long callee_addr)
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
     DEBRT_PRINTF("end callee_addr is: 0x%llx\n", callee_addr);
-    if(func_addr_to_id.find(callee_addr) == func_addr_to_id.end()){
-        // See debrt_protect_indirect() for why this is OK.
-        DEBRT_PRINTF("WARNING: callee_addr not found.\n");
-        return 0;
-    }
-    int func_id = func_addr_to_id[callee_addr];
-    DEBRT_PRINTF("func_id is: %d\n", func_id);
-    ics_stack.clear();
-    if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
-        // encompassed function
-        return debrt_protect_reachable_end(func_id);
-    }
-    // top-level function
-    return debrt_protect_single_end(func_id);
+    return _protect_indirect_end(callee_addr);
 }
 }
+
+extern "C" {
+int debrt_protect_ics_end(set<long long> *cached_fp_addrs)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+    for(long long fp_addr : (*cached_fp_addrs)){
+        _protect_indirect_end(fp_addr); // ignoring return value
+    }
+    return 0;
+}
+}
+
 
 
 static inline
