@@ -347,6 +347,7 @@ $(EXEBASE): $(OBJS)
 ifndef NEEDATFILE
 	#$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) $^           $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
 	#$(LD) $^ $(LDOUT)
+	#$(LD) $^ ics.ll $(LDOUT)
 # cporter
 base: $(EXEBASE)
 	opt \
@@ -362,6 +363,21 @@ base: $(EXEBASE)
       -o $(NUMBER).$(NAME)_baseline \
       -lm -lrt
 base_loop_simplify: $(EXEBASE)
+	opt \
+      --function-sections \
+      -O3 \
+      -loop-simplify \
+      < $(NUMBER).$(NAME)_linked.bc \
+      > $(NUMBER).$(NAME)_baseline_ls_opt.bc
+	llc  \
+      $(NUMBER).$(NAME)_baseline_ls_opt.bc \
+      -relocation-model=pic \
+      -o $(NUMBER).$(NAME)_baseline_ls_opt.s
+	g++ \
+      $(NUMBER).$(NAME)_baseline_ls_opt.s \
+      -o $(NUMBER).$(NAME)_baseline_ls \
+      -ldebloat_rt -lm -lrt
+base_loop_simplify_no_ics: $(EXEBASE)
 	opt \
       --function-sections \
       -O3 \
@@ -619,6 +635,20 @@ wpd_ics: $(EXEBASE)
       -WholeProgramDebloat \
       --enable-indirect-call-sinking=true \
       < $(NUMBER).$(NAME)_baseline_ls_opt.bc \
+      > $(NUMBER).$(NAME)_wpd_ics_opt.bc
+	# disassemble so we can do a hacky fix to the ics symbols
+	llvm-dis 557.xz_r_wpd_ics_opt.bc
+	sed -i \
+      's/declare extern_weak i32 @ics_map_indirect_call.2(i64)//w sed_changes.txt' \
+      557.xz_r_wpd_ics_opt.ll
+	sed -i \
+      's/ics_map_indirect_call.2/ics_map_indirect_call/w sed_changes_2.txt' \
+      557.xz_r_wpd_ics_opt.ll
+	# now ingest the modified .ll file and run always-inline on it.
+	opt \
+	  --function-sections \
+      -always-inline \
+      < $(NUMBER).$(NAME)_wpd_ics_opt.ll \
       > $(NUMBER).$(NAME)_wpd_ics_opt.bc
 	llc  \
 	  --function-sections \
