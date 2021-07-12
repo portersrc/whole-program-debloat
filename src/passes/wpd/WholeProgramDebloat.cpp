@@ -96,6 +96,7 @@ namespace {
         int loop_id_counter;
         int sink_id_counter;
         long long text_size;
+        set<string> ics_func_names;
 
 
         void getAnalysisUsage(AnalysisUsage &AU) const
@@ -837,6 +838,10 @@ void WholeProgramDebloat::build_basic_structs(Module &M)
     CallBase *cb;
     for(auto &F : M){
         if(F.hasName() && !F.isDeclaration()){
+            if(ics_func_names.find(F.getName().str()) != ics_func_names.end()){
+                //errs() << "ignoring ics func: " << F.getName() << "\n";
+                continue;
+            }
             // update all_funcs
             all_funcs.insert(&F);
             li = &getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
@@ -1141,6 +1146,9 @@ void WholeProgramDebloat::wpd_init(Module &M)
         read_readelf();
     }
 
+    ics_func_names.insert("ics_map_indirect_call");
+    ics_func_names.insert("ics_unmap_indirect_calls");
+
     // Give each application function an ID
     int count = 0;
     for(auto &F : M){
@@ -1214,11 +1222,37 @@ void WholeProgramDebloat::wpd_init(Module &M)
 
     // FIXME ? not sure if external weak linkage is what i want here
     ics_map_indirect_call_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
+            //Function::ExternalLinkage,
+            //Function::ExternalWeakLinkage,
+            //Function::CommonLinkage,
+            //
+            //Function::AvailableExternallyLinkage,
+            //Function::LinkOnceAnyLinkage,
+            //Function::LinkOnceODRLinkage,
+            //Function::WeakAnyLinkage,
+            //Function::WeakODRLinkage,
+            //Function::AppendingLinkage,
+            //Function::InternalLinkage,
+            //Function::PrivateLinkage,
             Function::ExternalWeakLinkage,
+            //Function::CommonLinkage,
             "ics_map_indirect_call",
             M);
     ics_unmap_indirect_calls_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
+            //Function::ExternalLinkage,
+            //Function::ExternalWeakLinkage,
+            //Function::CommonLinkage,
+            //
+            //Function::AvailableExternallyLinkage,
+            //Function::LinkOnceAnyLinkage,
+            //Function::LinkOnceODRLinkage,
+            //Function::WeakAnyLinkage,
+            //Function::WeakODRLinkage,
+            //Function::AppendingLinkage,
+            //Function::InternalLinkage,
+            //Function::PrivateLinkage,
             Function::ExternalWeakLinkage,
+            //Function::CommonLinkage,
             "ics_unmap_indirect_calls",
             M);
 
