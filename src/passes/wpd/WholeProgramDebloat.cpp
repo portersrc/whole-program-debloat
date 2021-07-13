@@ -57,13 +57,13 @@ namespace {
         Function *debrt_protect_reachable_func;
         Function *debrt_protect_reachable_end_func;
         Function *debrt_protect_loop_func;
-        Function *debrt_protect_loop_end_func;
+        //Function *debrt_protect_loop_end_func;
         Function *debrt_protect_indirect_func;
         Function *debrt_protect_indirect_end_func;
         Function *debrt_protect_sink_func;
         Function *debrt_protect_sink_end_func;
         Function *ics_map_indirect_call_func;
-        Function *ics_unmap_indirect_calls_func;
+        Function *ics_wrapper_debrt_protect_loop_end_func;
         map<Function *, int> func_to_id;
         map<int, Function *> func_id_to_func;
         map<int, string> func_id_to_name;
@@ -499,6 +499,7 @@ void WholeProgramDebloat::instrument_loop(int func_id, Loop *loop)
     // 
 
     int loop_id = loop_id_counter;
+    bool has_toplevel_indirect_call = false;
 
     // Find preheader
     BasicBlock *preheader = loop->getLoopPreheader();
@@ -525,13 +526,22 @@ void WholeProgramDebloat::instrument_loop(int func_id, Loop *loop)
                           adj_list_fps[func_id_to_func[func_id]].end());
                     }
                 }
+                if(ENABLE_INDIRECT_CALL_SINKING){
+                    if(cb->getCalledFunction() == NULL){
+                        has_toplevel_indirect_call = true;
+                    }
+                }
             }
         }
     }
 
     // If there was at least one function call inside the loop, then we
     // will instrument it.
-    if(loop_static_reachability.find(loop_id) != loop_static_reachability.end()){
+    // Note: If the only call/calls was/were indirect, then we could end up
+    // with a loop-id that has no reachable functions. That's ok. The runtime
+    // library can handle it.
+    if(loop_static_reachability.find(loop_id) != loop_static_reachability.end()
+    || has_toplevel_indirect_call){
         stats.num_instrumented_basic_loops++;
 
         // Extend based on reachability of those callees
@@ -555,7 +565,10 @@ void WholeProgramDebloat::instrument_loop(int func_id, Loop *loop)
         builder.CreateCall(debrt_protect_loop_func, ArgsV);
 
         //Set of functions debloated within loop (Sharjeel)
-        instrumented_sets.push_back(loop_static_reachability[loop_id]);
+        // cporter update: added check in case 0-element case matters
+        if(loop_static_reachability[loop_id].size() > 0){
+            instrumented_sets.push_back(loop_static_reachability[loop_id]);
+        }
         // errs() << "Inserted library function within preheader(" << preheader->getName().str() << "\n";
 
         // instrument the exit(s) block(s) of the loop
@@ -571,7 +584,8 @@ void WholeProgramDebloat::instrument_loop(int func_id, Loop *loop)
             Instruction *ebt = exit_block->getTerminator();
             assert(ebt);
             IRBuilder<> builder_exit(ebt);
-            builder_exit.CreateCall(debrt_protect_loop_end_func, ArgsV);
+            //builder_exit.CreateCall(debrt_protect_loop_end_func, ArgsV);
+            builder_exit.CreateCall(ics_wrapper_debrt_protect_loop_end_func, ArgsV);
         }
 
         // Note which function this loop is associated with
@@ -1199,10 +1213,10 @@ void WholeProgramDebloat::wpd_init(Module &M)
             Function::ExternalLinkage,
             "debrt_protect_loop",
             M);
-    debrt_protect_loop_end_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
-            Function::ExternalLinkage,
-            "debrt_protect_loop_end",
-            M);
+    //debrt_protect_loop_end_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+    //        Function::ExternalLinkage,
+    //        "debrt_protect_loop_end",
+    //        M);
     debrt_protect_indirect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
             Function::ExternalLinkage,
             "debrt_protect_indirect",
@@ -1222,38 +1236,13 @@ void WholeProgramDebloat::wpd_init(Module &M)
 
     // FIXME ? not sure if external weak linkage is what i want here
     ics_map_indirect_call_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
-            //Function::ExternalLinkage,
-            //Function::ExternalWeakLinkage,
-            //Function::CommonLinkage,
-            //
-            //Function::AvailableExternallyLinkage,
-            //Function::LinkOnceAnyLinkage,
-            //Function::LinkOnceODRLinkage,
-            //Function::WeakAnyLinkage,
-            //Function::WeakODRLinkage,
-            //Function::AppendingLinkage,
-            //Function::InternalLinkage,
-            //Function::PrivateLinkage,
             Function::ExternalWeakLinkage,
-            //Function::CommonLinkage,
             "ics_map_indirect_call",
             M);
-    ics_unmap_indirect_calls_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
-            //Function::ExternalLinkage,
-            //Function::ExternalWeakLinkage,
-            //Function::CommonLinkage,
-            //
-            //Function::AvailableExternallyLinkage,
-            //Function::LinkOnceAnyLinkage,
-            //Function::LinkOnceODRLinkage,
-            //Function::WeakAnyLinkage,
-            //Function::WeakODRLinkage,
-            //Function::AppendingLinkage,
-            //Function::InternalLinkage,
-            //Function::PrivateLinkage,
+    ics_wrapper_debrt_protect_loop_end_func
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
             Function::ExternalWeakLinkage,
-            //Function::CommonLinkage,
-            "ics_unmap_indirect_calls",
+            "ics_wrapper_debrt_protect_loop_end",
             M);
 
 

@@ -33,10 +33,12 @@
 
 #define MAX_CACHED_FP_ADDRS_SZ 64
 #include <stdlib.h>
+#include <string.h>
 
 extern "C" {int debrt_protect_indirect(long long);}
+extern "C" {int debrt_protect_loop_end(int);}
 
-long long cached_fp_addrs[MAX_CACHED_FP_ADDRS_SZ];
+long long cached_fp_addrs[MAX_CACHED_FP_ADDRS_SZ] = {0};
 long long cached_fp_addrs_idx = 0;
 
 extern "C" {
@@ -57,3 +59,12 @@ int ics_map_indirect_call(long long fp_addr)
 }
 }
 
+extern "C" {
+__attribute__((always_inline))
+int ics_wrapper_debrt_protect_loop_end(int loop_id)
+{
+    debrt_protect_loop_end(loop_id);
+    memset(cached_fp_addrs, 0, sizeof(long long) * MAX_CACHED_FP_ADDRS_SZ);
+    return 0;
+}
+}

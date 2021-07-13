@@ -96,6 +96,7 @@ int num_mispredictions;
 int total_predictions;
 stack<set<int> *> pred_set_stack;
 vector<int> single_stack;
+set<int> ics_set;
 
 
 int  _debrt_monitor_init(void);
@@ -2042,10 +2043,25 @@ int debrt_protect_loop_end(int loop_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
+    // Hijack the loop-end call to turn off any functions that were enabled
+    // inside of a loop due to ICS. Note that ics-set will always have a size
+    // of 0 when ICS is disabled, so checking that it's enabled doesn't really
+    // matter here.
+    for(int func_id : ics_set){
+        if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
+            _protect_reachable(func_id, -1); // ignoring return value
+        }else{
+            _protect_single_end(func_id); // ignoring return value
+        }
+    }
+    ics_set.clear();
     _protect_loop_reachable(loop_id, -1);
     return 0;
 }
 }
+
+
+
 
 
 extern "C" {
@@ -2064,6 +2080,39 @@ int debrt_protect_indirect(long long callee_addr)
     }
     int func_id = func_addr_to_id[callee_addr];
     DEBRT_PRINTF("func_id is: %d\n", func_id);
+
+    //
+    //
+    // Hijack the protect-indirect call for indirect call sinking (i.e.
+    // instrumented indirect calls inside of loops).
+    // Checking that ICS is enabled probably makes no difference here.
+    // Also, for normal protect-indirect calls (not inside loops), this code
+    // should never short-circuit below (i.e. should never return 0 early).
+    // The reason is because ics_set should never have the func-id, and even
+    // though it unnecessarily inserts it into the set, protect-indirect-end
+    // now clears the set regardless. So this is a little unnecessary overhead
+    // in those cases, but the code is shared and simpler.
+
+    // This short-circuit is kind of a hack. The inlined C code is a fast
+    // hash and mod. It's a cheap set that can't handle collision. Thus, it
+    // might invoke protect-indirect unnecessarily, and we
+    // don't want to update a page count for a function multiple times in a
+    // loop if it's already been seen. So here we have this proper stl set that
+    // we can short-circuit: If we have already seen this func-id within this
+    // loop (i.e. within this ics-set), just return early.
+    if(ics_set.find(func_id) != ics_set.end()){
+        return 0;
+    }
+    // We reach this point if this is a new indirectly called func-id within
+    // some loop. Insert it into our set so we can clear it at loop exit.
+    // (As pointed out, this code is shared, so we also do this on any normal
+    // indirect call outside of a loop; in that case, it's cleared by
+    // protect-indirect-end.)
+    ics_set.insert(func_id);
+    //
+    //
+
+
     if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
         // encompassed function
         return _protect_reachable(func_id, 1);
@@ -2072,6 +2121,7 @@ int debrt_protect_indirect(long long callee_addr)
     return _protect_single(func_id);
 }
 }
+
 
 static inline
 int _protect_indirect_end(long long callee_addr)
@@ -2083,6 +2133,7 @@ int _protect_indirect_end(long long callee_addr)
     }
     int func_id = func_addr_to_id[callee_addr];
     DEBRT_PRINTF("func_id is: %d\n", func_id);
+    ics_set.clear();
     if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
         // encompassed function
         return _protect_reachable(func_id, -1);
@@ -2098,18 +2149,6 @@ int debrt_protect_indirect_end(long long callee_addr)
     _WARN_RETURN_IF_NOT_INITIALIZED();
     DEBRT_PRINTF("end callee_addr is: 0x%llx\n", callee_addr);
     return _protect_indirect_end(callee_addr);
-}
-}
-
-extern "C" {
-int debrt_protect_ics_end(set<long long> *cached_fp_addrs)
-{
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
-    _WARN_RETURN_IF_NOT_INITIALIZED();
-    for(long long fp_addr : (*cached_fp_addrs)){
-        _protect_indirect_end(fp_addr); // ignoring return value
-    }
-    return 0;
 }
 }
 
