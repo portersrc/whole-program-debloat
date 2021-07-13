@@ -131,7 +131,8 @@ namespace {
         void instrument_after_invoke(InvokeInst *II,
                                      vector<Value *> &ArgsV,
                                      Function *debrt_func);
-        void instrument_indirect(void);
+        void instrument_toplevel_func(Function *f, LoopInfo *LI);
+        void instrument_indirect(Function *f, LoopInfo *LI);
 
         void get_callees(Loop *loop,
                          vector<pair<Function *, CallBase *> > &callees);
@@ -659,11 +660,15 @@ void WholeProgramDebloat::instrument_after_invoke(InvokeInst *II,
 }
 
 
-void WholeProgramDebloat::instrument_indirect(void)
+void WholeProgramDebloat::instrument_indirect(Function *f, LoopInfo *LI)
 {
-    for(auto f : all_funcs){
+    //for(auto f : all_funcs){
         errs() << "Instrumenting indirect for " << f->getName().str() << "\n";
         for(auto &b : *f){
+            bool block_is_outside_loop = true;
+            if(LI && LI->getLoopFor(&b)){
+                block_is_outside_loop = false;
+            }
             for(auto &I : b){
                 CallBase   *CB = dyn_cast<CallBase>(&I);
                 CallInst   *CI = dyn_cast<CallInst>(&I);
@@ -677,43 +682,35 @@ void WholeProgramDebloat::instrument_indirect(void)
                             continue;
                         }
                         if(v->getType()->isPointerTy()){
-                            if(ENABLE_INDIRECT_CALL_SINKING
-                            || encompassed_funcs.find(f) == encompassed_funcs.end()){
-                                // instrument before indirect func call
-                                vector<Value *> ArgsV;
-                                IRBuilder<> builder(CB);
-                                ArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
-                                if(ENABLE_INDIRECT_CALL_SINKING){
-                                    builder.CreateCall(ics_map_indirect_call_func, ArgsV);
+                            bool f_is_not_encompassed
+                              = encompassed_funcs.find(f) == encompassed_funcs.end();
+                            // instrument before indirect func call
+                            vector<Value *> ArgsV;
+                            IRBuilder<> builder(CB);
+                            ArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
+                            if(f_is_not_encompassed && block_is_outside_loop){
+                                builder.CreateCall(debrt_protect_indirect_func, ArgsV);
+
+                                // instrument after indirect func call
+                                if(CI){
+                                    IRBuilder<> builder_end(CI);
+                                    builder_end.SetInsertPoint(CI->getNextNode());
+                                    builder_end.CreateCall(debrt_protect_indirect_end_func, ArgsV);
+                                }else if(II){
+                                    errs() << "indirect func invoke case\n";
+                                    instrument_after_invoke(II, ArgsV, debrt_protect_indirect_end_func);
                                 }else{
-                                    builder.CreateCall(debrt_protect_indirect_func, ArgsV);
-                                }
-                                
-                                // optimization: only instrument after the
-                                // indirect call if we are not inside an
-                                // encompassed func. That is, the runtime
-                                // will handle this ICS optimization to clear
-                                // the pages at the end of the loop.
-                                if(encompassed_funcs.find(f) == encompassed_funcs.end()){
-                                    // instrument after indirect func call
-                                    if(CI){
-                                        IRBuilder<> builder_end(CI);
-                                        builder_end.SetInsertPoint(CI->getNextNode());
-                                        builder_end.CreateCall(debrt_protect_indirect_end_func, ArgsV);
-                                    }else if(II){
-                                        errs() << "indirect func invoke case\n";
-                                        instrument_after_invoke(II, ArgsV, debrt_protect_indirect_end_func);
-                                    }else{
-                                        assert(0);
-                                    }
+                                    assert(0);
                                 }
                             }else{
-                                errs() << "WARNING: Unhandled functionality "
-                                       << "- indirect call in encompassed_funcs."
-                                       << " Could lead to runtime crash.\n";
-                                //assert(0 && "ERROR: Unhandled functionality " \
-                                //       "- indirect call in encompassed_funcs");
+                                builder.CreateCall(ics_map_indirect_call_func, ArgsV);
+                                // Note: we only instrument after the
+                                // indirect call if we are not inside an
+                                // encompassed func or a loop block. The
+                                // runtime will handle this ICS optimization to
+                                // clear the pages at the end of the loop.
                             }
+                            
                         }else{
                             // Not sure how to handle this if it happens
                             // would need to investigate the specific case.
@@ -724,17 +721,34 @@ void WholeProgramDebloat::instrument_indirect(void)
                 }
             }
         }
-    }
+    //}
 }
-
 
 void WholeProgramDebloat::instrument(void)
 {
-    for(auto f : toplevel_funcs){
+    for(auto f : all_funcs){
+        LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
+        if(toplevel_funcs.find(f) != toplevel_funcs.end()){
+            instrument_toplevel_func(f, LI);
+        }
+        // XXX Bit of a misnomer. This checks actually ensures that only when
+        // ICS is active do we even instrument indirect calls now.
+        // This is probably as it should have been from the start, because old
+        // wpd approaches just turned on the transitive closure of all func
+        // pointers anyway.
+        if(ENABLE_INDIRECT_CALL_SINKING){
+            instrument_indirect(f, LI);
+        }
+
+    }
+}
+
+void WholeProgramDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
+{
+    //for(auto f : toplevel_funcs){
         errs() << "Instrumenting " << f->getName().str() << "\n";
 
         // Instrument outer loops
-        LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
         for(auto loop = LI->begin(), e = LI->end(); loop != e; ++loop){
             stats.num_toplevel_loops++;
             if(ENABLE_INSTRUMENTATION_SINKING){
@@ -818,7 +832,7 @@ void WholeProgramDebloat::instrument(void)
                 }
             }
         }
-    }
+    //}
 
 
 }
@@ -1292,9 +1306,6 @@ bool WholeProgramDebloat::runOnModule_real(Module &M)
 
     // Instrument all other functions
     instrument();
-
-    // instrument indirect function calls
-    instrument_indirect();
 
     // create disjoint sets
     create_disjoint_sets();

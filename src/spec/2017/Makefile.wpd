@@ -642,6 +642,12 @@ wpd_ics: $(EXEBASE)
 	sed -i \
       's/ics_wrapper_debrt_protect_loop_end.3/ics_wrapper_debrt_protect_loop_end/w sed_changes_3.txt' \
       $(NUMBER).$(NAME)_wpd_ics_opt.ll
+	sed -i \
+      's/debrt_protect_indirect.1/debrt_protect_indirect/w sed_changes_5.txt' \
+      $(NUMBER).$(NAME)_wpd_ics_opt.ll
+	sed -i \
+      's/declare i32 @debrt_protect_indirect(i64)$$//w sed_changes_4.txt' \
+      $(NUMBER).$(NAME)_wpd_ics_opt.ll
 	# now ingest the modified .ll file and run always-inline on it.
 	opt \
 	  --function-sections \
