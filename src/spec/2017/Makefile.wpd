@@ -392,6 +392,13 @@ base_loop_simplify_no_ics: $(EXEBASE)
       $(NUMBER).$(NAME)_baseline_ls_opt.s \
       -o $(NUMBER).$(NAME)_baseline_ls \
       -lm -lrt
+base_loop_simplify_short: $(EXEBASE)
+	opt \
+      --function-sections \
+      -O3 \
+      -loop-simplify \
+      < $(NUMBER).$(NAME)_linked.bc \
+      > $(NUMBER).$(NAME)_baseline_ls_opt.bc
 wpd_ls: $(EXEBASE)
 	# opt \
     #   --function-sections \
@@ -637,13 +644,19 @@ wpd_ics: $(EXEBASE)
       < $(NUMBER).$(NAME)_baseline_ls_opt.bc \
       > $(NUMBER).$(NAME)_wpd_ics_opt.bc
 	# disassemble so we can do a hacky fix to the ics symbols
-	llvm-dis 557.xz_r_wpd_ics_opt.bc
+	llvm-dis $(NUMBER).$(NAME)_wpd_ics_opt.bc
 	sed -i \
-      's/declare extern_weak i32 @ics_map_indirect_call.2(i64)//w sed_changes.txt' \
-      557.xz_r_wpd_ics_opt.ll
+      's/declare extern_weak i32 @ics_map_indirect_call.2(i64)//w sed_changes_0.txt' \
+      $(NUMBER).$(NAME)_wpd_ics_opt.ll
+	sed -i \
+      's/declare extern_weak i32 @ics_wrapper_debrt_protect_loop_end.3(i32)//w sed_changes_1.txt' \
+      $(NUMBER).$(NAME)_wpd_ics_opt.ll
 	sed -i \
       's/ics_map_indirect_call.2/ics_map_indirect_call/w sed_changes_2.txt' \
-      557.xz_r_wpd_ics_opt.ll
+      $(NUMBER).$(NAME)_wpd_ics_opt.ll
+	sed -i \
+      's/ics_wrapper_debrt_protect_loop_end.3/ics_wrapper_debrt_protect_loop_end/w sed_changes_3.txt' \
+      $(NUMBER).$(NAME)_wpd_ics_opt.ll
 	# now ingest the modified .ll file and run always-inline on it.
 	opt \
 	  --function-sections \
