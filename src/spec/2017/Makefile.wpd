@@ -347,7 +347,7 @@ $(EXEBASE): $(OBJS)
 ifndef NEEDATFILE
 	#$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) $^           $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
 	#$(LD) $^ $(LDOUT)
-	#$(LD) $^ ics.ll $(LDOUT)
+	#$(LD) $^ ics.ll -o $(NUMBER).$(NAME)_linked_ics.bc
 # cporter
 base: $(EXEBASE)
 	opt \
@@ -376,29 +376,14 @@ base_loop_simplify: $(EXEBASE)
 	g++ \
       $(NUMBER).$(NAME)_baseline_ls_opt.s \
       -o $(NUMBER).$(NAME)_baseline_ls \
-      -ldebloat_rt -lm -lrt
-base_loop_simplify_no_ics: $(EXEBASE)
-	opt \
-      --function-sections \
-      -O3 \
-      -loop-simplify \
-      < $(NUMBER).$(NAME)_linked.bc \
-      > $(NUMBER).$(NAME)_baseline_ls_opt.bc
-	llc  \
-      $(NUMBER).$(NAME)_baseline_ls_opt.bc \
-      -relocation-model=pic \
-      -o $(NUMBER).$(NAME)_baseline_ls_opt.s
-	g++ \
-      $(NUMBER).$(NAME)_baseline_ls_opt.s \
-      -o $(NUMBER).$(NAME)_baseline_ls \
       -lm -lrt
-base_loop_simplify_short: $(EXEBASE)
+base_loop_simplify_ics: $(EXEBASE)
 	opt \
       --function-sections \
       -O3 \
       -loop-simplify \
-      < $(NUMBER).$(NAME)_linked.bc \
-      > $(NUMBER).$(NAME)_baseline_ls_opt.bc
+      < $(NUMBER).$(NAME)_linked_ics.bc \
+      > $(NUMBER).$(NAME)_baseline_ls_ics_opt.bc
 wpd_ls: $(EXEBASE)
 	# opt \
     #   --function-sections \
@@ -641,7 +626,7 @@ wpd_ics: $(EXEBASE)
       -load libWholeProgramDebloat.so \
       -WholeProgramDebloat \
       --enable-indirect-call-sinking=true \
-      < $(NUMBER).$(NAME)_baseline_ls_opt.bc \
+      < $(NUMBER).$(NAME)_baseline_ls_ics_opt.bc \
       > $(NUMBER).$(NAME)_wpd_ics_opt.bc
 	# disassemble so we can do a hacky fix to the ics symbols
 	llvm-dis $(NUMBER).$(NAME)_wpd_ics_opt.bc
