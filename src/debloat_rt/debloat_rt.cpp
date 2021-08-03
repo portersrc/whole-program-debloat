@@ -26,7 +26,7 @@
 using namespace std;
 
 //#define DEBRT_DEBUG
-#define DEBRT_ABSOLUTE_ELF_ADDRS
+//#define DEBRT_ABSOLUTE_ELF_ADDRS
 
 // to enable, set env var DEBRT_ENABLE_STATS=1
 int ENV_DEBRT_ENABLE_STATS = 0;
