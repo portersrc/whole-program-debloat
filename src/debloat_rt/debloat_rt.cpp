@@ -26,6 +26,7 @@
 using namespace std;
 
 //#define DEBRT_DEBUG
+#define DEBRT_ABSOLUTE_ELF_ADDRS
 
 // to enable, set env var DEBRT_ENABLE_STATS=1
 int ENV_DEBRT_ENABLE_STATS = 0;
@@ -1111,14 +1112,24 @@ void _read_readelf(void)
                 if(func_name_to_id.find(func_name) != func_name_to_id.end()){
                     int func_id = func_name_to_id[func_name];
                     func_id_to_rel_addr_and_size[func_id] = make_pair(func_addr, func_size);
+#ifdef DEBRT_ABSOLUTE_ELF_ADDRS
+                    func_addr_to_id[func_addr] = func_id;
+                    func_id_to_addr[func_id] = func_addr;
+#else
                     func_addr_to_id[executable_addr_base + func_addr] = func_id;
                     func_id_to_addr[func_id] = executable_addr_base + func_addr;
+#endif
                     vector<long long> pages;
                     long long first_page;
                     long long last_page;
                     long long p;
+#ifdef DEBRT_ABSOLUTE_ELF_ADDRS
+                    first_page = (func_addr) & ~(PAGE_SIZE-1);
+                    last_page  = (func_addr + func_size) & ~(PAGE_SIZE-1);
+#else
                     first_page = (executable_addr_base + func_addr) & ~(PAGE_SIZE-1);
                     last_page  = (executable_addr_base + func_addr + func_size) & ~(PAGE_SIZE-1);
+#endif
                     for(p = first_page; p <= last_page; p += 0x1000){
                         pages.push_back(p);
                     }
@@ -1151,7 +1162,7 @@ void _read_readelf_sections(void)
         if(elems.size() >= 2 && elems[1].compare(".text") == 0){
             text_offset_idx = 3;
         }else if(elems.size() >= 3 && elems[2].compare(".text") == 0){
-            text_offset_idx = 4;
+            text_offset_idx = 5;
         }
         if(text_offset_idx){
             text_offset = stoll(elems[text_offset_idx], 0, 16);
@@ -1611,9 +1622,13 @@ void _debrt_protect_all_pages(int perm)
         text_end_aligned   -= 0x1000;
         end_had_to_align = 1;
     }
+    DEBRT_PRINTF("text_start_aligned: 0x%llx\n", text_start_aligned);
+    DEBRT_PRINTF("text_end_aligned: 0x%llx\n", text_end_aligned);
     // FIXME: Should be text_end_aligned - text_start_aligned + 0x1000, i think
-    if(mprotect((void *)text_start_aligned, text_end_aligned - text_start_aligned, perm) == -1){
-        DEBRT_PRINTF("mprotect error\n");
+    int rc = mprotect((void *)text_start_aligned, text_end_aligned - text_start_aligned, perm);
+    if(rc == -1){
+        int e = errno;
+        DEBRT_PRINTF("mprotect error: %d\n", e);
         assert(0 && "mprotect error");
     }
     DEBRT_PRINTF("  mprotect succeeded\n");
