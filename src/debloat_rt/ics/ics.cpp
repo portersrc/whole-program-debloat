@@ -31,9 +31,13 @@
 //}
 
 
-#define MAX_CACHED_FP_ADDRS_SZ 64
 #include <stdlib.h>
 #include <string.h>
+
+// Set the buffer size here.
+// addresses are 8 bytes (long long)
+//#define MAX_CACHED_FP_ADDRS_SZ 64 // 64 * 8 = 512 B buffer
+#define MAX_CACHED_FP_ADDRS_SZ (1<<20) // 8 MB
 
 extern "C" {int debrt_protect_indirect(long long);}
 extern "C" {int debrt_protect_loop_end(int);}
