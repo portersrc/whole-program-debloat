@@ -159,6 +159,7 @@ map<long long, int> page_to_count;
 
 
 int *stats_hist;
+unsigned long long ics_set_short_circuit_count = 0;
 
 
 template<typename Out>
@@ -1742,6 +1743,7 @@ void _debrt_protect_destroy(void)
 
     fprintf(fp_out, "num_mispredictions: %d\n", num_mispredictions);
     fprintf(fp_out, "total_predictions:  %d\n", total_predictions);
+    fprintf(fp_out, "ics_set_short_circuit_count: %llu\n", ics_set_short_circuit_count);
 
     if(ENV_DEBRT_ENABLE_STATS){
         fprintf(fp_out, "hist: ");
@@ -2116,6 +2118,7 @@ int debrt_protect_indirect(long long callee_addr)
     // we can short-circuit: If we have already seen this func-id within this
     // loop (i.e. within this ics-set), just return early.
     if(ics_set.find(func_id) != ics_set.end()){
+        ics_set_short_circuit_count++;
         return 0;
     }
     // We reach this point if this is a new indirectly called func-id within
