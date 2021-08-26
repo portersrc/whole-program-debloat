@@ -31,20 +31,20 @@ BMARKS=(
 
 
 GROUP_A=(
-    #505.mcf_r
+    505.mcf_r
     519.lbm_r
-    #531.deepsjeng_r
-    #541.leela_r
-    #544.nab_r
+    531.deepsjeng_r
+    541.leela_r
+    544.nab_r
     557.xz_r
 )
 
 GROUP_B=(
     #500.perlbench_r
-    508.namd_r
+    #508.namd_r
     #511.povray_r
     #520.omnetpp_r
-    #523.xalancbmk_r
+    523.xalancbmk_r
     #525.x264_r
 )
 
@@ -87,21 +87,22 @@ CMDS=(
     #"cp readelf-custlink-sink.out readelf.out"
     #"cp readelf-sections-custlink-sink.out readelf-sections.out"
     #"./run.sh wpd_cl_sink large"
+    #"make base_loop_simplify_ics"
     #"make wpd_ics"
     #"python3 linker.py ."
     #"make wpd_custlink_ics"
     #"cp readelf-ics.out readelf.out"
     #"cp readelf-sections-ics.out readelf-sections.out"
     #"./run.sh wpd_ics large"
-    #"cp readelf-custlink-ics.out readelf.out"
-    #"cp readelf-sections-custlink-ics.out readelf-sections.out"
-    #"./run.sh wpd_cl_ics large"
+    "cp readelf-custlink-ics.out readelf.out"
+    "cp readelf-sections-custlink-ics.out readelf-sections.out"
+    "./run.sh wpd_cl_ics large"
     #"make wpd_bicsa"
     #"python3 linker.py ."
     #"make wpd_custlink_bicsa"
-    "cp readelf-bicsa.out readelf.out"
-    "cp readelf-sections-bicsa.out readelf-sections.out"
-    "./run.sh wpd_bicsa large"
+    #"cp readelf-bicsa.out readelf.out"
+    #"cp readelf-sections-bicsa.out readelf-sections.out"
+    #"./run.sh wpd_bicsa large"
     #"cp readelf-custlink-bicsa.out readelf.out"
     #"cp readelf-sections-custlink-bicsa.out readelf-sections.out"
     #"./run.sh wpd_cl_bicsa large"
@@ -148,6 +149,15 @@ function copy_results() {
 
             # hacky check for large*.out timestamps
             #ls -l $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/large*.out
+
+            # hacky check for ics and cl-ics binary timestamps
+            #ls -l $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/*wpd*_ics
+
+            # hacky check for base_loop_simplify_ics bitcode output
+            #ls -l $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/*_baseline_ls_ics_opt.bc
+
+            # hacky check for wpd_ics and wpd_custlink_ics binaries
+            #ls -l $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/*wpd*ics
         done
     done
     popd
