@@ -1629,7 +1629,7 @@ void _debrt_protect_all_pages(int perm)
     int rc = mprotect((void *)text_start_aligned, text_end_aligned - text_start_aligned, perm);
     if(rc == -1){
         int e = errno;
-        DEBRT_PRINTF("mprotect error: %d\n", e);
+        DEBRT_PRINTF("mprotect error (%d): %s\n", e, strerror(e));
         assert(0 && "mprotect error");
     }
     DEBRT_PRINTF("  mprotect succeeded\n");
@@ -1920,8 +1920,15 @@ int debrt_init(int main_func_id, int sink_is_enabled)
 
     _init_page_to_count();
 
-    atexit(_debrt_protect_destroy);
+    // XXX replaced atexit() by calling debrt_destroy(), which is instrumented
+    // by the pass at the end of the application's main(). This is a hack for
+    // now b/c omnetpp seems to install exit handlers that run before ours.
+    // According to atexit man page, the handlers run in reverse order that
+    // they're registered.
+    //atexit(_debrt_protect_destroy);
 
+    DEBRT_PRINTF("&func_name_to_id: 0x%p\n", &func_name_to_id);
+    DEBRT_PRINTF("&func_name_to_id['main']: %p\n", &func_name_to_id["main"]);
     _debrt_protect_all_pages(RO_PERM);
     if( (ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING == 0)
     &&  (ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS == 0) ){
@@ -1932,6 +1939,7 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     // if this is the first protect call, we need to make sure the caller's
     // page and main are still executable.
     DEBRT_PRINTF("ensuring first protect caller is still RX\n");
+    DEBRT_PRINTF("main_func_id: %d\n", main_func_id);
     assert(main_func_id == func_name_to_id["main"]);
     int rv;
     rv = update_page_counts(main_func_id, 1);
@@ -1939,6 +1947,14 @@ int debrt_init(int main_func_id, int sink_is_enabled)
 
     lib_initialized = 1;
 
+    return 0;
+}
+}
+
+extern "C" {
+int debrt_destroy(int notused)
+{
+    _debrt_protect_destroy();
     return 0;
 }
 }

@@ -17,6 +17,7 @@ int debrt_cgreturn(long long);
 
 
 int debrt_init(int main_func_id, int sink_is_enabled);
+int debrt_destroy(int notused);
 
 int debrt_protect_single(int callee_func_id);
 int debrt_protect_single_end(int callee_func_id);
