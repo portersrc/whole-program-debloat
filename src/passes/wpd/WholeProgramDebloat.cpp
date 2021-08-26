@@ -15,6 +15,7 @@
 #include "llvm/Demangle/Demangle.h"
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #include <set>
 #include <stack>
@@ -52,6 +53,7 @@ namespace {
         WholeProgramDebloat() : ModulePass(ID) {}
 
         Function *debrt_init_func;
+        Function *debrt_destroy_func;
         Function *debrt_protect_single_func;
         Function *debrt_protect_single_end_func;
         Function *debrt_protect_reachable_func;
@@ -119,7 +121,8 @@ namespace {
         void build_toplevel_funcs(void);
         void create_disjoint_sets(void);
 
-        bool instrument_main(Module &M);
+        bool instrument_main_start(Module &M);
+        bool instrument_main_end(Module &M);
         void instrument(void);
         void instrument_loop(int func_id, Loop *loop);
         void instrument_loop_sink(int toplevel_func_id, Loop *toplevel_loop);
@@ -132,7 +135,11 @@ namespace {
                                      vector<Value *> &ArgsV,
                                      Function *debrt_func);
         void instrument_toplevel_func(Function *f, LoopInfo *LI);
-        void instrument_indirect(Function *f, LoopInfo *LI);
+        void instrument_indirect_and_external(Function *f, LoopInfo *LI);
+        void instrument_external_call(Instruction &I,
+                                      bool call_is_outside_loop);
+        void instrument_cxa_throw(Instruction &I,
+                                  bool call_is_outside_loop);
 
         void get_callees(Loop *loop,
                          vector<pair<Function *, CallBase *> > &callees);
@@ -630,6 +637,7 @@ void WholeProgramDebloat::instrument_after_invoke(InvokeInst *II,
         << "expected 2, but got " << II->getNumSuccessors() << "\n";
         assert(0);
     }
+
     BasicBlock *new_bb = SplitEdge(II->getParent(), II->getNormalDest());
     //BasicBlock *pred_bb = new_bb->getUniquePredecessor();
     //assert(pred_bb);
@@ -646,6 +654,7 @@ void WholeProgramDebloat::instrument_after_invoke(InvokeInst *II,
     //for(auto &I : *new_bb){
     //    errs() << I << "\n";
     //}
+
     if(ndi == NULL){
         // unexpected, though the API allows getFirstNonPHI to be null.
         // assert 0 for now and handle only if we encounter it.
@@ -654,74 +663,189 @@ void WholeProgramDebloat::instrument_after_invoke(InvokeInst *II,
     }
     IRBuilder<> builder_end(ndi);
     if(dyn_cast<LandingPadInst>(ndi)){
+        // FIXME ? updated note on this: seems like dead code, b/c there
+        // should not be landing pad for the normal-destination case. It's
+        // only for the unwind case. Leaving b/c of uncertainy and it's how
+        // it used to work. Can fix when we do the TODO below
         builder_end.SetInsertPoint(ndi->getNextNode());
     }
     builder_end.CreateCall(debrt_func, ArgsV);
+
+
+    //
+    //
+    // TODO: Support for instrumentation on the unwind case.
+    // Right now I have a bunch of garbage trial-and-error code below. I was
+    // last working with that cloned_bb idea below. I think it could work,
+    // but I needed a way to change the successors and predecessors of
+    // the basic blocks. The API doesn't seem to have much support for
+    // the BBs, but it does allow things like changing the successor
+    // of a terminating instruction. See Instruction's getNumSuccessors,
+    // getSuccesor, and setSuccessor().
+    // I'm leaving this as unimplemented for now b/c we don't have to worry
+    // about benchmarks that are constantly throwing and catching exceptions.
+    // Without completing this, however, we could run into a benchmark where
+    // exceptions are commonly thrown and caught, and because we don't
+    // instrument the unwind case here, our security gradually gets worse.
+    //
+    //
+    //BasicBlock *orig_normal_dest = II->getNormalDest();
+    //BasicBlock *new_bb_normal = SplitEdge(II->getParent(), II->getNormalDest());
+
+    //BasicBlock *pred_bb = new_bb_normal->getUniquePredecessor();
+    //assert(pred_bb);
+    //if(new_bb_normal == II->getParent()){
+    //    errs() << "new_bb_normal is the 'from'\n";
+    //}else if(new_bb_normal == II->getNormalDest()){
+    //    errs() << "new_bb_normal is the 'to'\n";
+    //}else{
+    //    errs() << "new_bb_normal is in the middle\n";
+    //}
+    //BasicBlock *post_normal_dest = II->getNormalDest();
+
+    ////if(orig_normal_dest == post_normal_dest){
+    ////    assert(0 && "orig and post are the same");
+    ////}else{
+    ////    assert(0 && "orig and post are different");
+    ////}
+
+
+    //Instruction *ndi = II->getNormalDest()->getFirstNonPHI();
+    ////Instruction *ndi = new_bb->getFirstNonPHI();
+    ////Instruction *ndi = pred_bb->getFirstNonPHI();
+    ////for(auto &I : *new_bb){
+    ////    errs() << I << "\n";
+    ////}
+    //if(ndi == NULL){
+    //    // unexpected, though the API allows getFirstNonPHI to be null.
+    //    // assert 0 for now and handle only if we encounter it.
+    //    errs() << "ndi is null\n";
+    //    assert(0);
+    //}
+    //IRBuilder<> builder_end(ndi);
+    //// TODO: What does this SetInsertPoint do, again?
+    //// Seems not to affect the instrumentation.
+    //if(dyn_cast<LandingPadInst>(ndi)){
+    //    errs() << "setting ndi insert point" << "\n";
+    //    builder_end.SetInsertPoint(ndi->getNextNode());
+    //}else{
+    //    errs() << "dyn_cast to LandingPadInst failed. Did not set ndi insert point\n";
+    //}
+    //builder_end.CreateCall(debrt_func, ArgsV);
+
+    //errs() << "before\n";
+    //II->getUnwindDest()->dump();
+    //errs() << "after\n";
+
+    //ValueToValueMapTy VMap;
+    //BasicBlock *cloned_bb = CloneBasicBlock(II->getUnwindDest(), VMap);
+    //cloned_bb->insertInto(II->getUnwindDest()->getParent(), II->getUnwindDest());
+
+    //errs() << "before\n";
+    //cloned_bb->dump();
+    //errs() << "after\n";
+
+    //if(II->getUnwindDest() == II->getNormalDest()){
+    //    assert(0 && "Weird. unwind and normal match");
+    //}else{
+    //    assert(0 && "unwind and normal are different");
+    //}
+
+    //// Handle the unwind case.
+    //// TODO: remove boilerplate. matches the getNormalDest() code just above.
+    //BasicBlock *new_bb_unwind = SplitEdge(II->getParent(), II->getUnwindDest());
+    //Instruction *udi = II->getUnwindDest()->getFirstNonPHI();
+    //if(udi == NULL){
+    //    // unexpected, though the API allows getFirstNonPHI to be null.
+    //    // assert 0 for now and handle only if we encounter it.
+    //    errs() << "udi is null\n";
+    //    assert(0);
+    //}
+    //IRBuilder<> builder_end_unwind(udi);
+    //if(dyn_cast<LandingPadInst>(udi)){
+    //    errs() << "setting udi insert point" << "\n";
+    //    builder_end_unwind.SetInsertPoint(udi->getNextNode());
+    //}else{
+    //    errs() << "dyn_cast to LandingPadInst failed. Did not set udi insert point\n";
+    //}
+    //builder_end_unwind.CreateCall(debrt_func, ArgsV);
+
 }
 
 
-void WholeProgramDebloat::instrument_indirect(Function *f, LoopInfo *LI)
+void WholeProgramDebloat::instrument_indirect_and_external(Function *f, LoopInfo *LI)
 {
-    //for(auto f : all_funcs){
-        errs() << "Instrumenting indirect for " << f->getName().str() << "\n";
-        for(auto &b : *f){
-            bool block_is_outside_loop = true;
-            if(LI && LI->getLoopFor(&b)){
-                block_is_outside_loop = false;
-            }
-            for(auto &I : b){
-                CallBase   *CB = dyn_cast<CallBase>(&I);
-                CallInst   *CI = dyn_cast<CallInst>(&I);
-                InvokeInst *II = dyn_cast<InvokeInst>(&I);
-                if(CB){
-                    if(CB->getCalledFunction() == NULL){
-                        errs() << "seeing indirect function call\n";
-                        Value *v = CB->getCalledOperand();
-                        if(dyn_cast<InlineAsm>(v)){
-                            // ignore inline assembly... don't instrument
-                            continue;
-                        }
-                        if(v->getType()->isPointerTy()){
-                            bool f_is_not_encompassed
-                              = encompassed_funcs.find(f) == encompassed_funcs.end();
-                            // instrument before indirect func call
-                            vector<Value *> ArgsV;
-                            IRBuilder<> builder(CB);
-                            ArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
-                            if(f_is_not_encompassed && block_is_outside_loop){
-                                builder.CreateCall(debrt_protect_indirect_func, ArgsV);
+    errs() << "Instrumenting indirect and external for " << f->getName().str() << "\n";
+    for(auto &b : *f){
+        bool f_is_not_encompassed
+          = encompassed_funcs.find(f) == encompassed_funcs.end();
+        bool block_is_outside_loop = true;
+        if(LI && LI->getLoopFor(&b)){
+            block_is_outside_loop = false;
+        }
+        for(auto &I : b){
+            CallBase   *CB = dyn_cast<CallBase>(&I);
+            CallInst   *CI = dyn_cast<CallInst>(&I);
+            InvokeInst *II = dyn_cast<InvokeInst>(&I);
+            if(CB){
+                Function *cf = CB->getCalledFunction();
+                // ENABLE_INDIRECT_CALL_SINKING ensures that only when ICS is
+                // active do we even instrument indirect calls now. This is
+                // probably as it should have been from the start, because old
+                // wpd approaches just turned on the transitive closure of all
+                // func pointers.
+                if(cf == NULL && ENABLE_INDIRECT_CALL_SINKING){
+                    errs() << "seeing indirect function call\n";
+                    Value *v = CB->getCalledOperand();
+                    if(dyn_cast<InlineAsm>(v)){
+                        // ignore inline assembly... don't instrument
+                        continue;
+                    }
+                    if(v->getType()->isPointerTy()){
+                        // instrument before indirect func call
+                        vector<Value *> ArgsV;
+                        IRBuilder<> builder(CB);
+                        ArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
+                        if(f_is_not_encompassed && block_is_outside_loop){
+                            builder.CreateCall(debrt_protect_indirect_func, ArgsV);
 
-                                // instrument after indirect func call
-                                if(CI){
-                                    IRBuilder<> builder_end(CI);
-                                    builder_end.SetInsertPoint(CI->getNextNode());
-                                    builder_end.CreateCall(debrt_protect_indirect_end_func, ArgsV);
-                                }else if(II){
-                                    errs() << "indirect func invoke case\n";
-                                    instrument_after_invoke(II, ArgsV, debrt_protect_indirect_end_func);
-                                }else{
-                                    assert(0);
-                                }
+                            // instrument after indirect func call
+                            if(CI){
+                                IRBuilder<> builder_end(CI);
+                                builder_end.SetInsertPoint(CI->getNextNode());
+                                builder_end.CreateCall(debrt_protect_indirect_end_func, ArgsV);
+                            }else if(II){
+                                errs() << "indirect func invoke case\n";
+                                instrument_after_invoke(II, ArgsV, debrt_protect_indirect_end_func);
                             }else{
-                                builder.CreateCall(ics_map_indirect_call_func, ArgsV);
-                                // Note: we only instrument after the
-                                // indirect call if we are not inside an
-                                // encompassed func or a loop block. The
-                                // runtime will handle this ICS optimization to
-                                // clear the pages at the end of the loop.
+                                assert(0);
                             }
-                            
                         }else{
-                            // Not sure how to handle this if it happens
-                            // would need to investigate the specific case.
-                            assert(0 && "Unexpected: calledOperand is NOT a " \
-                                        "pointer type for an indirect call.\n");
+                            builder.CreateCall(ics_map_indirect_call_func, ArgsV);
+                            // Note: we only instrument after the
+                            // indirect call if we are not inside an
+                            // encompassed func or a loop block. The
+                            // runtime will handle this ICS optimization to
+                            // clear the pages at the end of the loop.
                         }
+
+                    }else{
+                        // Not sure how to handle this if it happens
+                        // would need to investigate the specific case.
+                        assert(0 && "Unexpected: calledOperand is NOT a " \
+                                    "pointer type for an indirect call.\n");
+                    }
+                }else{
+                    if(cf->hasName() && cf->isDeclaration()){
+                        instrument_external_call(I,
+                                                 f_is_not_encompassed
+                                                   && block_is_outside_loop
+                                                );
                     }
                 }
             }
         }
-    //}
+    }
 }
 
 void WholeProgramDebloat::instrument(void)
@@ -731,15 +855,7 @@ void WholeProgramDebloat::instrument(void)
         if(toplevel_funcs.find(f) != toplevel_funcs.end()){
             instrument_toplevel_func(f, LI);
         }
-        // XXX Bit of a misnomer. This checks actually ensures that only when
-        // ICS is active do we even instrument indirect calls now.
-        // This is probably as it should have been from the start, because old
-        // wpd approaches just turned on the transitive closure of all func
-        // pointers anyway.
-        if(ENABLE_INDIRECT_CALL_SINKING){
-            instrument_indirect(f, LI);
-        }
-
+        instrument_indirect_and_external(f, LI);
     }
 }
 
@@ -837,14 +953,121 @@ void WholeProgramDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
 
 }
 
+void WholeProgramDebloat::instrument_external_call(Instruction &I,
+                                                   bool call_is_outside_loop)
+{
+    CallBase *CB = dyn_cast<CallBase>(&I);
+    assert(CB);
+    Function *external_func = CB->getCalledFunction();
+    assert(external_func);
+    if(external_func->getName() == "__cxa_throw"){
+        instrument_cxa_throw(I, call_is_outside_loop);
+    }
 
-bool WholeProgramDebloat::instrument_main(Module &M)
+}
+
+
+
+void WholeProgramDebloat::instrument_cxa_throw(Instruction &I,
+                                               bool cxa_throw_is_outside_loop)
+{
+    CallBase   *CB_cxa_throw = dyn_cast<CallBase>(&I);
+    CallInst   *CI_cxa_throw = dyn_cast<CallInst>(&I);
+    InvokeInst *II_cxa_throw = dyn_cast<InvokeInst>(&I);
+
+    errs() << "Seeing cxa_throw\n";
+
+    //errs() << "CB_cxa_throw->getNumArgOperands(): " << CB_cxa_throw->getNumArgOperands() << "\n";
+    //errs() << "CB_cxa_throw->getArgOperand(2): " << CB_cxa_throw->getArgOperand(2) << "\n";
+    //CB_cxa_throw->getArgOperand(2)->dump();
+
+    Value *s = CB_cxa_throw->getArgOperand(2)->stripPointerCasts();
+    //errs() << "after stripping: " << s << "\n";
+    //s->dump();
+    if(s == NULL){
+        assert(0 && "Unexpected: cxa-throw's callback operand is NULL.");
+    }
+    Function *cxa_throw_callback = dyn_cast<Function>(s);
+
+    if(cxa_throw_callback == NULL){
+        // Can refer to 2021.08.24 notes. Seems at least omnetpp can hit
+        // this case (see _ZN22cSnapshotWriterVisitor5visitEP7cObject, which
+        // does a __cxa_throw where the callback is i8* null (which is
+        // not the same as NULL, i.e. the s == NULL above).
+        errs() << "Seeing __cxa_throw with an empty callback. Ignoring.\n";
+        return;
+    }
+
+    errs() << "cxa_throw_callback name: " << cxa_throw_callback->getName() << "\n";
+    errs() << "cxa_throw_callback func id: " << func_to_id[cxa_throw_callback] << "\n";
+
+
+    // instrument around __cxa_throw()
+    if(cxa_throw_is_outside_loop){
+        // Case: __cxa_throw is called from a non-encompassed func, and from
+        // a block that's not in any loop. So we can just instrument around
+        // it, using either single or reachable protection based on the callback.
+
+        vector<Value *> ArgsV;
+        IRBuilder<> builder(CB_cxa_throw);
+        ArgsV.push_back(ConstantInt::get(int32Ty, func_to_id[cxa_throw_callback], false));
+
+        bool cxa_throw_callback_is_encompassed
+          = encompassed_funcs.find(cxa_throw_callback) != encompassed_funcs.end();
+
+        // Instrument before cxa_throw
+        Function *end_call;
+        if(cxa_throw_callback_is_encompassed){
+            // reachable
+            builder.CreateCall(debrt_protect_reachable_func, ArgsV);
+            end_call = debrt_protect_reachable_end_func;
+        }else{
+            // single
+            builder.CreateCall(debrt_protect_single_func, ArgsV);
+            end_call = debrt_protect_single_end_func;
+        }
+
+        // Instrument after cxa_throw
+        if(CI_cxa_throw){
+            errs() << "call __cxa_throw\n";
+            IRBuilder<> builder_end(CI_cxa_throw);
+            builder_end.SetInsertPoint(CI_cxa_throw->getNextNode());
+            builder_end.CreateCall(end_call, ArgsV);
+        }else if(II_cxa_throw){
+            errs() << "invoke __cxa_throw\n";
+            instrument_after_invoke(II_cxa_throw, ArgsV, end_call);
+        }else{
+            assert(0);
+        }
+
+    }else{
+        // Case: __cxa_throw is called from an encompassed func or from
+        // inside a block that's in a loop. Rather than handle the protection
+        // at the loop header, we cheat and use the indirect-call inlining
+        // support. It could be slower, but exceptions should be rare, and
+        // security could be better by mapping on-the-fly.
+        // See also note in build_basic_structs.
+        vector<Value *> ArgsV;
+        IRBuilder<> builder(CB_cxa_throw);
+        ArgsV.push_back(builder.CreatePtrToInt(cxa_throw_callback, int64Ty));
+        builder.CreateCall(ics_map_indirect_call_func, ArgsV);
+        // Note: As with other inlined indirect call instrumentation that
+        // is inside some interprocedural loop, we do not instrument after
+        // __cxa_throw. The runtime will handle the ICS optimization to clear
+        // the pages at the end of the loop.
+    }
+
+
+}
+
+bool WholeProgramDebloat::instrument_main_start(Module &M)
 {
     int found_main = 0;
     for(auto &F : M){
         string func_name = get_demangled_name(F);
         if(func_name == "main"){
-            // FIXME: actually instrument main
+
+            // instrument start of main with debrt-init
             vector<Value *> ArgsV;
             Instruction *I = F.getEntryBlock().getFirstNonPHI();
             assert(I);
@@ -852,6 +1075,33 @@ bool WholeProgramDebloat::instrument_main(Module &M)
             ArgsV.push_back(ConstantInt::get(int32Ty, func_to_id[&F], false));
             ArgsV.push_back(ConstantInt::get(int32Ty, ENABLE_INSTRUMENTATION_SINKING, false));
             builder.CreateCall(debrt_init_func, ArgsV);
+
+            found_main = 1;
+            break;
+        }
+    }
+    assert(found_main == 1);
+}
+
+bool WholeProgramDebloat::instrument_main_end(Module &M)
+{
+    int found_main = 0;
+    for(auto &F : M){
+        string func_name = get_demangled_name(F);
+        if(func_name == "main"){
+
+            // instrument any returns with debrt-destroy
+            for(auto &B : F){
+                if(isa<ReturnInst>(B.getTerminator())){
+                    vector<Value *> ArgsV_return;
+                    Instruction *I_return = B.getTerminator();
+                    assert(I_return);
+                    IRBuilder<> builder_return(I_return);
+                    ArgsV_return.push_back(ConstantInt::get(int32Ty, 0, false));
+                    builder_return.CreateCall(debrt_destroy_func, ArgsV_return);
+                }
+            }
+
             found_main = 1;
             break;
         }
@@ -887,6 +1137,18 @@ void WholeProgramDebloat::build_basic_structs(Module &M)
                                 encompassed_funcs.insert(callee);
                             }
                         }
+                        // Note: if we wanted to handle __cxa_throw without
+                        // using the indirect inlining support, then this
+                        // would be a place to start, I think. Right here
+                        // we could check if the callee is a declaration
+                        // and is __cxa_throw, and then we could update the
+                        // adj-list to include the callback that gets passed
+                        // to __cxa_throw. I believe other things should then
+                        // fall into place, including how the loop preheader
+                        // would get instrumented whenever any cxa_throw
+                        // instances are interprocedurally reached by a loop.
+                        // Not 100% sure about all this, but again, probably
+                        // the right way to start going about it.
                     }
                 }
             }
@@ -1207,6 +1469,10 @@ void WholeProgramDebloat::wpd_init(Module &M)
             Function::ExternalLinkage,
             "debrt_init",
             M);
+    debrt_destroy_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+            Function::ExternalLinkage,
+            "debrt_destroy",
+            M);
     debrt_protect_single_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
             Function::ExternalLinkage,
             "debrt_protect_single",
@@ -1302,10 +1568,17 @@ bool WholeProgramDebloat::runOnModule_real(Module &M)
     build_toplevel_funcs();
 
     // Instrument main with a debrt-init call
-    instrument_main(M);
+    instrument_main_start(M);
 
     // Instrument all other functions
     instrument();
+
+    // Instrument main with a debrt-destroy call.
+    // Doing this AFTER all other instrumentation to to ensure every exit block
+    // calls destroy after any other instrumentation. (That is, it's probably a
+    // bad idea to relocate this code into instrument_main_start() and
+    // before instrument().)
+    instrument_main_end(M);
 
     // create disjoint sets
     create_disjoint_sets();
@@ -1314,7 +1587,9 @@ bool WholeProgramDebloat::runOnModule_real(Module &M)
 bool WholeProgramDebloat::runOnModule(Module &M)
 {
     runOnModule_real(M);
+    return true;
 }
+
 
 /*
 void check_postdominance(BasicBlock *B1, BasicBlock *B2)
