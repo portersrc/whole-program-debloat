@@ -57,8 +57,13 @@ int ics_map_indirect_call(long long fp_addr)
     if(cached_fp_addrs[x] == fp_addr){
         return 0;
     }
-    debrt_protect_indirect(fp_addr);
-    cached_fp_addrs[x] = fp_addr;
+    // XXX This check could be optimized out. We could move the definition of
+    // cached-fp-addrs to the debrt library and make it responsibe for all
+    // writes. debrt-protect-indirect only returns non-zero during that
+    // start-up edge case where we throw a WARNING.
+    if(debrt_protect_indirect(fp_addr) == 0){
+        cached_fp_addrs[x] = fp_addr;
+    }
     return 0;
 }
 }
