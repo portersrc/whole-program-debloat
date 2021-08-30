@@ -138,8 +138,9 @@ namespace {
         void instrument_indirect_and_external(Function *f, LoopInfo *LI);
         void instrument_external_call(Instruction &I,
                                       bool call_is_outside_loop);
-        void instrument_cxa_throw(Instruction &I,
-                                  bool call_is_outside_loop);
+        void instrument_external_with_callback(Instruction &I,
+                                               bool call_is_outside_loop);
+
 
         void get_callees(Loop *loop,
                          vector<pair<Function *, CallBase *> > &callees);
@@ -960,64 +961,76 @@ void WholeProgramDebloat::instrument_external_call(Instruction &I,
     assert(CB);
     Function *external_func = CB->getCalledFunction();
     assert(external_func);
-    if(external_func->getName() == "__cxa_throw"){
-        instrument_cxa_throw(I, call_is_outside_loop);
-    }
-
+    instrument_external_with_callback(I, call_is_outside_loop);
 }
 
-
-
-void WholeProgramDebloat::instrument_cxa_throw(Instruction &I,
-                                               bool cxa_throw_is_outside_loop)
+void WholeProgramDebloat::instrument_external_with_callback(Instruction &I,
+                                                            bool call_is_outside_loop)
 {
-    CallBase   *CB_cxa_throw = dyn_cast<CallBase>(&I);
-    CallInst   *CI_cxa_throw = dyn_cast<CallInst>(&I);
-    InvokeInst *II_cxa_throw = dyn_cast<InvokeInst>(&I);
+    CallBase   *CB_external_call = dyn_cast<CallBase>(&I);
+    CallInst   *CI_external_call = dyn_cast<CallInst>(&I);
+    InvokeInst *II_external_call = dyn_cast<InvokeInst>(&I);
 
-    errs() << "Seeing cxa_throw\n";
+    errs() << "Seeing an external call: "
+      << CB_external_call->getCalledFunction()->getName() << "\n";
 
-    //errs() << "CB_cxa_throw->getNumArgOperands(): " << CB_cxa_throw->getNumArgOperands() << "\n";
-    //errs() << "CB_cxa_throw->getArgOperand(2): " << CB_cxa_throw->getArgOperand(2) << "\n";
-    //CB_cxa_throw->getArgOperand(2)->dump();
-
-    Value *s = CB_cxa_throw->getArgOperand(2)->stripPointerCasts();
-    //errs() << "after stripping: " << s << "\n";
-    //s->dump();
-    if(s == NULL){
-        assert(0 && "Unexpected: cxa-throw's callback operand is NULL.");
+    Function *callback = NULL;
+    int num_callbacks = 0;
+    int arg_idx = 0;
+    for(auto it_arg = CB_external_call->arg_begin();
+      it_arg != CB_external_call->arg_end();
+      it_arg++){
+        //errs() << "arg " << arg_idx <<  "\n";
+        Value *s = (*it_arg)->stripPointerCasts();
+        if(s == NULL){
+            assert(0 && "Unexpected: stripPointerCasts() returned NULL.");
+        }
+        Function *tmp = dyn_cast<Function>(s);
+        if(tmp != NULL){
+            if(func_to_id.find(tmp) != func_to_id.end()){
+                errs() << "callback arg found at param " << arg_idx << "\n";
+                callback = tmp;
+                num_callbacks++;
+            }else{
+                errs() << "callback arg found at param " << arg_idx << ", "
+                  << "but it is not in func_to_id\n";
+            }
+        }
+        arg_idx++;
     }
-    Function *cxa_throw_callback = dyn_cast<Function>(s);
 
-    if(cxa_throw_callback == NULL){
-        // Can refer to 2021.08.24 notes. Seems at least omnetpp can hit
-        // this case (see _ZN22cSnapshotWriterVisitor5visitEP7cObject, which
-        // does a __cxa_throw where the callback is i8* null (which is
-        // not the same as NULL, i.e. the s == NULL above).
-        errs() << "Seeing __cxa_throw with an empty callback. Ignoring.\n";
+    // nothing to instrument if num_callbacks is 0
+    if(num_callbacks == 0){
         return;
     }
 
-    errs() << "cxa_throw_callback name: " << cxa_throw_callback->getName() << "\n";
-    errs() << "cxa_throw_callback func id: " << func_to_id[cxa_throw_callback] << "\n";
+    // Currently there is only support for external calls where 1 application
+    // function is passed to the library.
+    // See 2021.08.30 notes for details on how this could be supported.
+    // It's a weird edge case that should be safe to ignore for now, though.
+    assert(num_callbacks == 1 && "Only 1 application function callback " \
+                                 "is supported when calling an external library");
 
+    errs() << "callback name: " << callback->getName() << "\n";
+    errs() << "callback func id: " << func_to_id[callback] << "\n";
 
-    // instrument around __cxa_throw()
-    if(cxa_throw_is_outside_loop){
-        // Case: __cxa_throw is called from a non-encompassed func, and from
-        // a block that's not in any loop. So we can just instrument around
-        // it, using either single or reachable protection based on the callback.
+    // instrument around the external call()
+    if(call_is_outside_loop){
+        // Case: the external call is called from a non-encompassed func, and
+        // from a block that's not in any loop. So we can just instrument
+        // around it, using either single or reachable protection based on the
+        // callback.
 
         vector<Value *> ArgsV;
-        IRBuilder<> builder(CB_cxa_throw);
-        ArgsV.push_back(ConstantInt::get(int32Ty, func_to_id[cxa_throw_callback], false));
+        IRBuilder<> builder(CB_external_call);
+        ArgsV.push_back(ConstantInt::get(int32Ty, func_to_id[callback], false));
 
-        bool cxa_throw_callback_is_encompassed
-          = encompassed_funcs.find(cxa_throw_callback) != encompassed_funcs.end();
+        bool callback_is_encompassed
+          = encompassed_funcs.find(callback) != encompassed_funcs.end();
 
-        // Instrument before cxa_throw
+        // Instrument before the external call
         Function *end_call;
-        if(cxa_throw_callback_is_encompassed){
+        if(callback_is_encompassed){
             // reachable
             builder.CreateCall(debrt_protect_reachable_func, ArgsV);
             end_call = debrt_protect_reachable_end_func;
@@ -1027,38 +1040,40 @@ void WholeProgramDebloat::instrument_cxa_throw(Instruction &I,
             end_call = debrt_protect_single_end_func;
         }
 
-        // Instrument after cxa_throw
-        if(CI_cxa_throw){
-            errs() << "call __cxa_throw\n";
-            IRBuilder<> builder_end(CI_cxa_throw);
-            builder_end.SetInsertPoint(CI_cxa_throw->getNextNode());
+        // Instrument after the external call
+        if(CI_external_call){
+            errs() << "call the external function\n";
+            IRBuilder<> builder_end(CI_external_call);
+            builder_end.SetInsertPoint(CI_external_call->getNextNode());
             builder_end.CreateCall(end_call, ArgsV);
-        }else if(II_cxa_throw){
-            errs() << "invoke __cxa_throw\n";
-            instrument_after_invoke(II_cxa_throw, ArgsV, end_call);
+        }else if(II_external_call){
+            errs() << "invoke the external function\n";
+            instrument_after_invoke(II_external_call, ArgsV, end_call);
         }else{
             assert(0);
         }
 
     }else{
-        // Case: __cxa_throw is called from an encompassed func or from
-        // inside a block that's in a loop. Rather than handle the protection
-        // at the loop header, we cheat and use the indirect-call inlining
-        // support. It could be slower, but exceptions should be rare, and
-        // security could be better by mapping on-the-fly.
-        // See also note in build_basic_structs.
+        // Case: The external function is called from an encompassed func or
+        // from inside a block that's in a loop. Rather than handle the
+        // protection at the loop header, we cheat and use the indirect-call
+        // inlining support. It could be slower, but external calls with
+        // callbacks should be rare, and security could be better by mapping
+        // on-the-fly. See also note in build_basic_structs.
         vector<Value *> ArgsV;
-        IRBuilder<> builder(CB_cxa_throw);
-        ArgsV.push_back(builder.CreatePtrToInt(cxa_throw_callback, int64Ty));
+        IRBuilder<> builder(CB_external_call);
+        ArgsV.push_back(builder.CreatePtrToInt(callback, int64Ty));
         builder.CreateCall(ics_map_indirect_call_func, ArgsV);
         // Note: As with other inlined indirect call instrumentation that
         // is inside some interprocedural loop, we do not instrument after
-        // __cxa_throw. The runtime will handle the ICS optimization to clear
-        // the pages at the end of the loop.
+        // the external call. The runtime will handle the ICS optimization to
+        // clear the pages at the end of the loop.
     }
 
-
 }
+
+
+
 
 bool WholeProgramDebloat::instrument_main_start(Module &M)
 {
@@ -1137,18 +1152,19 @@ void WholeProgramDebloat::build_basic_structs(Module &M)
                                 encompassed_funcs.insert(callee);
                             }
                         }
-                        // Note: if we wanted to handle __cxa_throw without
+                        // Note: if we wanted to handle external calls without
                         // using the indirect inlining support, then this
                         // would be a place to start, I think. Right here
                         // we could check if the callee is a declaration
-                        // and is __cxa_throw, and then we could update the
+                        // and takes a callback, and then we could update the
                         // adj-list to include the callback that gets passed
-                        // to __cxa_throw. I believe other things should then
-                        // fall into place, including how the loop preheader
-                        // would get instrumented whenever any cxa_throw
-                        // instances are interprocedurally reached by a loop.
-                        // Not 100% sure about all this, but again, probably
-                        // the right way to start going about it.
+                        // to the external call. I believe other things should
+                        // then fall into place, including how the loop
+                        // preheader would get instrumented whenever any
+                        // external call instances are interprocedurally
+                        // reached by a loop. Not 100% sure about all this,
+                        // but again, probably the right way to start going
+                        // about it.
                     }
                 }
             }
