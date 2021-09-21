@@ -99,6 +99,7 @@ namespace {
         int sink_id_counter;
         long long text_size;
         set<string> ics_func_names;
+        set<string> libc_nonstatic_func_names;
 
 
         void getAnalysisUsage(AnalysisUsage &AU) const
@@ -123,6 +124,7 @@ namespace {
 
         bool instrument_main_start(Module &M);
         bool instrument_main_end(Module &M);
+        void instrument_debrt_destroy(Instruction *I);
         void instrument(void);
         void instrument_loop(int func_id, Loop *loop);
         void instrument_loop_sink(int toplevel_func_id, Loop *toplevel_loop);
@@ -138,7 +140,7 @@ namespace {
         void instrument_indirect_and_external(Function *f, LoopInfo *LI);
         void instrument_external_call(Instruction &I,
                                       bool call_is_outside_loop);
-        void instrument_external_with_callback(Instruction &I,
+        bool instrument_external_with_callback(Instruction &I,
                                                bool call_is_outside_loop);
 
 
@@ -852,11 +854,13 @@ void WholeProgramDebloat::instrument_indirect_and_external(Function *f, LoopInfo
 void WholeProgramDebloat::instrument(void)
 {
     for(auto f : all_funcs){
-        LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
-        if(toplevel_funcs.find(f) != toplevel_funcs.end()){
-            instrument_toplevel_func(f, LI);
+        if(libc_nonstatic_func_names.count(func_id_to_name[func_to_id[f]]) == 0){
+            LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
+            if(toplevel_funcs.find(f) != toplevel_funcs.end()){
+                instrument_toplevel_func(f, LI);
+            }
+            instrument_indirect_and_external(f, LI);
         }
-        instrument_indirect_and_external(f, LI);
     }
 }
 
@@ -961,10 +965,36 @@ void WholeProgramDebloat::instrument_external_call(Instruction &I,
     assert(CB);
     Function *external_func = CB->getCalledFunction();
     assert(external_func);
-    instrument_external_with_callback(I, call_is_outside_loop);
+
+    // Weird edge case. atexit won't actually invoke the function pointer
+    // (because it happens at teardown).
+    // Plus, atexit is actually part of libc_nonstatic_func_names and is
+    // therefore instrumented elsewhere by this pass as if it were application
+    // code. So there's no need for it to have extra instrumentation here.
+    if(external_func->getName() == "atexit"){
+        // XXX An alternative to all the libc_nonstatic_func_names stuff
+        // could be to create a new like isntrument_atexit(), which
+        // just instruments atexit() with a debrt-protect-single/end call.
+        // One of the only reasons I didn't do it this way was because
+        // it's not obvious what func-id to pass. func_to_id[] doesn't have
+        // atexit unless we change other places. But to do that we might as
+        // well have something like libc_nonstatic_func_names and just
+        // use all the other instrumentation stuff that's already there;
+        // and thus we don't need some special instrument_atexit() call here.
+        //instrument_atexit(&I);
+        return;
+    }
+
+    bool instrumented = instrument_external_with_callback(I, call_is_outside_loop);
+    if(!instrumented){
+        if(external_func->getName() == "exit"){
+            instrument_debrt_destroy(&I);
+        }
+    }
 }
 
-void WholeProgramDebloat::instrument_external_with_callback(Instruction &I,
+
+bool WholeProgramDebloat::instrument_external_with_callback(Instruction &I,
                                                             bool call_is_outside_loop)
 {
     CallBase   *CB_external_call = dyn_cast<CallBase>(&I);
@@ -1001,7 +1031,7 @@ void WholeProgramDebloat::instrument_external_with_callback(Instruction &I,
 
     // nothing to instrument if num_callbacks is 0
     if(num_callbacks == 0){
-        return;
+        return false;
     }
 
     // Currently there is only support for external calls where 1 application
@@ -1070,6 +1100,8 @@ void WholeProgramDebloat::instrument_external_with_callback(Instruction &I,
         // clear the pages at the end of the loop.
     }
 
+    return true;
+
 }
 
 
@@ -1108,12 +1140,7 @@ bool WholeProgramDebloat::instrument_main_end(Module &M)
             // instrument any returns with debrt-destroy
             for(auto &B : F){
                 if(isa<ReturnInst>(B.getTerminator())){
-                    vector<Value *> ArgsV_return;
-                    Instruction *I_return = B.getTerminator();
-                    assert(I_return);
-                    IRBuilder<> builder_return(I_return);
-                    ArgsV_return.push_back(ConstantInt::get(int32Ty, 0, false));
-                    builder_return.CreateCall(debrt_destroy_func, ArgsV_return);
+                    instrument_debrt_destroy(B.getTerminator());
                 }
             }
 
@@ -1125,11 +1152,25 @@ bool WholeProgramDebloat::instrument_main_end(Module &M)
 }
 
 
+void WholeProgramDebloat::instrument_debrt_destroy(Instruction *I)
+{
+    assert(I);
+    vector<Value *> ArgsV_return;
+    IRBuilder<> builder(I);
+    ArgsV_return.push_back(ConstantInt::get(int32Ty, 0, false));
+    builder.CreateCall(debrt_destroy_func, ArgsV_return);
+}
+
+
 void WholeProgramDebloat::build_basic_structs(Module &M)
 {
     LoopInfo *li;
     CallBase *cb;
     for(auto &F : M){
+        //if(F.hasName()){
+        //    errs() << "build-basic-structs: " << F.getName().str() << "\n";
+        //    errs() << "  getLinkage(): " << F.getLinkage() << "\n";
+        //}
         if(F.hasName() && !F.isDeclaration()){
             if(ics_func_names.find(F.getName().str()) != ics_func_names.end()){
                 //errs() << "ignoring ics func: " << F.getName() << "\n";
@@ -1168,8 +1209,19 @@ void WholeProgramDebloat::build_basic_structs(Module &M)
                     }
                 }
             }
+        }else if(F.hasName() && (libc_nonstatic_func_names.count(F.getName().str()) > 0)){
+            // XXX This is sufficient for atexit(), which is currently the only
+            // member of libc_nonstatic_func_names. If we have to handle more
+            // libc_nonstatic cases, or if that set gets slightly repurposed,
+            // this code may need reconsideration. Notice that we cannot include
+            // functions like atexit() in the above analysis (with LoopInfoWrapperPass),
+            // because it's an external call with no info. But we don't
+            // instrument any callees or anything beyond atexit, so this
+            // all_funcs insertion is sufficient for atexit().
+            all_funcs.insert(&F);
         }
     }
+
     // build reverse adjacency list
     for(auto caller_callees : adj_list){
         auto caller  = caller_callees.first;
@@ -1399,7 +1451,9 @@ void WholeProgramDebloat::build_func_to_fps(Module &M)
     s = 0;
     f = 0;
     for(auto &F : M){
-        if(F.hasName() && !F.isDeclaration()){
+        if( (F.hasName() && !F.isDeclaration())
+        ||  (F.hasName() && (libc_nonstatic_func_names.count(F.getName().str()) > 0)) ){
+        //if(F.hasName() && !F.isDeclaration()){
             vector<User *> offenders;
             get_address_taken_uses(F, offenders);
             // offenders will be non-empty if F has its address taken
@@ -1455,10 +1509,14 @@ void WholeProgramDebloat::wpd_init(Module &M)
     ics_func_names.insert("ics_map_indirect_call");
     ics_func_names.insert("ics_unmap_indirect_calls");
 
+    libc_nonstatic_func_names.insert("atexit");
+
     // Give each application function an ID
     int count = 0;
     for(auto &F : M){
-        if(F.hasName() && !F.isDeclaration()){
+        if( (F.hasName() && !F.isDeclaration())
+        ||  (F.hasName() && (libc_nonstatic_func_names.count(F.getName().str()) > 0)) ){
+        //if(F.hasName() && !F.isDeclaration()){
             func_name_to_id[F.getName().str()] = count;
             func_to_id[&F] = count;
             func_id_to_name[count] = F.getName().str();
