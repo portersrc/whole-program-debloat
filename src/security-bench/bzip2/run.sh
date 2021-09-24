@@ -188,7 +188,7 @@ cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_9_$1.out
 cp debrt.out debrt_9_$1.out
 { time ./${BIN} -c < test/progp; } &> 10-${WHICH}.out
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_10_$1.out
-cp debrt.out debrt_progp_$1.out
+cp debrt.out debrt_10_$1.out
 
 { time ./${BIN} -c < test/sum; } &> 11-${WHICH}.out
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_11_$1.out
