@@ -25,7 +25,7 @@
 
 using namespace std;
 
-//#define DEBRT_DEBUG
+#define DEBRT_DEBUG
 //#define DEBRT_ABSOLUTE_ELF_ADDRS
 
 // to enable, set env var DEBRT_ENABLE_STATS=1
@@ -327,7 +327,8 @@ void _remap_permissions(long long addr, long long size, int perm)
     //perm = RX_PERM; // FIXME DEBUG ONLY
     //perm = RX_PERM; // FIXME DEBUG ONLY
     if(mprotect(aligned_addr_base, size_to_remap, perm) == -1){
-        DEBRT_PRINTF("mprotect error\n");
+        int e = errno;
+        DEBRT_PRINTF("mprotect error (%d): %s\n", e, strerror(e));
         assert(0 && "mprotect error");
     }
     DEBRT_PRINTF("  mprotect succeeded\n");
@@ -1210,6 +1211,7 @@ void _set_addr_of_main_mapping(void)
     char line[MAPPING_LINE_SZ];
     int num_spaces;
 
+    DEBRT_PRINTF("%s with pid %d\n", __FUNCTION__, getpid());
     snprintf(mapping_filename, MAPPING_FILENAME_SZ, "/proc/%d/maps", getpid());
     fp = fopen(mapping_filename, "r");
 
@@ -1227,6 +1229,24 @@ void _set_addr_of_main_mapping(void)
     num_executable_binary_lines = 0;
     while(fgets(line, MAPPING_LINE_SZ, fp)){
         //DEBRT_PRINTF("%s", line);
+
+        // TODO: Should have used sscanf originally when I wrote this code;
+        // I grabbed this sscanf example off SO or somewhere and massaged it.
+        // I believe it works but this function should be rewritten completely
+        // and something like this should be used.
+        //long long start;
+        //long long end;
+        //char flags[32];
+        //unsigned long long file_offset;
+        //unsigned int dev_major;
+        //unsigned int dev_minor;
+        //unsigned long long inode;
+        //char binname[256];
+        //sscanf(line,"%llx-%llx %31s %llx %x:%x %llu %s", &start, &end, flags, &file_offset, &dev_major, &dev_minor, &inode, binname);
+        //DEBRT_PRINTF("start: %llx\n", start);
+        //DEBRT_PRINTF("end: %llx\n", end);
+        //DEBRT_PRINTF("first line is %s", line);
+
         num_spaces = 0;
         long long addr_base;
         long long addr_end;
@@ -1247,6 +1267,10 @@ void _set_addr_of_main_mapping(void)
                 // FIXME super hacky now.. looks like executable is
                 // always that first line. So just grab it and ignore all
                 // the rest. this entire function needs to be rewritten.
+                DEBRT_PRINTF("super hacky workaround\n");
+                DEBRT_PRINTF("line is: %s\n", line);
+                DEBRT_PRINTF("addr_base: 0x%llx\n", addr_base);
+                DEBRT_PRINTF("addr_end:  0x%llx\n", addr_end);
                 num_executable_binary_lines++;
                 executable_addr_base = addr_base;
                 executable_addr_end  = addr_end;
@@ -1733,11 +1757,18 @@ int _debrt_protect_init(int please_read_func_sets)
     return 0;
 }
 
+
 void _debrt_protect_destroy(void)
 {
     int e;
     int rc;
     int i;
+    static int already_destroyed = 0;
+
+    if(already_destroyed){
+        return;
+    }
+    already_destroyed = 1;
 
     _debrt_protect_all_pages(RX_PERM);
 
@@ -1920,12 +1951,14 @@ int debrt_init(int main_func_id, int sink_is_enabled)
 
     _init_page_to_count();
 
-    // XXX replaced atexit() by calling debrt_destroy(), which is instrumented
-    // by the pass at the end of the application's main(). This is a hack for
-    // now b/c omnetpp seems to install exit handlers that run before ours.
-    // According to atexit man page, the handlers run in reverse order that
-    // they're registered.
-    //atexit(_debrt_protect_destroy);
+    // XXX Originally replaced atexit() by calling debrt_destroy(), which is
+    // instrumented by the pass at the end of the application's main(). This
+    // was a hack b/c omnetpp seems to install exit handlers that run
+    // before ours.  According to atexit man page, the handlers run in reverse
+    // order that they're registered. Nevertheless, I was still
+    // seeing issues in other places, so I've added atexit() back in, hoping to
+    // catch more cases.
+    atexit(_debrt_protect_destroy);
 
     DEBRT_PRINTF("&func_name_to_id: 0x%p\n", &func_name_to_id);
     DEBRT_PRINTF("&func_name_to_id['main']: %p\n", &func_name_to_id["main"]);

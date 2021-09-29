@@ -110,117 +110,7 @@ lib/readutmp.bc \
 lib/getcwd.bc \
 lib/free.bc 
 
-
 BITCODES= src/mkdir.bc
-
-
-# BITCODES= src/version.bc \
-# src/chroot.bc \
-# src/hostid.bc \
-# src/nice.bc \
-# src/who.bc \
-# src/users.bc \
-# src/pinky.bc \
-# src/uptime.bc \
-# src/stty.bc \
-# src/df.bc \
-# src/stdbuf.bc \
-# src/lbracket.bc \
-# src/base64.bc \
-# src/basename.bc \
-# src/cat.bc \
-# src/chcon.bc \
-# src/chgrp.bc \
-# src/chown-core.bc \
-# src/chmod.bc \
-# src/chown.bc \
-# src/cksum.bc \
-# src/comm.bc \
-# src/cp.bc \
-# src/copy.bc \
-# src/cp-hash.bc \
-# src/csplit.bc \
-# src/cut.bc \
-# src/date.bc \
-# src/dd.bc \
-# src/ls.bc \
-# src/ls-dir.bc \
-# src/dircolors.bc \
-# src/dirname.bc \
-# src/du.bc \
-# src/echo.bc \
-# src/env.bc \
-# src/expand.bc \
-# src/expr.bc \
-# src/factor.bc \
-# src/false.bc \
-# src/fmt.bc \
-# src/fold.bc \
-# src/groups.bc \
-# src/group-list.bc \
-# src/head.bc \
-# src/id.bc \
-# src/join.bc \
-# src/kill.bc \
-# src/operand2sig.bc \
-# src/link.bc \
-# src/ln.bc \
-# src/logname.bc \
-# src/ls-ls.bc \
-# src/mkdir.bc \
-# src/prog-fprintf.bc \
-# src/mkfifo.bc \
-# src/mknod.bc \
-# src/mktemp.bc \
-# src/mv.bc \
-# src/remove.bc \
-# src/nl.bc \
-# src/nproc.bc \
-# src/nohup.bc \
-# src/od.bc \
-# src/paste.bc \
-# src/pathchk.bc \
-# src/pr.bc \
-# src/printenv.bc \
-# src/printf.bc \
-# src/ptx.bc \
-# src/pwd.bc \
-# src/readlink.bc \
-# src/rm.bc \
-# src/rmdir.bc \
-# src/runcon.bc \
-# src/seq.bc \
-# src/shred.bc \
-# src/shuf.bc \
-# src/sleep.bc \
-# src/sort.bc \
-# src/split.bc \
-# src/stat.bc \
-# src/sum.bc \
-# src/sync.bc \
-# src/tac.bc \
-# src/tail.bc \
-# src/tee.bc \
-# src/test.bc \
-# src/timeout.bc \
-# src/touch.bc \
-# src/tr.bc \
-# src/true.bc \
-# src/truncate.bc \
-# src/tsort.bc \
-# src/tty.bc \
-# src/uname.bc \
-# src/uname-uname.bc \
-# src/unexpand.bc \
-# src/uniq.bc \
-# src/unlink.bc \
-# src/ls-vdir.bc \
-# src/wc.bc \
-# src/whoami.bc \
-# src/yes.bc \
-# src/setuidgid.bc \
-# src/getlimits.bc \
-# src/su.bc
 
 .SUFFIXES:
 .SUFFIXES: .c .o .bc
@@ -326,10 +216,7 @@ base_ls_nostatic: $(LIBBITCODES) $(BITCODES)
 	  -Wl,--verbose \
       mkdir_opt_nostatic.s \
       -o mkdir_nostatic \
-      -lm -lrt -lpcre > linker.lds
-	readelf -s --wide mkdir_nostatic > readelf-nostatic.out
-	readelf --sections mkdir_nostatic > readelf-sections-nostatic.out
-	cp linker.lds linker_nostatic.lds
+      -lm -lrt -lpcre
 
 wpd_nostatic: $(LIBBITCODES) $(BITCODES)
 	# llvm-link $(LIBBITCODES) $(BITCODES) -o mkdir_linked_nostatic.bc
@@ -387,15 +274,96 @@ wpd_custlink_nostatic: mkdir_wpd_opt_nostatic.s
 	readelf -s --wide mkdir_wpd_custlink_nostatic > readelf-wpd-custlink-nostatic.out
 	readelf --sections mkdir_wpd_custlink_nostatic > readelf-sections-wpd-custlink-nostatic.out
 
+wpd_ics_nostatic: $(LIBBITCODES) $(BITCODES)
+	llvm-link $(LIBBITCODES) $(BITCODES) ics.ll -o mkdir_linked_nostatic.bc
+	opt \
+	  --function-sections \
+	    -O3 \
+	    -loop-simplify \
+	    < mkdir_linked_nostatic.bc \
+	    > mkdir_baseline_ls_opt_nostatic.bc
+	opt \
+	  --function-sections \
+      -load libWholeProgramDebloat.so \
+      -WholeProgramDebloat \
+      --enable-indirect-call-sinking=true \
+      < mkdir_baseline_ls_opt_nostatic.bc \
+      > mkdir_wpd_ics_opt_nostatic.bc
+	# disassemble so we can do a hacky fix to the ics symbols
+	llvm-dis mkdir_wpd_ics_opt_nostatic.bc
+	sed -i \
+      's/declare extern_weak i32 @ics_map_indirect_call.2(i64)//w sed_changes_0.txt' \
+      mkdir_wpd_ics_opt_nostatic.ll
+	sed -i \
+      's/declare extern_weak i32 @ics_wrapper_debrt_protect_loop_end.3(i32)//w sed_changes_1.txt' \
+      mkdir_wpd_ics_opt_nostatic.ll
+	sed -i \
+      's/ics_map_indirect_call.2/ics_map_indirect_call/w sed_changes_2.txt' \
+      mkdir_wpd_ics_opt_nostatic.ll
+	sed -i \
+      's/ics_wrapper_debrt_protect_loop_end.3/ics_wrapper_debrt_protect_loop_end/w sed_changes_3.txt' \
+      mkdir_wpd_ics_opt_nostatic.ll
+	sed -i \
+      's/debrt_protect_indirect.1/debrt_protect_indirect/w sed_changes_5.txt' \
+      mkdir_wpd_ics_opt_nostatic.ll
+	sed -i \
+      's/declare i32 @debrt_protect_indirect(i64)$$//w sed_changes_4.txt' \
+      mkdir_wpd_ics_opt_nostatic.ll
+	# now ingest the modified .ll file and run always-inline on it.
+	opt \
+	 --function-sections \
+     -always-inline \
+     < mkdir_wpd_ics_opt_nostatic.ll \
+     > mkdir_wpd_ics_opt_nostatic.bc
+	llc  \
+	  --function-sections \
+      mkdir_wpd_ics_opt_nostatic.bc \
+      -relocation-model=pic \
+      -o mkdir_wpd_ics_opt_nostatic.s
+	g++ \
+	  -ffunction-sections \
+	  -Wl,--verbose \
+      mkdir_wpd_ics_opt_nostatic.s \
+      -o mkdir_wpd_ics_nostatic \
+      -ldebloat_rt -lm -lrt > linker.lds
+	readelf -s --wide mkdir_wpd_ics_nostatic > readelf.out
+	readelf --sections mkdir_wpd_ics_nostatic > readelf-sections.out
+	cp readelf.out readelf-ics-nostatic.out
+	cp readelf-sections.out readelf-sections-ics-nostatic.out
+	cp wpd_disjoint_sets.txt wpd_disjoint_sets_ics_nostatic.txt
+	cp wpd_encompassed_funcs.txt wpd_encompassed_funcs_ics_nostatic.txt
+	cp wpd_static_reachability.txt wpd_static_reachability_ics_nostatic.txt
+	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_ics_nostatic.txt
+	cp wpd_loop_to_func.txt wpd_loop_to_func_ics_nostatic.txt
+	cp wpd_static_reachability.txt wpd_static_reachability_ics_nostatic.txt
+	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_ics_nostatic.txt
+	cp wpd_stats.txt wpd_stats_ics_nostatic.txt
+
+wpd_custlink_ics_nostatic: mkdir_wpd_ics_opt_nostatic.s
+	g++ \
+      -ffunction-sections \
+      -c mkdir_wpd_ics_opt_nostatic.s \
+      -o mkdir_wpd_custlink_ics_opt_nostatic.o
+	g++ \
+	  -ffunction-sections \
+      -T wpd-linker-script.lds \
+      mkdir_wpd_custlink_ics_opt_nostatic.o \
+      -o mkdir_wpd_custlink_ics_nostatic \
+      -ldebloat_rt -lm -lrt
+	readelf -s --wide mkdir_wpd_custlink_ics_nostatic > readelf.out
+	readelf --sections mkdir_wpd_custlink_ics_nostatic > readelf-sections.out
+	cp readelf.out readelf-custlink-ics-nostatic.out
+	cp readelf-sections.out readelf-sections-custlink-ics-nostatic.out
+
 %.o: %.c 
 	$(CC) $(HEADERS) $(CFLAGS) -c $< -o $@
 
 
 lib/%.bc: lib/%.c
-	$(CC) -DLIBDIR=\"/usr/local/lib\" -I. -Ilib -Ilib/glthread -g -O3 -ffunction-sections -emit-llvm -S $< -o $@
+	$(CC) -DLIBDIR=\"/usr/local/lib\" -DHAVE_CONFIG_H -I. -Ilib -Ilib/glthread -g -fPIC -O3 -ffunction-sections -emit-llvm -S $< -o $@
 
 src/%.bc: src/%.c
-	$(CC) -DLIBDIR=\"/usr/local/lib\" -I. -Isrc -Ilib -Ilib/glthread -O3 -ffunction-sections -emit-llvm -S $< -o $@
+	$(CC) -DLIBDIR=\"/usr/local/lib\" -I. -Isrc -Ilib -Ilib/glthread -fPIC -O3 -ffunction-sections -emit-llvm -S $< -o $@
 
 lib/libcoreutils.a: $(LIB)
 	rm -f lib/libcoreutils.a

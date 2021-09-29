@@ -13,15 +13,15 @@ if [ $# != 2 ]; then
 fi
 
 if [ "$1" == "base_ls" ]; then
-    BIN=gzip_nostatic
+    BIN=date_nostatic
     WHICH=base_ls
-    cp gzip_nostatic gzip
+    cp date_nostatic date
 elif [ "$1" == "base_ls_static" ]; then
-    BIN=gzip_static
+    BIN=date_static
     WHICH=base_ls_static
-    cp gzip_static gzip
+    cp date_static date
 elif [ "$1" == "wpd" ]; then
-    BIN=gzip_wpd_nostatic
+    BIN=date_wpd_nostatic
     WHICH=wpd
     cp readelf-wpd-nostatic.out readelf.out
     cp readelf-sections-wpd-nostatic.out readelf-sections.out
@@ -35,9 +35,9 @@ elif [ "$1" == "wpd" ]; then
     cp wpd_stats_nostatic.txt wpd_stats.txt
     cp wpd_func_name_to_id_nostatic.txt wpd_func_name_to_id.txt
     cp wpd_func_name_has_addr_taken_nostatic.txt wpd_func_name_has_addr_taken.txt
-    cp gzip_wpd_nostatic gzip_wpd
+    cp date_wpd_nostatic date_wpd
 elif [ "$1" == "wpd_static" ]; then
-    BIN=gzip_wpd_static
+    BIN=date_wpd_static
     WHICH=wpd_static
     cp readelf-wpd-static.out readelf.out
     cp readelf-sections-wpd-static.out readelf-sections.out
@@ -51,9 +51,9 @@ elif [ "$1" == "wpd_static" ]; then
     cp wpd_stats_static.txt wpd_stats.txt
     cp wpd_func_name_to_id_static.txt wpd_func_name_to_id.txt
     cp wpd_func_name_has_addr_taken_static.txt wpd_func_name_has_addr_taken.txt
-    cp gzip_wpd_static gzip_wpd
+    cp date_wpd_static date_wpd
 elif [ "$1" == "wpd_cl" ]; then
-    BIN=gzip_wpd_custlink_nostatic
+    BIN=date_wpd_custlink_nostatic
     WHICH=wpd_cl
     cp readelf-wpd-custlink-nostatic.out readelf.out
     cp readelf-sections-wpd-custlink-nostatic.out readelf-sections.out
@@ -67,9 +67,9 @@ elif [ "$1" == "wpd_cl" ]; then
     cp wpd_stats_nostatic.txt wpd_stats.txt
     cp wpd_func_name_to_id_nostatic.txt wpd_func_name_to_id.txt
     cp wpd_func_name_has_addr_taken_nostatic.txt wpd_func_name_has_addr_taken.txt
-    cp gzip_wpd_custlink_nostatic gzip_wpd_custlink
+    cp date_wpd_custlink_nostatic date_wpd_custlink
 elif [ "$1" == "wpd_cl_static" ]; then
-    BIN=gzip_wpd_custlink_static
+    BIN=date_wpd_custlink_static
     WHICH=wpd_cl_static
     cp readelf-wpd-custlink-static.out readelf.out
     cp readelf-sections-wpd-custlink-static.out readelf-sections.out
@@ -83,9 +83,9 @@ elif [ "$1" == "wpd_cl_static" ]; then
     cp wpd_stats_static.txt wpd_stats.txt
     cp wpd_func_name_to_id_static.txt wpd_func_name_to_id.txt
     cp wpd_func_name_has_addr_taken_static.txt wpd_func_name_has_addr_taken.txt
-    cp gzip_wpd_custlink_static gzip_wpd_custlink
+    cp date_wpd_custlink_static date_wpd_custlink
 elif [ "$1" == "wpd_ics" ]; then
-    BIN=gzip_wpd_ics_nostatic
+    BIN=date_wpd_ics_nostatic
     WHICH=wpd_ics
     cp readelf-ics-nostatic.out readelf.out
     cp readelf-sections-ics-nostatic.out readelf-sections.out
@@ -98,9 +98,9 @@ elif [ "$1" == "wpd_ics" ]; then
     #cp wpd_stats_ics_nostatic.txt wpd_stats.txt
     #cp wpd_func_name_to_id_nostatic.txt wpd_func_name_to_id.txt
     #cp wpd_func_name_has_addr_taken_nostatic.txt wpd_func_name_has_addr_taken.txt
-    #cp gzip_wpd_ics_nostatic gzip_wpd
+    #cp date_wpd_ics_nostatic date_wpd
 # elif [ "$1" == "wpd_ics_static" ]; then
-#     BIN=gzip_wpd_static
+#     BIN=date_wpd_static
 #     WHICH=wpd_static
 #     cp readelf-wpd-static.out readelf.out
 #     cp readelf-sections-wpd-static.out readelf-sections.out
@@ -114,9 +114,9 @@ elif [ "$1" == "wpd_ics" ]; then
 #     cp wpd_stats_static.txt wpd_stats.txt
 #     cp wpd_func_name_to_id_static.txt wpd_func_name_to_id.txt
 #     cp wpd_func_name_has_addr_taken_static.txt wpd_func_name_has_addr_taken.txt
-#     cp gzip_wpd_static gzip_wpd
+#     cp date_wpd_static date_wpd
 elif [ "$1" == "wpd_cl_ics" ]; then
-    BIN=gzip_wpd_custlink_ics_nostatic
+    BIN=date_wpd_custlink_ics_nostatic
     WHICH=wpd_cl_ics
     cp readelf-custlink-ics-nostatic.out readelf.out
     cp readelf-sections-custlink-ics-nostatic.out readelf-sections.out
@@ -129,9 +129,9 @@ elif [ "$1" == "wpd_cl_ics" ]; then
     #cp wpd_stats_ics_nostatic.txt wpd_stats.txt
     #cp wpd_func_name_to_id_nostatic.txt wpd_func_name_to_id.txt
     #cp wpd_func_name_has_addr_taken_nostatic.txt wpd_func_name_has_addr_taken.txt
-    #cp gzip_wpd_custlink_ics_nostatic gzip_wpd_custlink
+    #cp date_wpd_custlink_ics_nostatic date_wpd_custlink
 # elif [ "$1" == "wpd_static" ]; then
-#     BIN=gzip_wpd_static
+#     BIN=date_wpd_static
 #     WHICH=wpd_static
 #     cp readelf-wpd-static.out readelf.out
 #     cp readelf-sections-wpd-static.out readelf-sections.out
@@ -145,101 +145,142 @@ elif [ "$1" == "wpd_cl_ics" ]; then
 #     cp wpd_stats_static.txt wpd_stats.txt
 #     cp wpd_func_name_to_id_static.txt wpd_func_name_to_id.txt
 #     cp wpd_func_name_has_addr_taken_static.txt wpd_func_name_has_addr_taken.txt
-#     cp gzip_wpd_static gzip_wpd
+#     cp date_wpd_static date_wpd
 else
     usage_exit
 fi
 
-# 2021.09.24 cporter:
-# 30/32 inputs are used. (a.txt and grammar.lsp are unused.)
-
-{ time ./${BIN} -c < test/cp.html; } &> 1-${WHICH}.out
+# 2021.09.23 cporter:
+# This first test case returns 1 for the baseline.
+# The others are fine.
+{ time ./${BIN} --date '02/29/1997 1 year' "+%Y-%m-%d"; } &> 1-${WHICH}.out
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_1_$1.out
 cp debrt.out debrt_1_$1.out
-{ time ./${BIN} -c < test/fields.c; } &> 2-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_2_$1.out
-cp debrt.out debrt_2_$1.out
-{ time ./${BIN} -c < test/paper2; } &> 3-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_3_$1.out
-cp debrt.out debrt_3_$1.out
-{ time ./${BIN} -c < test/paper3; } &> 4-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_4_$1.out
-cp debrt.out debrt_4_$1.out
-{ time ./${BIN} -c < test/paper4; } &> 5-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_5_$1.out
-cp debrt.out debrt_5_$1.out
-{ time ./${BIN} -c < test/paper5; } &> 6-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_6_$1.out
-cp debrt.out debrt_6_$1.out
-{ time ./${BIN} -c < test/paper6; } &> 7-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_7_$1.out
-cp debrt.out debrt_7_$1.out
-{ time ./${BIN} -c < test/progc; } &> 8-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_8_$1.out
-cp debrt.out debrt_8_$1.out
-{ time ./${BIN} -c < test/progl; } &> 9-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_9_$1.out
-cp debrt.out debrt_9_$1.out
-{ time ./${BIN} -c < test/progp; } &> 10-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_10_$1.out
-cp debrt.out debrt_progp_$1.out
-{ time ./${BIN} -c < test/sum; } &> 11-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_11_$1.out
-cp debrt.out debrt_11_$1.out
-{ time ./${BIN} -c < test/trans; } &> 12-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_12_$1.out
-cp debrt.out debrt_12_$1.out
-{ time ./${BIN} -c < test/alice29.txt; } &> 13-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_13_$1.out
-cp debrt.out debrt_13_$1.out
-{ time ./${BIN} -c < test/alphabet.txt; } &> 14-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_14_$1.out
-cp debrt.out debrt_14_$1.out
-{ time ./${BIN} -c < test/asyoulik.txt; } &> 15-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_15_$1.out
-cp debrt.out debrt_15_$1.out
-{ time ./${BIN} -c < test/book2; } &> 16-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_16_$1.out
-cp debrt.out debrt_16_$1.out
-{ time ./${BIN} -c < test/geo; } &> 17-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_17_$1.out
-cp debrt.out debrt_17_$1.out
-{ time ./${BIN} -c < test/lcet10.txt; } &> 18-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_18_$1.out
-cp debrt.out debrt_18_$1.out
-{ time ./${BIN} -c < test/news; } &> 19-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_19_$1.out
-cp debrt.out debrt_19_$1.out
-{ time ./${BIN} -c < test/obj2; } &> 20-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_20_$1.out
-cp debrt.out debrt_20_$1.out
-{ time ./${BIN} -c < test/pic; } &> 21-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_21_$1.out
-cp debrt.out debrt_21_$1.out
-{ time ./${BIN} -c < test/plrabn12.txt; } &> 22-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_22_$1.out
-cp debrt.out debrt_22_$1.out
-{ time ./${BIN} -c < test/ptt5; } &> 23-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_23_$1.out
-cp debrt.out debrt_23_$1.out
-{ time ./${BIN} -c < test/random.txt; } &> 24-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_24_$1.out
-cp debrt.out debrt_24_$1.out
-{ time ./${BIN} -c < test/bible.txt; } &> 25-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_25_$1.out
-cp debrt.out debrt_25_$1.out
-{ time ./${BIN} -c < test/E.coli; } &> 26-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_26_$1.out
-cp debrt.out debrt_26_$1.out
-{ time ./${BIN} -c < test/kennedy.xls; } &> 27-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_27_$1.out
-cp debrt.out debrt_27_$1.out
-{ time ./${BIN} -c < test/pi.txt; } &> 28-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_28_$1.out
-cp debrt.out debrt_28_$1.out
-{ time ./${BIN} -c < test/world192.txt; } &> 29-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_29_$1.out
-cp debrt.out debrt_29_$1.out
-{ time ./${BIN} -c < test/xargs.1; } &> 30-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_30_$1.out
-cp debrt.out debrt_30_$1.out
+#
+#{ time ./${BIN} --date '1995-1-7' +%U; } &> 2-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_2_$1.out
+#cp debrt.out debrt_2_$1.out
+#
+#{ time ./${BIN} --date '1995-1-8' +%U; } &> 3-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_3_$1.out
+#cp debrt.out debrt_3_$1.out
+#
+#{ time ./${BIN} --date '1992-1-1' +%U; } &> 4-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_4_$1.out
+#cp debrt.out debrt_4_$1.out
+#
+#{ time ./${BIN} --date '1992-1-4' +%U; } &> 5-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_5_$1.out
+#cp debrt.out debrt_5_$1.out
+#
+#{ time ./${BIN} --date '1992-1-5' +%U; } &> 6-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_6_$1.out
+#cp debrt.out debrt_6_$1.out
+#
+#{ time ./${BIN} --date '1992-1-5' +%V; } &> 7-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_7_$1.out
+#cp debrt.out debrt_7_$1.out
+#
+#{ time ./${BIN} --date '1992-1-6' +%V; } &> 8-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_8_$1.out
+#cp debrt.out debrt_8_$1.out
+#
+#{ time ./${BIN} --date '1992-1-5' +%W; } &> 9-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_9_$1.out
+#cp debrt.out debrt_9_$1.out
+#
+#{ time ./${BIN} --date '1992-1-6' +%W; } &> 10-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_10_$1.out
+#cp debrt.out debrt_10_$1.out
+#
+#{ time ./${BIN} --date '1999-1-1 4 years' +%Y; } &> 11-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_11_$1.out
+#cp debrt.out debrt_11_$1.out
+#
+#{ time ./${BIN} -d 'TZ="America/New_York" 9:00 next Fri'; } &> 12-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_12_$1.out
+#cp debrt.out debrt_12_$1.out
+#
+#{ time ./${BIN} -d "1990-11-08 08:17:48 +0 now" "+%Y-%m-%d %T"; } &> 13-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_13_$1.out
+#cp debrt.out debrt_13_$1.out
+#
+#{ time ./${BIN} -d "1990-11-08 08:17:48 +0 yesterday" "+%Y-%m-%d %T"; } &> 14-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_14_$1.out
+#cp debrt.out debrt_14_$1.out
+#
+#{ time ./${BIN} -d "1990-11-08 08:17:48 +0 tomorrow" "+%Y-%m-%d %T"; } &> 15-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_15_$1.out
+#cp debrt.out debrt_15_$1.out
+#
+#{ time ./${BIN} -d "1990-11-08 08:17:48 +0 10 years ago" "+%Y-%m-%d %T"; } &> 16-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_16_$1.out
+#cp debrt.out debrt_16_$1.out
+#
+#{ time ./${BIN} -d "1990-11-08 08:17:48 +0 8 months ago" "+%Y-%m-%d %T"; } &> 17-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_17_$1.out
+#cp debrt.out debrt_17_$1.out
+#
+#{ time ./${BIN} -d "1990-11-08 08:17:48 +0 80 weeks ago" "+%Y-%m-%d %T"; } &> 18-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_18_$1.out
+#cp debrt.out debrt_18_$1.out
+#
+#{ time ./${BIN} -d '2005-03-27 +4 months' '+%Y'; } &> 19-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_19_$1.out
+#cp debrt.out debrt_19_$1.out
+#
+#{ time ./${BIN} -d @-22 +%10s; } &> 20-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_20_$1.out
+#cp debrt.out debrt_20_$1.out
+#
+#{ time ./${BIN} -d 1999-12-08 +%08d; } &> 21-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_21_$1.out
+#cp debrt.out debrt_21_$1.out
+#
+#{ time ./${BIN} --rfc-3339=ns -d "1969-12-31 13:00:00.00000001-1100"; } &> 22-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_22_$1.out
+#cp debrt.out debrt_22_$1.out
+#
+#{ time ./${BIN} --rfc-3339=sec -d @31536000; } &> 23-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_23_$1.out
+#cp debrt.out debrt_23_$1.out
+#
+#{ time ./${BIN} --utc -d '1970-01-01 00:00:00 UTC +961062237 sec' "+%Y-%m-%d %T"; } &> 24-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_24_$1.out
+#cp debrt.out debrt_24_$1.out
+#
+#{ time ./${BIN} -d 'Nov 10 1996' "+%Y-%m-%d %T"; } &> 25-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_25_$1.out
+#cp debrt.out debrt_25_$1.out
+#
+#{ time ./${BIN} -u -d '1996-11-10 0:00:00 +0' "+%Y-%m-%d %T"; } &> 26-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_26_$1.out
+#cp debrt.out debrt_26_$1.out
+#
+#{ time ./${BIN} -d "1997-01-19 08:17:48 +0 4 seconds ago" "+%Y-%m-%d %T"; } &> 27-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_27_$1.out
+#cp debrt.out debrt_27_$1.out
+#
+#{ time ./${BIN} -d '20050101  1 day' +%F; } &> 28-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_28_$1.out
+#cp debrt.out debrt_28_$1.out
+#
+#{ time ./${BIN} -d '20050101 +1 day' +%F; } &> 29-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_29_$1.out
+#cp debrt.out debrt_29_$1.out
+#
+#{ time ./${BIN} -d "1997-01-19 08:17:48 +0 next second" '+%Y-%m-%d %T'; } &> 30-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_30_$1.out
+#cp debrt.out debrt_30_$1.out
+#
+#{ time ./${BIN} -d "1997-01-19 08:17:48 +0 next minute" '+%Y-%m-%d %T'; } &> 31-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_31_$1.out
+#cp debrt.out debrt_31_$1.out
+#
+#{ time ./${BIN} -d "1997-01-19 08:17:48 +0 next hour" '+%Y-%m-%d %T'; } &> 32-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_32_$1.out
+#cp debrt.out debrt_32_$1.out
+#
+#{ time ./${BIN} -d "1997-01-19 08:17:48 +0 next day" '+%Y-%m-%d %T'; } &> 33-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_33_$1.out
+#cp debrt.out debrt_33_$1.out
