@@ -5,7 +5,7 @@ library(ggplot2)
 
 
 df <- data.frame(
-  legend=rep(c("base", "wpd_cl_ics"), each=15),
+  legend=rep(c("Baseline", "Decker"), each=15),
   bmark=rep(c(
     "perlbench", 
     "mcf",
