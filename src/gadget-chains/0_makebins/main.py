@@ -121,7 +121,6 @@ def main():
         # ROP tool. So it will be useful to know which pages were part of the
         # group.
         with open('{}/{}/{}_page_groups'.format(OUTPUT_PATH, benchmark, benchmark), 'w') as f:
-            f.write('page_group_id: page_group\n')
             for page_group_id, page_group in sorted(page_groups.items()):
                 f.write('{}: {}\n'.format(page_group_id, page_group))
 
