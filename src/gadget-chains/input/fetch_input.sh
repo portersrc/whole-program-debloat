@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euxo pipefail
+set -euo pipefail
 
 # cporter 2021.09.28
 # Fetch the input for the gadget-chain scripts/drivers.
@@ -8,6 +8,7 @@ set -euxo pipefail
 
 SECURITY_BENCH_PATH=/home/rudy/wo/security-bench
 BMARK_SUFFIX=_wpd_custlink_ics_nostatic
+BMARK_SUFFIX_BASE=_nostatic
 RESULTS_PATH=/home/rudy/wo/whole-program-debloat/results/2021-09-24/security
 RESULTS_PREFIX=debrt-mapped-rx-pages
 
@@ -26,6 +27,8 @@ BMARKS=(
 
 for BMARK in "${BMARKS[@]}"; do
     mkdir -p ${BMARK}
-    cp ${SECURITY_BENCH_PATH}/${BMARK}/${BMARK}${BMARK_SUFFIX} ${BMARK}/
-    cp ${RESULTS_PATH}/${BMARK}/${RESULTS_PREFIX}* ${BMARK}/
+    #cp ${SECURITY_BENCH_PATH}/${BMARK}/${BMARK}${BMARK_SUFFIX} ${BMARK}/
+    #cp ${RESULTS_PATH}/${BMARK}/${RESULTS_PREFIX}* ${BMARK}/
+
+    cp ${SECURITY_BENCH_PATH}/${BMARK}/${BMARK}${BMARK_SUFFIX_BASE} ${BMARK}/
 done
