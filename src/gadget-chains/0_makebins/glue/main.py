@@ -66,7 +66,7 @@ def make_page_group_bin_for_page_group(page_indices, benchmark, page_group_id):
     bins = ''
     for page_idx in page_indices:
         bins += '{}/{}/{}_{}.bin '.format(OUTPUT_PATH, benchmark, benchmark, page_idx)
-    cmd = 'cat {} >> {}/{}/{}_pg_{}.bin'.format(bins, OUTPUT_PATH, benchmark, benchmark, page_group_id)
+    cmd = 'cat {} > {}/{}/{}_pg_{}.bin'.format(bins, OUTPUT_PATH, benchmark, benchmark, page_group_id)
     #print(cmd)
     rc = subprocess.call(cmd, shell=True)
     assert rc == 0
