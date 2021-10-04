@@ -14,4 +14,5 @@ test/*/main_mod.s
 test/*/nm.out
 test/*/readelf.out
 test/*/wpd_func_name_to_id.txt
-
+src/gadget-chains/output/
+src/gadget-chains/input/*/
