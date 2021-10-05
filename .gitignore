@@ -16,3 +16,5 @@ test/*/readelf.out
 test/*/wpd_func_name_to_id.txt
 src/gadget-chains/output/
 src/gadget-chains/input/*/
+src/gadget-chains/input-coreutils/*/
+src/gadget-chains/output-coreutils/
