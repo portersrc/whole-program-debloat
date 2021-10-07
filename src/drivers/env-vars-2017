@@ -13,7 +13,7 @@ BMARKS=(
     omnetpp
     xalancbmk
     x264
-    #blender
+    blender
     deepsjeng
     imagick
     leela
@@ -31,7 +31,7 @@ declare -A BMARK_TO_FOLDER=(
 	[omnetpp]=520.omnetpp_r/build/build_peak_mytest-m64.0000
 	[xalancbmk]=523.xalancbmk_r/build/build_peak_mytest-m64.0000
 	[x264]=525.x264_r/build/build_peak_mytest-m64.0000
-	#[blender]=526.blender_r/build/build_peak_mytest-m64.0000
+	[blender]=526.blender_r/build/build_peak_mytest-m64.0000
 	[deepsjeng]=531.deepsjeng_r/build/build_peak_mytest-m64.0000
 	[imagick]=538.imagick_r/build/build_peak_mytest-m64.0000
 	[leela]=541.leela_r/build/build_peak_mytest-m64.0000
