@@ -51,5 +51,6 @@ ggplot(data=df, aes(x=bmark, y=slowdown, fill=legend)) +
   #ylim(0.9, 2)
   coord_cartesian(ylim = c(0.95, 1.1)) +
   theme(legend.title = element_blank()) +
-  theme(axis.title.x=element_blank())
+  theme(axis.title.x=element_blank()) +
+  ylab("Transfer/sec Degradation")
 
