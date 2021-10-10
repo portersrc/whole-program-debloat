@@ -5,23 +5,14 @@ library(ggplot2)
 
 
 df <- data.frame(
-  legend=rep(c("Baseline", "Decker"), each=15),
+  legend=rep(c("Baseline", "Decker"), each=6),
   bmark=rep(c(
-    "perlbench", 
-    "mcf",
-    "namd",
-    "parest", 
-    "povray",
-    "lbm",
-    "omnetpp", 
-    "xalancbmk",
-    "x264",
-    "blender", 
-    "deepsjeng",
-    "imagick",
-    "leela", 
-    "nab",
-    "xz"
+    "3s-wiki",
+    "30s-wiki",
+    "300s-wiki",
+    "1MB-30s",
+    "10MB-30s",
+    "100MB-300s"
   ), 2),
   slowdown=
     c(
@@ -32,32 +23,14 @@ df <- data.frame(
       1,
       1,
       1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
 
-      # wpd_cl_ics (todo wpd_cl_ics_sc)
-      0.9903420105, # perlbench
-      1.011573185, # mcf
-      0.9990883179, # namd
-      1.024487023, # parest
-      1.071922054, # povray
-      1.036504238, # lbm
-      1.117012653, # omnetpp
-      1.085095903, # xalancbmk
-      1.029968998, # x264
-      1.000281204, # blender
-      1.003534296, # deepsjeng
-      0.9827746151, # imagick
-      1.024797731, #leela
-      1.02610419, # nab
-      1.051924182 # xz
+      # wpd_cl_ics + sc
+      1.048034934,
+      1.034139403,
+      1.067251462,
+      1.021578298,
+      0.978012685,
+      0.986013986
   )
 )
 
@@ -76,7 +49,7 @@ ggplot(data=df, aes(x=bmark, y=slowdown, fill=legend)) +
   theme_minimal() +
   theme(axis.text.x=element_text(angle = -45, hjust = 0)) +
   #ylim(0.9, 2)
-  coord_cartesian(ylim = c(0.95, 1.12)) +
+  coord_cartesian(ylim = c(0.95, 1.1)) +
   theme(legend.title = element_blank()) +
   theme(axis.title.x=element_blank())
 
