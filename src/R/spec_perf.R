@@ -74,7 +74,10 @@ df$bmark <- factor(df$bmark, levels=unique(df$bmark))
 ggplot(data=df, aes(x=bmark, y=slowdown, fill=legend)) +
   geom_bar(stat="identity", position=position_dodge()) +
   theme_minimal() +
-  theme(axis.text.x=element_text(angle = -45, hjust = 0)) +
+  theme(axis.title.y=element_text(size = 15)) +
+  theme(legend.text=element_text(size = 15)) +
+  theme(axis.text.y=element_text(size = 15)) +
+  theme(axis.text.x=element_text(angle = -45, hjust = 0, size = 15)) +
   #ylim(0.9, 2)
   coord_cartesian(ylim = c(0.95, 1.12)) +
   theme(legend.title = element_blank()) +
