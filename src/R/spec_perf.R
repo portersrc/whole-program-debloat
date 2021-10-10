@@ -64,6 +64,12 @@ df <- data.frame(
 
 head(df)
 
+# To keep the original x axis label order (and avoid R
+# shuffling them into alphabetical order in the final graph),
+# first turn 'bmark' column into a character vector.
+df$bmark <- as.character(df$bmark)
+# Then turn it back into a factor with the levels in the correct order
+df$bmark <- factor(df$bmark, levels=unique(df$bmark))
 
 ggplot(data=df, aes(x=bmark, y=slowdown, fill=legend)) +
   geom_bar(stat="identity", position=position_dodge()) +
