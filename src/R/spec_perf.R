@@ -23,7 +23,7 @@ df <- data.frame(
     "nab",
     "xz"
   ), 2),
-  Slowdown=
+  slowdown=
     c(
       # base_ls
       1,
@@ -71,12 +71,13 @@ df$bmark <- as.character(df$bmark)
 # Then turn it back into a factor with the levels in the correct order
 df$bmark <- factor(df$bmark, levels=unique(df$bmark))
 
-ggplot(data=df, aes(x=bmark, y=Slowdown, fill=legend)) +
+ggplot(data=df, aes(x=bmark, y=slowdown, fill=legend)) +
   geom_bar(stat="identity", position=position_dodge()) +
   theme_minimal() +
   theme(axis.text.x=element_text(angle = -45, hjust = 0)) +
   #ylim(0.9, 2)
   coord_cartesian(ylim = c(0.95, 1.12)) +
   theme(legend.title = element_blank()) +
-  theme(axis.title.x=element_blank())
+  theme(axis.title.x=element_blank()) +
+  ylab("Slowdown")
 
