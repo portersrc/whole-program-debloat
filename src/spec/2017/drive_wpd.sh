@@ -40,12 +40,12 @@ GROUP_A=(
 )
 
 GROUP_B=(
-    #500.perlbench_r
-    #508.namd_r
-    #511.povray_r
-    #520.omnetpp_r
+    500.perlbench_r
+    508.namd_r
+    511.povray_r
+    520.omnetpp_r
     523.xalancbmk_r
-    #525.x264_r
+    525.x264_r
 )
 
 GROUP_C=(
@@ -62,9 +62,9 @@ declare -A TARGET_EQUALS=(
 )
 
 declare -A GROUP_TO_BMARKS=(
-    #[GROUP_A]=${GROUP_A[@]}
+    [GROUP_A]=${GROUP_A[@]}
     [GROUP_B]=${GROUP_B[@]}
-    #[GROUP_C]=${GROUP_C[@]}
+    [GROUP_C]=${GROUP_C[@]}
 )
 
 
@@ -87,7 +87,7 @@ CMDS=(
     #"cp readelf-custlink-sink.out readelf.out"
     #"cp readelf-sections-custlink-sink.out readelf-sections.out"
     #"./run.sh wpd_cl_sink large"
-    #"make base_loop_simplify_ics"
+    #"make base_loop_simplify_ics" # Note: do this step ALONE before the next three steps, and then disable the llvm-link line in the Makefile before enabling the next three steps.
     #"make wpd_ics"
     #"python3 linker.py ."
     #"make wpd_custlink_ics"
@@ -140,9 +140,9 @@ function copy_results() {
     for GROUP in "${!GROUP_TO_BMARKS[@]}"; do
         for BMARK in ${GROUP_TO_BMARKS[$GROUP]}; do
             mkdir $BMARK
-            cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/large*.out $BMARK
-            cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/debrt*.out $BMARK
-            cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/wpd_stats*.txt $BMARK
+            cp -p $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/large*.out $BMARK
+            cp -p $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/debrt*.out $BMARK
+            cp -p $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/wpd_stats*.txt $BMARK
 
             # hacky copy in case im checking wpd stats for sinking behavior:
             #cp $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/wpd_stats_sink.txt $BMARK
@@ -150,14 +150,14 @@ function copy_results() {
             # hacky check for large*.out timestamps
             #ls -l $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/large*.out
 
-            # hacky check for ics and cl-ics binary timestamps
-            #ls -l $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/*wpd*_ics
-
             # hacky check for base_loop_simplify_ics bitcode output
             #ls -l $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/*_baseline_ls_ics_opt.bc
 
             # hacky check for wpd_ics and wpd_custlink_ics binaries
             #ls -l $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/*wpd*ics
+
+            # hacky check for large-wpd*ics.out timestamps
+            #ls -l $SPEC_BMARKS_PATH/$BMARK/$SPEC_BUILD_FOLDER_SUFFIX/large-wpd*ics.out
         done
     done
     popd

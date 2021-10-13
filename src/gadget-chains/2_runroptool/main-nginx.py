@@ -10,21 +10,7 @@ if len(sys.argv) == 2:
     ]
 else:
     benchmarks = [
-        #'500.perlbench',
-        #'510.parest',
-        #'538.imagick',
-        '541.leela',
-        '519.lbm',
-        '505.mcf',
-        #'520.omnetpp',
-        #'523.xalancbmk',
-        '508.namd',
-        #'511.povray',
-        ##'526.blender',
-        '531.deepsjeng',
-        '544.nab',
-        #'557.xz',
-        #'525.x264',
+        'nginx',
     ]
 
 

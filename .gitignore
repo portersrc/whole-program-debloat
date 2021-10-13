@@ -14,7 +14,12 @@ test/*/main_mod.s
 test/*/nm.out
 test/*/readelf.out
 test/*/wpd_func_name_to_id.txt
-src/gadget-chains/output/
-src/gadget-chains/input/*/
-src/gadget-chains/input-coreutils/*/
-src/gadget-chains/output-coreutils/
+src/gadget-chains/output/*/
+src/gadget-chains/input/coreutils/*/
+src/gadget-chains/input/spec/*/
+src/gadget-chains/input/nginx/*/
+src/nginx/performance/size-variation/blankit-stuff
+src/nginx/performance/time-variation/blankit-stuff
+src/size-increase/worst-case-growth/readelf-*
+src/size-increase/worst-case-growth/nm-*
+src/size-increase/*-sizes.out
