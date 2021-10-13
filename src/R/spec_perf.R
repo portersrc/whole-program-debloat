@@ -81,6 +81,7 @@ ggplot(data=df, aes(x=bmark, y=slowdown, fill=legend)) +
   #ylim(0.9, 2)
   coord_cartesian(ylim = c(0.95, 1.12)) +
   theme(legend.title = element_blank()) +
+  theme(legend.position = c(.9,.8)) +
   theme(axis.title.x=element_blank()) +
   ylab("Slowdown")
 
