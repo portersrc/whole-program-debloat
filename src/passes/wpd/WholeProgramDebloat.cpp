@@ -16,6 +16,7 @@
 #include "llvm/IR/InlineAsm.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Utils/Cloning.h"
+#include "llvm/IR/Dominators.h"
 
 #include <set>
 #include <stack>
@@ -32,18 +33,18 @@ using namespace llvm;
 using namespace std;
 
 bool ENABLE_INSTRUMENTATION_SINKING = false; // can set via command line option below
-cl::opt<bool> EnableInstrumentationSinking(
-    "enable-instrumentation-sinking", cl::init(false), cl::Hidden,
-    cl::desc("Attempts to sink instrumentation into loops."));
+//cl::opt<bool> EnableInstrumentationSinking(
+//    "enable-instrumentation-sinking", cl::init(false), cl::Hidden,
+//    cl::desc("Attempts to sink instrumentation into loops."));
 bool ENABLE_INDIRECT_CALL_SINKING = false; // can set via command line option below
-cl::opt<bool> EnableIndirectCallSinking(
-    "enable-indirect-call-sinking", cl::init(false), cl::Hidden,
-    cl::desc("Attempts to sink indirect call instrumentation into loops."));
+//cl::opt<bool> EnableIndirectCallSinking(
+//    "enable-indirect-call-sinking", cl::init(false), cl::Hidden,
+//    cl::desc("Attempts to sink indirect call instrumentation into loops."));
 bool ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = false; // can set via command line option below
-cl::opt<bool> EnableBasicIndirectCallStaticAnalysis(
-    "enable-basic-indirect-call-static-analysis", cl::init(false), cl::Hidden,
-    cl::desc("Attempts to apply basic static analysis to indirect calls for mapping them at loop headers."));
-
+//cl::opt<bool> EnableBasicIndirectCallStaticAnalysis(
+//    "enable-basic-indirect-call-static-analysis", cl::init(false), cl::Hidden,
+//    cl::desc("Attempts to apply basic static analysis to indirect calls for mapping them at loop headers."));
+//
 
 
 namespace {
@@ -104,11 +105,12 @@ namespace {
 
         void getAnalysisUsage(AnalysisUsage &AU) const
         {
-            AU.addRequired<LoopInfoWrapperPass>();
+            //AU.addRequired<LoopInfoWrapperPass>(); // XXX windows says nope
         }
 
         bool runOnModule(Module &M) override;
         bool runOnModule_real(Module &M);
+        bool runOnModule_wintest(Module &M);
         bool doInitialization(Module &) override;
         bool doFinalization(Module &) override;
 
@@ -121,9 +123,10 @@ namespace {
         void extend_encompassed_funcs(void);
         void build_toplevel_funcs(void);
         void create_disjoint_sets(void);
+        LoopInfoBase<BasicBlock, Loop> *get_loop_info(Function &F);
 
-        bool instrument_main_start(Module &M);
-        bool instrument_main_end(Module &M);
+        void instrument_main_start(Module &M);
+        void instrument_main_end(Module &M);
         void instrument_debrt_destroy(Instruction *I);
         void instrument(void);
         void instrument_loop(int func_id, Loop *loop);
@@ -136,8 +139,8 @@ namespace {
         void instrument_after_invoke(InvokeInst *II,
                                      vector<Value *> &ArgsV,
                                      Function *debrt_func);
-        void instrument_toplevel_func(Function *f, LoopInfo *LI);
-        void instrument_indirect_and_external(Function *f, LoopInfo *LI);
+        void instrument_toplevel_func(Function *f, LoopInfoBase<BasicBlock, Loop> *LI);
+        void instrument_indirect_and_external(Function *f, LoopInfoBase<BasicBlock, Loop> *LI);
         void instrument_external_call(Instruction &I,
                                       bool call_is_outside_loop);
         bool instrument_external_with_callback(Instruction &I,
@@ -152,7 +155,7 @@ namespace {
                                                 set<Function *> &visited_funcs);
         void instrument_sink_point(pair<Function *, CallBase *> parent_func,
                                    set<Function *> *toplevel_bridge_list);
-        int iterative_sink(set<Function *> &toplevel_bridge_list,
+        void iterative_sink(set<Function *> &toplevel_bridge_list,
                            set<Function *> &visited_funcs,
                            pair<Function *, CallBase *> parent_func);
         void get_callees_aux(vector<pair<Function *, CallBase *> > &callees,
@@ -188,6 +191,20 @@ struct wpd_stats{
     int sink_fail_thresh_check;
 }stats;
 
+
+
+// opt is crashing when on windows and running my pass with LoopInfoWrapperPass.
+// Switching to this more manual approach suggested on SO.
+LoopInfoBase<BasicBlock, Loop> *WholeProgramDebloat::get_loop_info(Function &F)
+{
+    DominatorTree DT = DominatorTree();
+    DT.recalculate(F);
+    // FIXME is this leaky?
+    auto loopInfo = new LoopInfoBase<BasicBlock, Loop>();
+    loopInfo->releaseMemory();
+    loopInfo->analyze(DT);
+    return loopInfo;
+}
 
 void WholeProgramDebloat::get_callees_aux(vector<pair<Function *, CallBase *> > &callees,
                                                   Instruction &I)
@@ -409,7 +426,7 @@ void WholeProgramDebloat::instrument_sink_point(pair<Function *, CallBase *> par
 }
 
 
-int WholeProgramDebloat::iterative_sink(set<Function *> &toplevel_bridge_list,
+void WholeProgramDebloat::iterative_sink(set<Function *> &toplevel_bridge_list,
                                         set<Function *> &visited_funcs,
                                         pair<Function *, CallBase *> toplevel_func)
 {
@@ -776,7 +793,7 @@ void WholeProgramDebloat::instrument_after_invoke(InvokeInst *II,
 }
 
 
-void WholeProgramDebloat::instrument_indirect_and_external(Function *f, LoopInfo *LI)
+void WholeProgramDebloat::instrument_indirect_and_external(Function *f, LoopInfoBase<BasicBlock, Loop> *LI)
 {
     errs() << "Instrumenting indirect and external for " << f->getName().str() << "\n";
     for(auto &b : *f){
@@ -855,7 +872,7 @@ void WholeProgramDebloat::instrument(void)
 {
     for(auto f : all_funcs){
         if(libc_nonstatic_func_names.count(func_id_to_name[func_to_id[f]]) == 0){
-            LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
+            LoopInfoBase<BasicBlock, Loop> *LI = get_loop_info(*f);
             if(toplevel_funcs.find(f) != toplevel_funcs.end()){
                 instrument_toplevel_func(f, LI);
             }
@@ -864,7 +881,7 @@ void WholeProgramDebloat::instrument(void)
     }
 }
 
-void WholeProgramDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
+void WholeProgramDebloat::instrument_toplevel_func(Function *f, LoopInfoBase<BasicBlock, Loop> *LI)
 {
     //for(auto f : toplevel_funcs){
         errs() << "Instrumenting " << f->getName().str() << "\n";
@@ -1107,7 +1124,7 @@ bool WholeProgramDebloat::instrument_external_with_callback(Instruction &I,
 
 
 
-bool WholeProgramDebloat::instrument_main_start(Module &M)
+void WholeProgramDebloat::instrument_main_start(Module &M)
 {
     int found_main = 0;
     for(auto &F : M){
@@ -1130,7 +1147,7 @@ bool WholeProgramDebloat::instrument_main_start(Module &M)
     assert(found_main == 1);
 }
 
-bool WholeProgramDebloat::instrument_main_end(Module &M)
+void WholeProgramDebloat::instrument_main_end(Module &M)
 {
     int found_main = 0;
     for(auto &F : M){
@@ -1164,7 +1181,7 @@ void WholeProgramDebloat::instrument_debrt_destroy(Instruction *I)
 
 void WholeProgramDebloat::build_basic_structs(Module &M)
 {
-    LoopInfo *li;
+    LoopInfoBase<BasicBlock, Loop> *li;
     CallBase *cb;
     for(auto &F : M){
         //if(F.hasName()){
@@ -1178,7 +1195,7 @@ void WholeProgramDebloat::build_basic_structs(Module &M)
             }
             // update all_funcs
             all_funcs.insert(&F);
-            li = &getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+            li = get_loop_info(F);
             for(auto &B : F){
                 for(auto &I : B){
                     cb = dyn_cast<CallBase>(&I);
@@ -1490,12 +1507,12 @@ void WholeProgramDebloat::wpd_init(Module &M)
     loop_id_counter = 0;
     sink_id_counter = 0;
 
-    ENABLE_INSTRUMENTATION_SINKING = EnableInstrumentationSinking;
-    errs() << "ENABLE_INSTRUMENTATION_SINKING: " << ENABLE_INSTRUMENTATION_SINKING << "\n";
-    ENABLE_INDIRECT_CALL_SINKING = EnableIndirectCallSinking;
-    errs() << "ENABLE_INDIRECT_CALL_SINKING: " << ENABLE_INDIRECT_CALL_SINKING << "\n";
-    ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = EnableBasicIndirectCallStaticAnalysis;
-    errs() << "ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS: " << ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS << "\n";
+    //ENABLE_INSTRUMENTATION_SINKING = EnableInstrumentationSinking;
+    //errs() << "ENABLE_INSTRUMENTATION_SINKING: " << ENABLE_INSTRUMENTATION_SINKING << "\n";
+    //ENABLE_INDIRECT_CALL_SINKING = EnableIndirectCallSinking;
+    //errs() << "ENABLE_INDIRECT_CALL_SINKING: " << ENABLE_INDIRECT_CALL_SINKING << "\n";
+    //ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = EnableBasicIndirectCallStaticAnalysis;
+    //errs() << "ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS: " << ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS << "\n";
 
 
     memset(&stats, 0, sizeof(stats));
@@ -1656,6 +1673,46 @@ bool WholeProgramDebloat::runOnModule_real(Module &M)
 
     // create disjoint sets
     create_disjoint_sets();
+
+    return true;
+}
+
+bool WholeProgramDebloat::runOnModule_wintest(Module &M)
+{
+    errs() << "windows test\n";
+    //DominatorTree &DI = getAnalysis(M).getDomTree();
+    //for(auto &F : M){
+    //    DominatorTree &DI = getAnalysis(F).getDomTree();
+    //}
+
+    for(auto &F : M){
+        if(F.hasName() && !F.isDeclaration()){
+
+            ////get the dominatortree of the current function
+            //llvm::DominatorTree* DT = new llvm::DominatorTree();
+            //DT->recalculate(F);
+            ////generate the LoopInfoBase for the current function
+            //LoopInfoBase<BasicBlock, Loop> *KLoop = new LoopInfoBase<BasicBlock, Loop>();
+            //KLoop->releaseMemory();
+            //KLoop->Analyze(DT->getBase());
+
+            DominatorTree DT = DominatorTree();
+            DT.recalculate(F);
+            auto loopInfo = new LoopInfoBase<BasicBlock, Loop>();
+            loopInfo->releaseMemory();
+            loopInfo->analyze(DT);
+
+
+            int num_tl_loops = 0;
+            for(auto loop = loopInfo->begin(), e = loopInfo->end(); loop != e; ++loop){
+                num_tl_loops++;
+            }
+            string name = F.getName().str();
+            errs() << "func " << name << " with " << num_tl_loops << " toplevel loops\n";
+        }
+    }
+
+    return true;
 }
 
 bool WholeProgramDebloat::runOnModule(Module &M)
