@@ -7,4 +7,6 @@ add_library(debloat_rt MODULE
 
 target_link_libraries(debloat_rt PRIVATE -static-libgcc -static-libstdc++)
 
-set(CMAKE_CXX_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/libdebloatrt.version")
+# FIXME: commenting this out to get past compiler error; need to review the purpose/need for this
+# and possibly find windows equivalent.
+#set(CMAKE_CXX_FLAGS "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/libdebloatrt.version")

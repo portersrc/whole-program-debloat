@@ -4,8 +4,6 @@
 #include <errno.h>                                                              
 #include <assert.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/mman.h>
 
 #include <iostream>
 #include <fstream>
@@ -17,10 +15,25 @@
 #include <map>
 #include <stack>
 
+
+
+#define DEBRT_WINDOWS
+
+
+
+#ifdef DEBRT_WINDOWS
+#include <windows.h>
+#include <winternl.h>
+#include <tchar.h>
+#include <psapi.h>
+#include <dbghelp.h>
+#pragma comment(lib, "dbghelp.lib")
+int debrt_decision_tree(int *) { return 0; } // unused stub
+#else
 #include "debrt_decision_tree.h"
-
-
-
+#include <unistd.h>
+#include <sys/mman.h>
+#endif
 
 
 using namespace std;
@@ -62,9 +75,15 @@ int ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = 0;
 
 
 #define PAGE_SIZE 0x1000
+#ifdef DEBRT_WINDOWS
+#define RX_PERM   (PAGE_EXECUTE_READ)
+#define NO_PERM   (PAGE_NOACCESS)
+#define RO_PERM   (PAGE_READONLY)
+#else
 #define RX_PERM   (PROT_READ | PROT_EXEC)
 #define NO_PERM   (PROT_NONE)
 #define RO_PERM   (PROT_READ)
+#endif
 
 
 int lib_initialized = 0;
@@ -296,6 +315,28 @@ void _dump_sinks(void)
 }
 
 
+void _page_protect(char *aligned_addr_base, int size_to_remap, int perm)
+{
+#ifdef DEBRT_WINDOWS
+    unsigned long old_perms;
+    int rv = VirtualProtect(aligned_addr_base, size_to_remap, perm, &old_perms);
+    if(rv == 0){
+        unsigned int e = GetLastError();
+        DEBRT_PRINTF("VirtualProtect error: %u\n", e);
+        assert(0 && "VirtualProtect error");
+    }
+    DEBRT_PRINTF("  VirtualProtect succeeded\n");
+#else
+    if(mprotect(aligned_addr_base, size_to_remap, perm) == -1){
+        int e = errno;
+        DEBRT_PRINTF("mprotect error (%d): %s\n", e, strerror(e));
+        assert(0 && "mprotect error");
+    }
+    DEBRT_PRINTF("  mprotect succeeded\n");
+#endif
+}
+
+
 
 void _remap_permissions(long long addr, long long size, int perm)
 {
@@ -326,12 +367,7 @@ void _remap_permissions(long long addr, long long size, int perm)
     //perm = RX_PERM; // FIXME DEBUG ONLY
     //perm = RX_PERM; // FIXME DEBUG ONLY
     //perm = RX_PERM; // FIXME DEBUG ONLY
-    if(mprotect(aligned_addr_base, size_to_remap, perm) == -1){
-        int e = errno;
-        DEBRT_PRINTF("mprotect error (%d): %s\n", e, strerror(e));
-        assert(0 && "mprotect error");
-    }
-    DEBRT_PRINTF("  mprotect succeeded\n");
+    _page_protect(aligned_addr_base, size_to_remap, perm);
 }
 
 
@@ -780,6 +816,14 @@ int debrt_monitor(int argc, ...)
 }
 }
 
+// stubbing this out to for windows 
+void *unused__builtin_return_address(int i)
+{
+    assert(0);
+    return NULL;
+}
+
+
 extern "C" {
 int debrt_protect_sequence(int argc, ...)
 {
@@ -832,9 +876,9 @@ int debrt_protect_sequence(int argc, ...)
         //_debrt_protect_all_pages();
         //_init_page_to_count();
         DEBRT_PRINTF("HIT AFTER ALL-PAGES\n");
-        DEBRT_PRINTF("built-in return: %p\n", __builtin_return_address(0));
+        DEBRT_PRINTF("built-in return: %p\n", unused__builtin_return_address(0));
         // ensure the initial page that we can from is mapped RX
-        _remap_permissions((long long)__builtin_return_address(0), 1, RX_PERM);
+        _remap_permissions((long long)unused__builtin_return_address(0), 1, RX_PERM);
     }
 
 
@@ -1184,6 +1228,239 @@ void _read_readelf_sections(void)
 }
 
 
+// https://docs.microsoft.com/en-us/cpp/build/reference/order-put-functions-in-order?view=msvc-170
+//   To find the decorated names of your COMDATs, use the DUMPBIN tool's
+//   /SYMBOLS option on the object file. The linker automatically prepends an
+//   underscore (_) to function names in the response file unless the name
+//   starts with a question mark (?) or at sign (@).
+// What this means for us: If the string begins with an underscore, it was
+// added and therefore must be shaved.
+string shave_leading_underscore(string s)
+{
+    if(s[0] == '_'){
+        return s.substr(1);
+    }
+    return s;
+}
+
+
+// XXX This is a sketchy way to get the size of the text section.
+int _read_object_text_size(void)
+{
+    ifstream ifs;
+    string line;
+    vector<string> elems;
+    int object_text_size;
+
+    ifs.open("object_text_size.out");
+    if(!ifs.is_open()){
+        perror("Error opening text symbol addrs file");
+        exit(EXIT_FAILURE);
+    }
+    while(getline(ifs, line)){
+        printf("object text size (string, in hex): %s\n", line.c_str());
+        elems = split_nonempty(line, ' ');
+        assert(elems.size() == 1);
+        object_text_size = stoi(elems[0], 0, 16);
+        printf("object text size (decimal): %d\n", object_text_size);
+    }
+
+    ifs.close();
+    return object_text_size;
+}
+
+
+void _read_text_symbol_addrs(void)
+{
+    ifstream ifs;
+    string line;
+    vector<string> elems;
+
+    int object_text_size;
+    object_text_size = _read_object_text_size();
+
+    ifs.open("text_symbol_addrs.out");
+    if(!ifs.is_open()){
+        perror("Error opening text symbol addrs file");
+        exit(EXIT_FAILURE);
+    }
+
+    map<string, int> func_name_to_size;
+    map<string, int> func_name_to_offset;
+    string prev_func_name = "CPORTER_DUMMY"; // first iteration will insert this dummy; doesn't matter
+    int prev_offset = 0;
+
+    // Hack: text_symbol_addrs.out is full of symbols with an offset of 0x0.
+    // I don't know how the final executable looks, but I don't care. We'll
+    // just assign these 0x0-offset functions the same function size, namely
+    // the first-nonzero-func-size that we see. We depend on the compiler pass
+    // to ultimately pick up the "right" symbol so that there's only one
+    // 0x0-offset function that eventually gets considered.
+    // TODO: Add an assert for this.
+    // TODO: Add an assert for this.
+    // TODO: Add an assert for this.
+    // TODO: Add an assert for this.
+    // TODO: Add an assert for this.
+    // Maybe make this a set (not a vector). And later, we can check that
+    // for all functions in that set, only 1 of them ends up being found
+    // by the compiler in func_name_to_id.
+    vector<string> funcs_with_zero_size;
+    int first_nonzero_func_size = 0;
+
+    while(getline(ifs, line)){
+        elems = split_nonempty(line, ' ');
+        if(elems.size() != 3){
+            continue;
+        }
+
+        int offset = stoi(elems[0], 0, 16);
+        assert(offset >= prev_offset);
+
+        string t_is_for_text =  elems[1];
+        assert(t_is_for_text == "t" or t_is_for_text == "T");
+
+        string func_name_underscore = elems[2];
+        string func_name = shave_leading_underscore(func_name_underscore);
+
+        int prev_func_size = offset - prev_offset;
+        func_name_to_size[prev_func_name] = prev_func_size;
+        func_name_to_offset[prev_func_name] = prev_offset;
+
+        if(!first_nonzero_func_size){
+            first_nonzero_func_size = prev_func_size;
+            // Note off-by-one case: we'll push-back a func with NON-zero
+            // size the last time this executes. But that's OK, because
+            // the correct size will be reassigned later (namely a size of
+            // first_nonzero_func_size).
+            funcs_with_zero_size.push_back(prev_func_name); 
+        }
+
+        printf("func and offset: %s %d\n", func_name.c_str(), offset);
+        prev_offset = offset;
+        prev_func_name = func_name;
+    }
+
+    func_name_to_size[prev_func_name] = object_text_size - prev_offset;
+    func_name_to_offset[prev_func_name] = prev_offset;
+
+    printf("size of funcs_with_zero_size: %u\n", funcs_with_zero_size.size());
+    for(auto it = funcs_with_zero_size.begin(); it != funcs_with_zero_size.end(); it++){
+        func_name_to_size[*it] = first_nonzero_func_size;
+    }
+
+    for(auto it = func_name_to_size.begin(); it != func_name_to_size.end(); it++){
+        //printf("function, size: %s, 0x%x\n", it->first.c_str(), it->second);
+        string func_name = it->first;
+        int func_size = it->second;
+        int func_addr = func_name_to_offset[func_name];
+
+        // XXX i think the windows func-addr we're deriving is the offset
+        // within its section (.text). So just add that here so that the
+        // rest of calculation is same as what we did on linux.
+        func_addr += text_offset;
+
+        // check that the compiler pass knows about this func-name
+        if(func_name_to_id.find(func_name) != func_name_to_id.end()){
+            int func_id = func_name_to_id[func_name];
+            func_id_to_rel_addr_and_size[func_id] = make_pair(func_addr, func_size);
+            func_addr_to_id[executable_addr_base + func_addr] = func_id;
+            func_id_to_addr[func_id] = executable_addr_base + func_addr;
+            vector<long long> pages;
+            long long first_page;
+            long long last_page;
+            long long p;
+            first_page = (executable_addr_base + func_addr) & ~(PAGE_SIZE-1);
+            last_page  = (executable_addr_base + func_addr + func_size) & ~(PAGE_SIZE-1);
+            for(p = first_page; p <= last_page; p += 0x1000){
+                pages.push_back(p);
+            }
+            func_id_to_pages[func_id] = pages;
+        }
+    }
+
+    ifs.close();
+}
+
+
+// Getting the image base address and text offset differs is different for
+// Windows and Linux
+#ifdef DEBRT_WINDOWS
+
+
+void *get_img_base_addr(void)
+{
+    struct _TEB *TEB = NtCurrentTeb();
+    return TEB->ProcessEnvironmentBlock->Reserved3[1];
+}
+
+
+void set_process_name(int pid, char *buf)
+{
+    HANDLE Handle = OpenProcess(
+        PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+        FALSE,
+        pid
+    );
+    if(Handle){
+        if(GetModuleFileNameEx(Handle, 0, (LPWSTR)buf, MAX_PATH)){
+            printf("success fetching process name\n");
+        }else{
+            // TODO: can call GetLastError()
+            printf("Error fetching module name\n");
+        }
+        CloseHandle(Handle);
+    }
+}
+
+
+void set_text_size_and_offset(void)
+{
+    int pid = GetCurrentProcessId();
+    printf("my pid is: %d\n", pid);
+
+    //void *img_base_addr = get_img_base_addr();
+    //printf("img_base_addr: %p\n", img_base_addr);
+
+    TCHAR process_name[MAX_PATH];
+    set_process_name(pid, (char *)process_name);
+    //HMODULE hMod = GetModuleHandleA("C:\\Users\\rudy\\h\\wo\\foo\\get-my-text-addr-2\\a.exe");
+    //HMODULE hMod = GetModuleHandleA("a.exe");
+    printf("My process_name is: %s\n", process_name);
+    HMODULE hMod = GetModuleHandleA((LPCSTR)process_name);
+    if(hMod){
+        PIMAGE_NT_HEADERS NtHeader = ImageNtHeader(hMod);
+        WORD NumSections = NtHeader->FileHeader.NumberOfSections;
+        PIMAGE_SECTION_HEADER Section = IMAGE_FIRST_SECTION(NtHeader);
+        for (WORD i = 0; i < NumSections; i++)
+        {
+            printf("%-8s\t%lx\t%lx\t%lx\n", Section->Name, Section->VirtualAddress,
+                   Section->PointerToRawData, Section->SizeOfRawData);
+            if(memcmp(".text", Section->Name, 6) == 0){
+                //*size = Section->SizeOfRawData;
+                //int text_offset = Section->VirtualAddress;
+                text_size = Section->SizeOfRawData;
+                text_offset = Section->VirtualAddress;
+                //printf("  text_offset is 0x%x\n", text_offset);
+                //*text_addr = (int)img_base_addr + text_offset;
+                return;
+            }
+            Section++;
+        }
+    }
+
+    assert(0 && ".text section not found");
+}
+
+
+void _set_addr_of_main_mapping_windows(void)
+{
+    executable_addr_base = (long long) get_img_base_addr();
+    set_text_size_and_offset();
+}
+
+
+
+#else
 // We need to parse the /proc/<pid>/maps file to answer the following question:
 //   What's the base address of the instruction code of the binary?
 //
@@ -1353,6 +1630,7 @@ gdb_workaround:
     assert(executable_addr_base);
     assert(executable_addr_end);
 }
+#endif
 
 void _read_func_name_to_id(void)
 {
@@ -1650,13 +1928,7 @@ void _debrt_protect_all_pages(int perm)
     DEBRT_PRINTF("text_start_aligned: 0x%llx\n", text_start_aligned);
     DEBRT_PRINTF("text_end_aligned: 0x%llx\n", text_end_aligned);
     // FIXME: Should be text_end_aligned - text_start_aligned + 0x1000, i think
-    int rc = mprotect((void *)text_start_aligned, text_end_aligned - text_start_aligned, perm);
-    if(rc == -1){
-        int e = errno;
-        DEBRT_PRINTF("mprotect error (%d): %s\n", e, strerror(e));
-        assert(0 && "mprotect error");
-    }
-    DEBRT_PRINTF("  mprotect succeeded\n");
+    _page_protect((char *)text_start_aligned, text_end_aligned - text_start_aligned, perm);
     DEBRT_PRINTF("text_start_aligned: 0x%llx\n", text_start_aligned);
     DEBRT_PRINTF("text_end_aligned: 0x%llx\n", text_end_aligned);
     max_protected_text_pages = (text_end_aligned - text_start_aligned + 0x1000) / PAGE_SIZE;
@@ -1735,14 +2007,22 @@ int _debrt_protect_init(int please_read_func_sets)
     }
 
 
+#ifdef DEBRT_WINDOWS
+    _set_addr_of_main_mapping_windows();
+#else
     _set_addr_of_main_mapping();
+#endif
     DEBRT_PRINTF("executable_addr_base: 0x%llx\n", executable_addr_base);
-    DEBRT_PRINTF("executable_addr_end:  0x%llx\n", executable_addr_end);
+    //DEBRT_PRINTF("executable_addr_end:  0x%llx\n", executable_addr_end);
     _read_func_name_to_id();
     //_dump_func_name_to_id();
     _read_func_ptrs(); // XXX has to happen after read-func-name-to-id
+#ifdef DEBRT_WINDOWS
+    _read_text_symbol_addrs();
+#else
     _read_readelf();
     _read_readelf_sections();
+#endif
 
     _dump_func_id_to_pages();
     _dump_func_id_to_addr_and_size();
@@ -1927,17 +2207,25 @@ int debrt_init(int main_func_id, int sink_is_enabled)
         return e;
     }
 
+#ifdef DEBRT_WINDOWS
+    _set_addr_of_main_mapping_windows();
+#else
     _set_addr_of_main_mapping();
+#endif
     DEBRT_PRINTF("executable_addr_base: 0x%llx\n", executable_addr_base);
-    DEBRT_PRINTF("executable_addr_end:  0x%llx\n", executable_addr_end);
+    //DEBRT_PRINTF("executable_addr_end:  0x%llx\n", executable_addr_end);
 
     // XXX read func-name-to-id before the other steps
     _read_func_name_to_id();
     //_dump_func_name_to_id();
 
     _read_func_ptrs();
+#ifdef DEBRT_WINDOWS
+    _read_text_symbol_addrs();
+#else
     _read_readelf();
     _read_readelf_sections();
+#endif
     _read_static_reachability();
     _read_loop_static_reachability(sink_is_enabled);
     _read_encompassed_funcs();
