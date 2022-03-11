@@ -2161,6 +2161,7 @@ int debrt_protect_end(int argc, ...)
 
 
 extern "C" {
+__declspec(dllexport)
 int debrt_init(int main_func_id, int sink_is_enabled)
 {
     int e;
@@ -2273,6 +2274,7 @@ int debrt_init(int main_func_id, int sink_is_enabled)
 }
 
 extern "C" {
+__declspec(dllexport)
 int debrt_destroy(int notused)
 {
     _debrt_protect_destroy();
@@ -2322,6 +2324,7 @@ int _protect_single_end(int callee_func_id)
 }
 
 extern "C" {
+__declspec(dllexport)
 int debrt_protect_single(int callee_func_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
@@ -2332,6 +2335,7 @@ int debrt_protect_single(int callee_func_id)
 
 
 extern "C" {
+__declspec(dllexport)
 int debrt_protect_single_end(int callee_func_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
@@ -2354,6 +2358,7 @@ int _protect_reachable(int callee_func_id, int addend)
     return 0;
 }
 extern "C" {
+__declspec(dllexport)
 int debrt_protect_reachable(int callee_func_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
@@ -2362,6 +2367,7 @@ int debrt_protect_reachable(int callee_func_id)
 }
 }
 extern "C" {
+__declspec(dllexport)
 int debrt_protect_reachable_end(int callee_func_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
@@ -2383,6 +2389,7 @@ int _protect_loop_reachable(int loop_id, int addend)
     return 0;
 }
 extern "C" {
+__declspec(dllexport)
 int debrt_protect_loop(int loop_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
@@ -2393,6 +2400,7 @@ int debrt_protect_loop(int loop_id)
 }
 
 extern "C" {
+__declspec(dllexport)
 int debrt_protect_loop_end(int loop_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
@@ -2419,6 +2427,7 @@ int debrt_protect_loop_end(int loop_id)
 
 
 extern "C" {
+__declspec(dllexport)
 int debrt_protect_indirect(long long callee_addr)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
@@ -2498,6 +2507,7 @@ int _protect_indirect_end(long long callee_addr)
 }
 
 extern "C" {
+__declspec(dllexport)
 int debrt_protect_indirect_end(long long callee_addr)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
@@ -2521,6 +2531,7 @@ int _protect_sink(int sink_id, int addend)
     return 0;
 }
 extern "C" {
+__declspec(dllexport)
 int debrt_protect_sink(int sink_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
@@ -2530,6 +2541,7 @@ int debrt_protect_sink(int sink_id)
 }
 }
 extern "C" {
+__declspec(dllexport)
 int debrt_protect_sink_end(int sink_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
