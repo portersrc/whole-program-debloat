@@ -14,10 +14,21 @@
 #include <queue>
 #include <map>
 #include <stack>
+#include <locale>
+#include <codecvt>
 
 
 
 #define DEBRT_WINDOWS
+
+#define SLEEP \
+    do{ \
+        while(1){ \
+            Sleep(1000); \
+            printf("sleeping\n"); \
+            fflush(stdout); \
+        } \
+    }while(0) \
 
 
 
@@ -38,7 +49,7 @@ int debrt_decision_tree(int *) { return 0; } // unused stub
 
 using namespace std;
 
-//#define DEBRT_DEBUG
+#define DEBRT_DEBUG
 //#define DEBRT_ABSOLUTE_ELF_ADDRS
 
 // to enable, set env var DEBRT_ENABLE_STATS=1
@@ -52,6 +63,16 @@ int ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = 0;
 
 
 #define CGPredict
+
+
+#define DEBRT_ASSERT(cond, errstr) \
+    do{ \
+        if(!(cond)){ \
+            printf("%s\n", errstr); \
+            fflush(0); \
+            exit(1); \
+        } \
+    }while(0)
 
 
 #ifdef DEBRT_DEBUG
@@ -224,7 +245,8 @@ void _stats_update_hist(void)
 {
     if(ENV_DEBRT_ENABLE_STATS){
         // dynamically sized, so this assert should never hit
-        assert(stats_total_mapped_pages <= max_protected_text_pages + 1);
+        DEBRT_ASSERT(stats_total_mapped_pages <= max_protected_text_pages + 1,
+          "failed stats_total_mapped_pages <= max_protected_text_pages + 1");
         stats_hist[stats_total_mapped_pages]++;
     }
 }
@@ -314,6 +336,33 @@ void _dump_sinks(void)
     }
 }
 
+// Returns the last Win32 error for some error code e, in string format.
+// Returns an empty string if passed 0
+string GetLastErrorAsString(int e)
+{
+    //Get the error message ID, if any.
+    //DWORD errorMessageID = GetLastError();
+    DWORD errorMessageID = e;
+    if(errorMessageID == 0) {
+        return string(); //No error message has been recorded
+    }
+    
+    LPSTR messageBuffer = nullptr;
+
+    //Ask Win32 to give us the string version of that message ID.
+    //The parameters we pass in, tell Win32 to create the buffer that holds the message for us (because we don't yet know how long the message string will be).
+    size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                                 NULL, errorMessageID, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
+    
+    //Copy the error message into a string.
+    string message(messageBuffer, size);
+    
+    //Free the Win32's string's buffer.
+    LocalFree(messageBuffer);
+            
+    return message;
+}
+
 
 void _page_protect(char *aligned_addr_base, int size_to_remap, int perm)
 {
@@ -323,14 +372,14 @@ void _page_protect(char *aligned_addr_base, int size_to_remap, int perm)
     if(rv == 0){
         unsigned int e = GetLastError();
         DEBRT_PRINTF("VirtualProtect error: %u\n", e);
-        assert(0 && "VirtualProtect error");
+        DEBRT_ASSERT(0, GetLastErrorAsString(e).c_str());
     }
     DEBRT_PRINTF("  VirtualProtect succeeded\n");
 #else
     if(mprotect(aligned_addr_base, size_to_remap, perm) == -1){
         int e = errno;
         DEBRT_PRINTF("mprotect error (%d): %s\n", e, strerror(e));
-        assert(0 && "mprotect error");
+        DEBRT_ASSERT(0, "mprotect error");
     }
     DEBRT_PRINTF("  mprotect succeeded\n");
 #endif
@@ -358,7 +407,7 @@ void _remap_permissions(long long addr, long long size, int perm)
     case RX_PERM: DEBRT_PRINTF("RX_PERM\n"); break;
     case RO_PERM: DEBRT_PRINTF("RO_PERM\n"); break;
     case NO_PERM: DEBRT_PRINTF("NO_PERM\n"); break;
-    default: assert(0); break;
+    default: DEBRT_ASSERT(0, "failed perm case"); break;
     }
 
     //perm = RX_PERM; // FIXME DEBUG ONLY
@@ -522,7 +571,7 @@ int update_page_counts(int func_id, int addend)
             }
 
         }else if(page_to_count[addr] == 0){
-            assert(addend == -1);
+            DEBRT_ASSERT(addend == -1, "failed addend == -1");
             DEBRT_PRINTF("went from 1 to 0, remap RO\n");
             // FIXME: This is a hacky fix for PLT. linker script or some
             // other solution needs to put .text at a page boundary (and
@@ -570,8 +619,9 @@ void _map_new_func_id(int func_id)
     update_page_counts(func_id, 1);
     new_node = enq(func_id);
     func_id_to_mapped_func_node[func_id] = new_node;
-    assert(func_id_to_mapped_func_node.find(func_id)
-           != func_id_to_mapped_func_node.end());
+    DEBRT_ASSERT(func_id_to_mapped_func_node.find(func_id)
+      != func_id_to_mapped_func_node.end(),
+      "failed func_id_to_mapped_func_node.find(func_id) != func_id_to_mapped_func_node.end()");
     old_node = deq();
     if(old_node){
         DEBRT_PRINTF("old node func id: %d\n", old_node->func_id);
@@ -626,12 +676,15 @@ void _update_mapped_pages(int func_id)
 void _assert_return_addr_in_main(long long return_addr)
 {
     int func_id;
-    assert(func_name_to_id.find("main") != func_name_to_id.end());
+    DEBRT_ASSERT(func_name_to_id.find("main") != func_name_to_id.end(),
+      "failed func_name_to_id.find('main') != func_name_to_id.end()");
     func_id = func_name_to_id["main"];
     DEBRT_PRINTF("return_addr of first debrt-protect call 0x%llx\n", return_addr);
     pair<long long, long> addr_and_size = func_id_to_rel_addr_and_size[func_id];
-    assert(return_addr >= executable_addr_base + addr_and_size.first);
-    assert(return_addr  < executable_addr_base + addr_and_size.first + addr_and_size.second);
+    DEBRT_ASSERT(return_addr >= executable_addr_base + addr_and_size.first,
+      "failed return_addr >= executable_addr_base + addr_and_size.first");
+    DEBRT_ASSERT(return_addr  < executable_addr_base + addr_and_size.first + addr_and_size.second,
+      "failed return_addr  < executable_addr_base + addr_and_size.first + addr_and_size.second");
 }
 
 
@@ -657,7 +710,7 @@ int debrt_monitor_orig(int argc, ...)
 
     // argc count includes itself, I think. So if argc is 5, it means we'll
     // need a feature buffer size of 4 or larger.
-    assert((argc-1) <= MAX_NUM_FEATURES);
+    DEBRT_ASSERT((argc-1) <= MAX_NUM_FEATURES, "failed (argc-1) <= MAX_NUM_FEATURES");
 
     // initialize library
     if(!lib_initialized){
@@ -739,7 +792,7 @@ int debrt_monitor(int argc, ...)
 
     // argc count includes itself, I think. So if argc is 5, it means we'll
     // need a feature buffer size of 4 or larger.
-    assert((argc-1) <= MAX_NUM_FEATURES);
+    DEBRT_ASSERT((argc-1) <= MAX_NUM_FEATURES, "failed (argc-1) <= MAX_NUM_FEATURES");
 
     // initialize library
     if(!lib_initialized){
@@ -819,7 +872,7 @@ int debrt_monitor(int argc, ...)
 // stubbing this out to for windows 
 void *unused__builtin_return_address(int i)
 {
-    assert(0);
+    DEBRT_ASSERT(0, "unused builtin return address was called");
     return NULL;
 }
 
@@ -836,7 +889,7 @@ int debrt_protect_sequence(int argc, ...)
 
     // argc count includes itself, I think. So if argc is 5, it means we'll
     // need a feature buffer size of 4 or larger.
-    assert((argc-1) <= MAX_NUM_FEATURES);
+    DEBRT_ASSERT((argc-1) <= MAX_NUM_FEATURES, "failed (argc-1) <= MAX_NUM_FEATURES");
 
     // initialize library
     if(!lib_initialized){
@@ -950,7 +1003,7 @@ int debrt_cgmonitor(int argc, ...)
 
     // argc count includes itself, I think. So if argc is 5, it means we'll
     // need a feature buffer size of 4 or larger.
-    assert((argc-1) <= MAX_NUM_FEATURES);
+    DEBRT_ASSERT((argc-1) <= MAX_NUM_FEATURES, "failed (argc-1) <= MAX_NUM_FEATURES");
 
     // initialize library
     if(!lib_initialized){
@@ -1074,7 +1127,7 @@ void _read_func_sets(void)
         vector<int> func_ids;
         elems = split(line, ' ');
         func_set_id = atoi(elems[0].c_str());
-        assert(func_set_id == i);
+        DEBRT_ASSERT(func_set_id == i, "failed func_set_id == i");
         func_ids_str = split(elems[1], ',');
         for(k = 0; k < func_ids_str.size(); k++){
             func_ids.push_back(atoi(func_ids_str[k].c_str()));
@@ -1254,13 +1307,13 @@ int _read_object_text_size(void)
 
     ifs.open("object_text_size.out");
     if(!ifs.is_open()){
-        perror("Error opening text symbol addrs file");
+        perror("Error opening object text size file");
         exit(EXIT_FAILURE);
     }
     while(getline(ifs, line)){
         printf("object text size (string, in hex): %s\n", line.c_str());
         elems = split_nonempty(line, ' ');
-        assert(elems.size() == 1);
+        DEBRT_ASSERT(elems.size() == 1, "failed elems.size() == 1");
         object_text_size = stoi(elems[0], 0, 16);
         printf("object text size (decimal): %d\n", object_text_size);
     }
@@ -1314,10 +1367,11 @@ void _read_text_symbol_addrs(void)
         }
 
         int offset = stoi(elems[0], 0, 16);
-        assert(offset >= prev_offset);
+        DEBRT_ASSERT(offset >= prev_offset, "failed offset >= prev_offset");
 
         string t_is_for_text =  elems[1];
-        assert(t_is_for_text == "t" or t_is_for_text == "T");
+        DEBRT_ASSERT(t_is_for_text == "t" || t_is_for_text == "T",
+          "failed t_is_for_text == 't' || t_is_for_text == 'T'");
 
         string func_name_underscore = elems[2];
         string func_name = shave_leading_underscore(func_name_underscore);
@@ -1404,12 +1458,21 @@ void set_process_name(int pid, char *buf)
     if(Handle){
         if(GetModuleFileNameEx(Handle, 0, (LPWSTR)buf, MAX_PATH)){
             printf("success fetching process name\n");
+            printf("buf is holding: %s\n", buf);
         }else{
             // TODO: can call GetLastError()
             printf("Error fetching module name\n");
         }
         CloseHandle(Handle);
     }
+}
+
+string ws2s(const wstring &wstr)
+{
+    using convert_typeX = codecvt_utf8<wchar_t>;
+    wstring_convert<convert_typeX, wchar_t> converterX;
+
+    return converterX.to_bytes(wstr);
 }
 
 
@@ -1421,34 +1484,45 @@ void set_text_size_and_offset(void)
     //void *img_base_addr = get_img_base_addr();
     //printf("img_base_addr: %p\n", img_base_addr);
 
-    TCHAR process_name[MAX_PATH];
-    set_process_name(pid, (char *)process_name);
-    //HMODULE hMod = GetModuleHandleA("C:\\Users\\rudy\\h\\wo\\foo\\get-my-text-addr-2\\a.exe");
-    //HMODULE hMod = GetModuleHandleA("a.exe");
-    printf("My process_name is: %s\n", process_name);
-    HMODULE hMod = GetModuleHandleA((LPCSTR)process_name);
+    TCHAR process_name_tchar[MAX_PATH];
+    set_process_name(pid, (char *)process_name_tchar);
+
+    // TCHAR ends up as a wchar (2 chars) on our system. Need to convert to
+    // regular string before we can work with it like a normal char *
+    wstring process_name_wstring = process_name_tchar;
+    string process_name = ws2s(process_name_wstring);
+
+    printf("My process_name is: %s\n", (char *) process_name.c_str());
+
+    HMODULE hMod = GetModuleHandleA((LPCSTR)process_name.c_str());
     if(hMod){
         PIMAGE_NT_HEADERS NtHeader = ImageNtHeader(hMod);
         WORD NumSections = NtHeader->FileHeader.NumberOfSections;
         PIMAGE_SECTION_HEADER Section = IMAGE_FIRST_SECTION(NtHeader);
-        for (WORD i = 0; i < NumSections; i++)
-        {
+        printf("above loop\n");
+        for(WORD i = 0; i < NumSections; i++){
+            printf("iterating\n");
             printf("%-8s\t%lx\t%lx\t%lx\n", Section->Name, Section->VirtualAddress,
                    Section->PointerToRawData, Section->SizeOfRawData);
             if(memcmp(".text", Section->Name, 6) == 0){
+                printf("hit memcmp\n");
                 //*size = Section->SizeOfRawData;
                 //int text_offset = Section->VirtualAddress;
                 text_size = Section->SizeOfRawData;
                 text_offset = Section->VirtualAddress;
                 //printf("  text_offset is 0x%x\n", text_offset);
                 //*text_addr = (int)img_base_addr + text_offset;
+                DEBRT_PRINTF("text_offset is: 0x%llx\n", text_offset);
+                DEBRT_PRINTF("text_size is:   0x%llx\n", text_size);
                 return;
             }
+            printf("incrementing\n");
             Section++;
         }
+        printf("broke out of loop\n");
     }
 
-    assert(0 && ".text section not found");
+    DEBRT_ASSERT(0, ".text section not found");
 }
 
 
@@ -1622,13 +1696,13 @@ gdb_workaround:
     //while(1){
     //    sleep(10);
     //}
-    assert(num_executable_binary_lines == 1);
+    DEBRT_ASSERT(num_executable_binary_lines == 1, "failed num_executable_binary_lines == 1");
 
 
     fclose(fp);
 
-    assert(executable_addr_base);
-    assert(executable_addr_end);
+    DEBRT_ASSERT(executable_addr_base, "failed executable_addr_base");
+    DEBRT_ASSERT(executable_addr_end, "failed executable_addr_end");
 }
 #endif
 
@@ -1646,7 +1720,7 @@ void _read_func_name_to_id(void)
 
     while(getline(ifs, line)){
         elems = split(line, ' ');
-        assert(elems.size() == 2);
+        DEBRT_ASSERT(elems.size() == 2, "failed elems.size() == 2");
         func_name_to_id[elems[0]] = atoi(elems[1].c_str());
         func_id_to_name[atoi(elems[1].c_str())] = elems[0];
     }
@@ -1667,7 +1741,8 @@ void _read_func_ptrs(void)
 
     while(getline(ifs, line)){
         ptd_to_funcs.insert(line);
-        assert(func_name_to_id.find(line) != func_name_to_id.end());
+        DEBRT_ASSERT(func_name_to_id.find(line) != func_name_to_id.end(),
+          "failed func_name_to_id.find(line) != func_name_to_id.end()");
         ptd_to_func_ids.insert(func_name_to_id[line]);
     }
     ifs.close();
@@ -1738,7 +1813,7 @@ void _read_encompassed_funcs(void)
     }
     while(getline(ifs, line)){
         elems = split(line, ' ');
-        assert(elems.size() == 2);
+        DEBRT_ASSERT(elems.size() == 2, "failed elems.size() == 2");
         func_id = atoi(elems[0].c_str());
         encompassed_funcs.insert(func_id);
         // elems[1] is func name for convenience. can ignore.
@@ -1901,18 +1976,14 @@ void _debrt_protect_all_pages(int perm)
     long long text_end   = text_start + text_size;
     text_start_aligned = text_start & ~(0x1000-1);
     text_end_aligned   = text_end   & ~(0x1000-1);
-    if(text_start_aligned >= text_end_aligned){
-        // Aligned .text start should never be above end
-        assert(text_start_aligned == text_end_aligned);
-        // ...but they can be equal if it's a small .text section.
-        // Print warning to stdout for now, but continue.
-        // Any remapping attempts to RO are handled elsewhere and
-        // should have a similar treatment (i.e. never map RO any pages
-        // at the boundaries).
-        printf("WARNING: text start and end are equal. " \
-               "Program is too small for a page-based technique.\n");
-        return;
-    }
+    //printf("executable-addr-base: %llx\n", executable_addr_base);
+    //printf("text-offset: %llx\n", text_offset);
+    //printf("text-size: %llx\n", text_size);
+    //printf("text-start: %llx\n", text_start);
+    //printf("text-end: %llx\n", text_end);
+    //printf("text-start-aligned: %llx\n", text_start_aligned);
+    //printf("text-end-aligned: %llx\n", text_end_aligned);
+    //fflush(0);
     // Check if text_start was already aligned. If it wasn't we need to bump
     // our starting (aligned) page. We go up by 1 page, b/c o/w we'd mark shit
     // that's not in .text when marking the starting page.... do similarly
@@ -1924,6 +1995,21 @@ void _debrt_protect_all_pages(int perm)
     if(text_end & (0x1000-1)){
         text_end_aligned   -= 0x1000;
         end_had_to_align = 1;
+    }
+    if(text_start_aligned >= text_end_aligned){
+        // Aligned .text start should never be above end
+        DEBRT_ASSERT(text_start_aligned == text_end_aligned,
+          "failed text_start_aligned == text_end_aligned");
+        // ...but they can be equal if it's a small .text section.
+        // Print warning to stdout for now, but continue.
+        // Any remapping attempts to RO are handled elsewhere and
+        // should have a similar treatment (i.e. never map RO any pages
+        // at the boundaries).
+        printf("WARNING: text start and end are equal. " \
+               "Program is too small for a page-based technique.\n");
+        printf("text-start-aligned: %llx\n", text_start_aligned);
+        printf("text-end-aligned: %llx\n", text_end_aligned);
+        return;
     }
     DEBRT_PRINTF("text_start_aligned: 0x%llx\n", text_start_aligned);
     DEBRT_PRINTF("text_end_aligned: 0x%llx\n", text_end_aligned);
@@ -2144,7 +2230,7 @@ int debrt_protect_end(int argc, ...)
     int func_id;
     DEBRT_PRINTF("%s\n", __FUNCTION__);
 
-    assert(lib_initialized && "ERROR: debrt-protect-end hit before debrt-protect\n");
+    DEBRT_ASSERT(lib_initialized, "ERROR: debrt-protect-end hit before debrt-protect\n");
 
     va_start(ap, argc);
     caller_func_id = va_arg(ap, int);
@@ -2262,7 +2348,8 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     // page and main are still executable.
     DEBRT_PRINTF("ensuring first protect caller is still RX\n");
     DEBRT_PRINTF("main_func_id: %d\n", main_func_id);
-    assert(main_func_id == func_name_to_id["main"]);
+    DEBRT_ASSERT(main_func_id == func_name_to_id["main"],
+      "failed main_func_id == func_name_to_id['main']");
     int rv;
     rv = update_page_counts(main_func_id, 1);
     _write_mapped_pages_to_file(rv);
