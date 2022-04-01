@@ -1,2 +1,2 @@
 all:
-	C:/Users/rudy/h/wo/llvm/llvm-project/build/Release/bin/clang++.exe -c -S -emit-llvm -ffunction-sections ics.cpp
+	C:/Users/rudy/h/wo/llvm/llvm-project/build/Release/bin/clang++.exe -c -S -emit-llvm -ffunction-sections -target i686-pc-windows-gnu ics.cpp
