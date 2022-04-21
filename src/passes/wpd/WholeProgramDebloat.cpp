@@ -36,7 +36,7 @@ bool ENABLE_INSTRUMENTATION_SINKING = false; // can set via command line option 
 //cl::opt<bool> EnableInstrumentationSinking(
 //    "enable-instrumentation-sinking", cl::init(false), cl::Hidden,
 //    cl::desc("Attempts to sink instrumentation into loops."));
-bool ENABLE_INDIRECT_CALL_SINKING = false; // can set via command line option below
+bool ENABLE_INDIRECT_CALL_SINKING = true; // can set via command line option below
 //cl::opt<bool> EnableIndirectCallSinking(
 //    "enable-indirect-call-sinking", cl::init(false), cl::Hidden,
 //    cl::desc("Attempts to sink indirect call instrumentation into loops."));
