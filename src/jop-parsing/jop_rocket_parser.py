@@ -1,17 +1,25 @@
 #!/usr/bin/env python3
 
+import sys
+import json
+from os.path import exists
+
 from jrp_aux import (gadget_types, gt_to_gf_arr, jop_metrics,
-                    gt_to_parser, finalize_metrics)
+                     gt_to_parser, finalize_metrics, reset_jop_metrics)
 
 
+
+def usage_and_exit():
+    print()
+    print('Usage:')
+    print('  {} <test-or-nginx>'.format(sys.argv[0]))
+    print()
+    sys.exit(1)
 
 
 
 GADGET_DELIMITER = '*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^*^'
 
-gadget_files_path = 'C:\\Users\\rudy\\h\\wo\\decker\\whole-program-debloat\\src\\jop-parsing\\hashCracker_challenge-test'
-base_filename = 'hashcracker_challenge_'
-gadgets = []
 
 
 
@@ -42,25 +50,24 @@ class Gadget:
 
 
 
-def add_new_gadget(gadget):
-    global gadgets
+def add_new_gadget(gadgets, gadget):
     gadget.finalize()
     if gadget.is_valid():
         gadgets.append(gadget)
 
 
-def parse_gadgets(gadget_type, lines):
+def parse_gadgets(gadgets, gadget_type, lines):
     gadget = Gadget(gadget_type)
     for line in lines:
         line = line.strip()
         if line == '':
             continue
         if line == GADGET_DELIMITER:
-            add_new_gadget(gadget)
+            add_new_gadget(gadgets, gadget)
             gadget = Gadget(gadget_type)
         else:
             gadget.lines.append(line)
-    add_new_gadget(gadget)
+    add_new_gadget(gadgets, gadget)
 
 
 def read_gadget_file(filename):
@@ -75,8 +82,15 @@ def dump_metrics():
         print('{} {}'.format(key, val))
 
 
+def write_metrics(output_file):
+    with open(output_file, 'w') as f:
+        json.dump(jop_metrics, f)
 
-def main():
+
+def parse_test():
+    gadget_files_path = 'C:\\Users\\rudy\\h\\wo\\decker\\whole-program-debloat\\src\\jop-parsing\\hashCracker_challenge-test'
+    base_filename = 'hashcracker_challenge_'
+    gadgets = []
     
     # for each group of gadget files
     for gt in gadget_types:
@@ -85,7 +99,7 @@ def main():
         for gf in gf_arr:
             filename = gadget_files_path + '\\' + base_filename + gf
             lines = read_gadget_file(filename)
-            parse_gadgets(gt, lines)
+            parse_gadgets(gadgets, gt, lines)
 
     jop_metrics['num_uniq_gadgets'] = len(gadgets)
 
@@ -97,9 +111,59 @@ def main():
     #    #    print(line)
     #    #print()
 
-
     finalize_metrics()
     dump_metrics()
+
+
+def parse_nginx():
+    
+    OUTPUT_FOLDER = 'nginx-parsed-metrics-output'
+    pg_files_base_path = 'C:/Users/rudy/h/wo/decker/JOP_ROCKET'
+    pg_folder_prefix = 'nginx_pg'
+
+    for x in range(142):
+
+        gadget_files_path = '{}/{}_{}'.format(pg_files_base_path, pg_folder_prefix, x)
+        base_filename = 'nginx_pg_{}_'.format(x)
+        #print('{}/{}'.format(gadget_files_path, base_filename))
+        gadgets = []
+
+        print('Parsing metrics for nginx page group {}'.format(x))
+
+        # for each group of gadget files
+        for gt in gadget_types:
+            gf_arr = gt_to_gf_arr[gt]
+            # for each gadget file in that group
+            for gf in gf_arr:
+                filename = gadget_files_path + '/' + base_filename + gf
+                if exists(filename):
+                    lines = read_gadget_file(filename)
+                    parse_gadgets(gadgets, gt, lines)
+                else:
+                    # TODO: Look into these cases
+                    # current gadget-types, etc. are based on hashcracker test
+                    pass
+
+        jop_metrics['num_uniq_gadgets'] = len(gadgets)
+
+        finalize_metrics()
+        #dump_metrics()
+        output_filename = OUTPUT_FOLDER + '/' + base_filename + 'metrics.json'
+        write_metrics(output_filename)
+        reset_jop_metrics()
+
+
+def main():
+    if len(sys.argv) != 2:
+        usage_and_exit()
+    if sys.argv[1] not in {'test', 'nginx'}:
+        usage_and_exit()
+
+    if sys.argv[1] == 'test':
+        parse_test()
+    else:
+        assert sys.argv[1] == 'nginx'
+        parse_nginx()
 
 
 main()

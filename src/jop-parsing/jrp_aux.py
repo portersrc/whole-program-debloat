@@ -501,6 +501,11 @@ def finalize_metrics():
     jop_metrics['num_uniq_mov_imm_insts'] = len(uniq_movval_ops)
 
 
+def reset_jop_metrics():
+    for key in jop_metrics:
+        jop_metrics[key] = 0
+
+
 
 gadget_types = [
     'gt_add_op',
