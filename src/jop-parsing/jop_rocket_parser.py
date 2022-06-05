@@ -12,7 +12,7 @@ from jrp_aux import (gadget_types, gt_to_gf_arr, jop_metrics,
 def usage_and_exit():
     print()
     print('Usage:')
-    print('  {} <test-or-nginx>'.format(sys.argv[0]))
+    print('  {} <test-or-nginx-or-nginx_baseline>'.format(sys.argv[0]))
     print()
     sys.exit(1)
 
@@ -77,9 +77,9 @@ def read_gadget_file(filename):
     return lines
 
 
-def dump_metrics():
-    for key, val in jop_metrics.items():
-        print('{} {}'.format(key, val))
+def dump_metrics(metrics):
+    for key in sorted(metrics):
+        print('{} {}'.format(key, metrics[key]))
 
 
 def write_metrics(output_file):
@@ -112,7 +112,32 @@ def parse_test():
     #    #print()
 
     finalize_metrics()
-    dump_metrics()
+    dump_metrics(jop_metrics)
+
+
+def parse_nginx_baseline():
+    gadget_files_path = 'C:/Users/rudy/h/wo/decker/JOP_ROCKET/nginx_baseline_ls'
+    base_filename = 'nginx_baseline_ls_'
+    gadgets = []
+    
+    # for each group of gadget files
+    for gt in gadget_types:
+        gf_arr = gt_to_gf_arr[gt]
+        # for each gadget file in that group
+        for gf in gf_arr:
+            filename = gadget_files_path + '/' + base_filename + gf
+            if exists(filename):
+                lines = read_gadget_file(filename)
+                parse_gadgets(gadgets, gt, lines)
+            else:
+                # TODO: look at these cases
+                # same for parse_nginx()
+                pass
+
+    jop_metrics['num_uniq_gadgets'] = len(gadgets)
+
+    finalize_metrics()
+    dump_metrics(jop_metrics)
 
 
 def parse_nginx():
@@ -147,7 +172,7 @@ def parse_nginx():
         jop_metrics['num_uniq_gadgets'] = len(gadgets)
 
         finalize_metrics()
-        #dump_metrics()
+        #dump_metrics(jop_metrics)
         output_filename = OUTPUT_FOLDER + '/' + base_filename + 'metrics.json'
         write_metrics(output_filename)
         reset_jop_metrics()
@@ -156,11 +181,13 @@ def parse_nginx():
 def main():
     if len(sys.argv) != 2:
         usage_and_exit()
-    if sys.argv[1] not in {'test', 'nginx'}:
+    if sys.argv[1] not in {'test', 'nginx', 'nginx_baseline'}:
         usage_and_exit()
 
     if sys.argv[1] == 'test':
         parse_test()
+    elif sys.argv[1] == 'nginx_baseline':
+        parse_nginx_baseline()
     else:
         assert sys.argv[1] == 'nginx'
         parse_nginx()
