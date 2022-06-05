@@ -8,6 +8,11 @@ from jrp_aux import (gadget_types, gt_to_gf_arr, jop_metrics,
                      gt_to_parser, finalize_metrics, reset_jop_metrics)
 
 
+# Should be exactly the number of files.
+# IDs start at 0, so this is also equal to max ID - 1
+#NUM_PG_FILES = 142
+NUM_PG_FILES = 119
+
 
 def usage_and_exit():
     print()
@@ -146,7 +151,7 @@ def parse_nginx():
     pg_files_base_path = 'C:/Users/rudy/h/wo/decker/JOP_ROCKET'
     pg_folder_prefix = 'nginx_pg'
 
-    for x in range(142):
+    for x in range(NUM_PG_FILES):
 
         gadget_files_path = '{}/{}_{}'.format(pg_files_base_path, pg_folder_prefix, x)
         base_filename = 'nginx_pg_{}_'.format(x)

@@ -3,6 +3,12 @@ import sys
 import json
 
 
+# Should be exactly the number of files.
+# IDs start at 0, so this is also equal to max ID - 1
+#NUM_PG_FILES = 142
+NUM_PG_FILES = 119
+
+
 avg_metrics = {}
 avg_metrics_count = {}
 min_metrics = {}
@@ -34,7 +40,7 @@ def read_nginx_metrics():
     
     METRICS_FOLDER = 'nginx-parsed-metrics-output'
 
-    for x in range(142):
+    for x in range(NUM_PG_FILES):
         print('Reading metrics for nginx page group {}'.format(x))
         base_filename = 'nginx_pg_{}'.format(x)
         metrics_filename = METRICS_FOLDER + '/' + base_filename + '_metrics.json'

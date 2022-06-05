@@ -8,6 +8,11 @@ from Queue import Queue, Empty
 
 ROCKET_COMMANDS = "Z\nP\n"
 
+# Should be exactly the number of files.
+# IDs start at 0, so this is also equal to max ID - 1
+#NUM_PG_FILES = 142
+NUM_PG_FILES = 119
+
 
 def usage_and_exit():
     print('')
@@ -81,7 +86,7 @@ executable = parse_args()
 
 if executable == 'RUN_ALL_NGINX':
     nginx_pg_files_path = 'C:/Users/rudy/h/wo/decker/whole-program-debloat/src/gadget-chains/output/nginx'
-    for x in xrange(142):
+    for x in xrange(NUM_PG_FILES):
         executable = '{}/nginx_pg_{}.bin'.format(nginx_pg_files_path, x)
         drive_jop_rocket(executable)
 else:
