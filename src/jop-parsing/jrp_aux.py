@@ -1,13 +1,28 @@
 #!/usr/bin/env python3
 
+# new gadget types for baseline:
+#'gt_call_op',
+#'gt_lodsd_op',
+#'gt_mul_op',
+#'gt_div_op',
+#'gt_mycall_op',
+
+# (after adding baseline), nginx-wpd-ics missing:
+#  CALL EDX ALL_1.txt
+#  Lea OP_EBP_1.txt
+#  Sub OP_EDI_1.txt
 
 jop_metric_descriptions = {
+    'num_stack_pivot_gadgets': 'Number of stack pivot gadgets available',
+    # cporter: davit's two stack pivot metrics could be done in their own way but ive made a simpler metric for now and am using that (the one just abvove this comment)
+    'num_uniq_stack_pivot_reg_offset_pairs': 'Number of unique stack pivot register-offset pairs',
     'num_uniq_stack_pivot_regs': 'Number of unique stack pivot registers available',
     'num_uniq_stack_pivot_reg_offset_pairs': 'Number of unique stack pivot register-offset pairs',
     'num_uniq_addends_for_add_op': 'Number of unique addends for the add operation (irrespective of the base register)',
     'num_uniq_jump_regs_for_add_op': 'Number of unique JMP registers for the add-op gadgets',
     'num_uniq_gadgets': 'Total number of unique gadgets across all the files',
-    'num_uniq_call_gadgets': 'Number of unique call gadgets (irrespective of the base register)',
+    # cporter note: this was previously 'unique' call gadgets, but that's hard to parse
+    'num_call_gadgets': 'Number of call gadgets (irrespective of the base register)',
     'num_len_two_mov_gadgets': 'Number of MOV gadgets with only the mov (length=2)',
     'num_len_two_gadgets': 'Number of gadgets with length=2 (fewer side effects)',
     #'FIXME': 'Breakdown metric for all the gadget depths (depth:number format)',
@@ -16,10 +31,12 @@ jop_metric_descriptions = {
     'num_uniq_len_two_push_ops': 'Number of unique, length=2 PUSH operations',
     'num_uniq_sub_ops': 'Number of unique SUB operations',
     'num_uniq_len_two_pop_ops': 'Number of unique, length=2 POP operations',
+    # cporter note: This one is just rare, apparently. didnt see it in hashcracker or nginx, so it is currently unimplemented
     'num_lea_ops_for_esp_reg': 'Number of LEA operations for ESP register',
     'num_uniq_lea_ops': 'Number of unique LEA operations',
     'num_best_dispatcher_gadgets': 'Number of "best" dispatcher gadgets',
     'num_dispatcher_gadgets': 'Total number of all dispatcher gadgets that are functional',
+     # cporter note: ignoring this one. seems rare. and im okay with having just num_len_two_mov_gadgets
     'num_jump_only_mov_ops': 'Number of jump_only MOV operations',
     'num_max_len_three_xchg_ops': 'Number of XCHG operations with length<4',
     'num_uniq_mov_imm_insts': 'Number of unique mov-imm instructions',
@@ -33,12 +50,13 @@ jop_metric_descriptions = {
 
 
 jop_metrics = {
+    'num_stack_pivot_gadgets': 0,
     'num_uniq_stack_pivot_regs': 0,
     'num_uniq_stack_pivot_reg_offset_pairs': 0,
     'num_uniq_addends_for_add_op': 0,
     'num_uniq_jump_regs_for_add_op': 0,
     'num_uniq_gadgets': 0,
-    'num_uniq_call_gadgets': 0,
+    'num_call_gadgets': 0,
     'num_len_two_mov_gadgets': 0,
     'num_len_two_gadgets': 0,
     #'FIXME-breakdown-metric': 0,
@@ -60,7 +78,11 @@ jop_metrics = {
     'num_rol_ops': 0,
     'num_rcr_ops': 0,
     'num_uniq_len_two_addends_to_esp': 0,
+    'meta_num_files_processed': 0,
 }
+
+MAX_JOP_DEPTH = 20
+jop_depth_metric = [0] * MAX_JOP_DEPTH
 
 
 
@@ -80,6 +102,10 @@ jop_metrics = {
 # Gadget files
 # These should be exhaustive. Add to this script if missing any.
 # Parser will gracefully handle missing files.
+
+
+
+
 
 
 
@@ -109,6 +135,20 @@ gf_best_two_gadget_dispatcher = [
     'Best Two-Gadget Dispatcher ESI_1.txt',
 ]
 
+gf_call_op = [
+    'CALL EBP ALL_1.txt',
+    'CALL EBX ALL_1.txt',
+    'CALL ECX ALL_1.txt',
+    'CALL EDI ALL_1.txt',
+    'CALL ESI ALL_1.txt',
+    'CALL EDX ALL_1.txt',
+    'CALL PTR EBP ALL_1.txt',
+    'CALL PTR ECX ALL_1.txt',
+    'CALL PTR EDI ALL_1.txt',
+    'CALL PTR EDX ALL_1.txt',
+    'CALL PTR ESP ALL_1.txt',
+]
+
 gf_dec_op = [
     'Dec OP_EAX_1.txt',
     'Dec OP_EBP_1.txt',
@@ -116,6 +156,8 @@ gf_dec_op = [
     'Dec OP_EDI_1.txt',
     'Dec OP_ESI_1.txt',
     'Dec OP_ESP_1.txt',
+    'Dec OP_EBX_1.txt',
+    'Dec OP_EDX_1.txt',
 ]
 
 gf_dispatcher_gadget_best = [
@@ -132,6 +174,11 @@ gf_dispatcher_gadget = [
     'Dispatcher Gadget ESI_jmp_1.txt',
 ]
 
+gf_div_op = [
+    'Div OP_EAX_1.txt',
+    'Div OP_EDX_1.txt',
+]
+
 gf_inc_op = [
     'Inc OP_EAX_1.txt',
     'Inc OP_EBP_1.txt',
@@ -139,6 +186,8 @@ gf_inc_op = [
     'Inc OP_ECX_1.txt',
     'Inc OP_EDX_1.txt',
     'Inc OP_ESI_1.txt',
+    'Inc OP_EDI_1.txt',
+    'Inc OP_ESP_1.txt',
 ]
 
 gf_jmp_ptr = [
@@ -156,6 +205,14 @@ gf_jmp_ptr = [
 gf_lea_op = [
     'Lea OP_EDI_1.txt',
     'Lea OP_ESI_1.txt',
+    'Lea OP_EAX_1.txt',
+    'Lea OP_ECX_1.txt',
+    'Lea OP_EDX_1.txt',
+    'Lea OP_EBP_1.txt',
+]
+
+gf_lodsd_op =[
+    'Lodsd OP_All_1.txt',
 ]
 
 gf_mov_deref_op = [
@@ -164,6 +221,8 @@ gf_mov_deref_op = [
     'Mov Deref OP _EBX_1.txt',
     'Mov Deref OP _ECX_1.txt',
     'Mov Deref OP _EDX_1.txt',
+    'Mov Deref OP _ESI_1.txt',
+    'Mov Deref OP _ESP_1.txt',
 ]
 
 gf_mov_op = [
@@ -198,6 +257,15 @@ gf_movval_op = [
     'MovVal OP_ESP_1.txt',
 ]
 
+gf_mul_op = [
+    'Mul OP_EDX_1.txt',
+]
+
+gf_mycall_op = [
+    'My CALL EAX ALL_1.txt',
+    'My CALL PTR EAX ALL_1.txt',
+]
+
 gf_pop_op = [
     'Pop OP_EAX_1.txt',
     'Pop OP_EBP_1.txt',
@@ -206,6 +274,7 @@ gf_pop_op = [
     'Pop OP_EDI_1.txt',
     'Pop OP_EDX_1.txt',
     'Pop OP_ESI_1.txt',
+    'Pop OP_ESP_1.txt',
 ]
 
 gf_push_op = [
@@ -242,6 +311,8 @@ gf_sub_op = [
     'Sub OP_EDX_1.txt',
     'Sub OP_ESI_1.txt',
     'Sub OP_ESP_1.txt',
+    'Sub OP_EBP_1.txt',
+    'Sub OP_EDI_1.txt',
 ]
 
 gf_two_gadget_dispatcher = [
@@ -261,6 +332,17 @@ gf_xchg_op = [
     'Xchg OP_ECX_1.txt',
     'Xchg OP_EDX_1.txt',
 ]
+
+
+# TODO movshuf is a stack pivot but only when the destination register is esp
+esp_stack_pivot_gadget_files = {
+    'ADD OP_ESP_1.txt',
+    'Dec OP_ESP_1.txt',
+    'Inc OP_ESP_1.txt',
+    'MovVal OP_ESP_1.txt',
+    'Pop OP_ESP_1.txt',
+    'Sub OP_ESP_1.txt',
+}
 
 
 
@@ -319,6 +401,7 @@ uniq_sub_ops = set()
 uniq_pop_regs_len_two_gadget = set()
 uniq_lea_ops = set()
 uniq_movval_ops = set()
+
 
 
 
@@ -490,6 +573,18 @@ def parse_gf_xchg_op(insts):
         jop_metrics['num_max_len_three_xchg_ops'] += 1
 
 
+def parse_gf_call_op(insts):
+    jop_metrics['num_call_gadgets'] += 1
+
+def parse_gf_lodsd_op(insts):
+    pass
+def parse_gf_mul_op(insts):
+    pass
+def parse_gf_div_op(insts):
+    pass
+def parse_gf_mycall_op(insts):
+    pass
+
 
 def finalize_metrics():
     jop_metrics['num_uniq_addends_for_add_op'] = len(uniq_addends)
@@ -504,22 +599,31 @@ def finalize_metrics():
 def reset_jop_metrics():
     for key in jop_metrics:
         jop_metrics[key] = 0
+    for i, d in enumerate(jop_depth_metric):
+        jop_depth_metric[i] = 0
+
+
 
 
 
 gadget_types = [
     'gt_add_op',
     'gt_best_two_gadget_dispatcher',
+    'gt_call_op',
     'gt_dec_op',
     'gt_dispatcher_gadget_best',
     'gt_dispatcher_gadget',
+    'gt_div_op',
     'gt_inc_op',
     'gt_jmp_ptr',
     'gt_lea_op',
+    'gt_lodsd_op',
     'gt_mov_deref_op',
     'gt_mov_op',
     'gt_movshuf_op',
     'gt_movval_op',
+    'gt_mul_op',
+    'gt_mycall_op',
     'gt_pop_op',
     'gt_push_op',
     'gt_rotate_left_op',
@@ -533,16 +637,21 @@ gadget_types = [
 gt_to_gf_arr = {
     'gt_add_op': gf_add_op,
     'gt_best_two_gadget_dispatcher': gf_best_two_gadget_dispatcher,
+    'gt_call_op': gf_call_op,
     'gt_dec_op': gf_dec_op,
     'gt_dispatcher_gadget_best': gf_dispatcher_gadget_best,
     'gt_dispatcher_gadget': gf_dispatcher_gadget,
+    'gt_div_op': gf_div_op,
     'gt_inc_op': gf_inc_op,
     'gt_jmp_ptr': gf_jmp_ptr,
     'gt_lea_op': gf_lea_op,
+    'gt_lodsd_op': gf_lodsd_op,
     'gt_mov_deref_op': gf_mov_deref_op,
     'gt_mov_op': gf_mov_op,
     'gt_movshuf_op': gf_movshuf_op,
     'gt_movval_op': gf_movval_op,
+    'gt_mul_op': gf_mul_op,
+    'gt_mycall_op': gf_mycall_op,
     'gt_pop_op': gf_pop_op,
     'gt_push_op': gf_push_op,
     'gt_rotate_left_op': gf_rotate_left_op,
@@ -556,16 +665,21 @@ gt_to_gf_arr = {
 gt_to_parser = {
     'gt_add_op': parse_gf_add_op,
     'gt_best_two_gadget_dispatcher': parse_gf_best_two_gadget_dispatcher,
+    'gt_call_op': parse_gf_call_op,
     'gt_dec_op': parse_gf_dec_op,
     'gt_dispatcher_gadget_best': parse_gf_dispatcher_gadget_best,
     'gt_dispatcher_gadget': parse_gf_dispatcher_gadget,
+    'gt_div_op': parse_gf_div_op,
     'gt_inc_op': parse_gf_inc_op,
     'gt_jmp_ptr': parse_gf_jmp_ptr,
     'gt_lea_op': parse_gf_lea_op,
+    'gt_lodsd_op': parse_gf_lodsd_op,
     'gt_mov_deref_op': parse_gf_mov_deref_op,
     'gt_mov_op': parse_gf_mov_op,
     'gt_movshuf_op': parse_gf_movshuf_op,
     'gt_movval_op': parse_gf_movval_op,
+    'gt_mul_op': parse_gf_mul_op,
+    'gt_mycall_op': parse_gf_mycall_op,
     'gt_pop_op': parse_gf_pop_op,
     'gt_push_op': parse_gf_push_op,
     'gt_rotate_left_op': parse_gf_rotate_left_op,
