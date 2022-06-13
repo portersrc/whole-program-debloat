@@ -36,7 +36,8 @@ INPUT_PATH = BASE_FOLDER + '\\input'
 OUTPUT_PATH = BASE_FOLDER + '\\output'
 MAPPED_PAGES_FILE_PREFIX = 'debrt-mapped-rx-pages'
 #BMARK_SUFFIX = 'wpd_custlink_ics_nostatic'
-BMARK_SUFFIX = 'wpd_ics.exe'
+#BMARK_SUFFIX = 'wpd_ics.exe'
+BMARK_SUFFIX = 'wpd_custlink.exe'
 
 
 def get_text_offset(benchmark):
