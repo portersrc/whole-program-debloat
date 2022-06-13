@@ -11,9 +11,10 @@ from jrp_aux import (gadget_types, gt_to_gf_arr, jop_metrics, jop_depth_metric,
 
 
 # Should be exactly the number of files.
-# IDs start at 0, so this is also equal to max ID - 1
+# IDs start at 0, so this is also equal to max ID + 1
 #NUM_PG_FILES = 142
-NUM_PG_FILES = 119
+#NUM_PG_FILES = 119
+NUM_PG_FILES = 184
 
 
 

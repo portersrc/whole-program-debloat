@@ -4,9 +4,10 @@ import json
 
 
 # Should be exactly the number of files.
-# IDs start at 0, so this is also equal to max ID - 1
+# IDs start at 0, so this is also equal to max ID + 1
 #NUM_PG_FILES = 142
-NUM_PG_FILES = 119
+#NUM_PG_FILES = 119
+NUM_PG_FILES = 184
 
 
 avg_metrics = {}
