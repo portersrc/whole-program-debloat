@@ -28,35 +28,29 @@ else:
         'nginx',
     ]
 
-
-BASE_FOLDER = 'C:\\Users\\rudy\\h\\wo\\decker\\whole-program-debloat\\src\\gadget-chains'
-NGINX_PATH = 'C:\\Users\\rudy\\h\\wo\\nginx\\nginx'
-NGINX_OBJ_PATH = NGINX_PATH + '\\objs'
-INPUT_PATH = BASE_FOLDER + '\\input'
-OUTPUT_PATH = BASE_FOLDER + '\\output-hack'
-MAPPED_PAGES_FILE_PREFIX = 'debrt-mapped-rx-pages'
-#BMARK_SUFFIX = 'wpd_custlink_ics_nostatic'
-#BMARK_SUFFIX = 'wpd_ics.exe'
-BMARK_SUFFIX = 'wpd_custlink.exe'
+BASE_FOLDER = '/home/rudy/wo/whole-program-debloat/src/gadget-chains'
+INPUT_PATH = BASE_FOLDER + '/input'
+OUTPUT_PATH = BASE_FOLDER + '/output'
+MAPPED_PAGES_FILENAME = 'debrt-mapped-rx-pages_3_wpd_cl_ics.out'
+BMARK_SUFFIX = 'wpd_custlink_ics'
 
 
 def get_text_offset(benchmark):
-    cmd = "objdump -h {}/{}_{} | grep .text".format(NGINX_OBJ_PATH, benchmark, BMARK_SUFFIX)
+    cmd = "objdump -h {}/{}/{}/{}_{} | grep .text".format(INPUT_PATH, benchmark, benchmark, benchmark, BMARK_SUFFIX)
     result = subprocess.getoutput(cmd)
-    #offset = int(result.split()[3], 16)
-    offset = int(result.split()[5], 16) # grab "File off" column, not "VMA"
+    offset = int(result.split()[5], 16)
     return offset
 
 
 def get_text_size(benchmark):
-    cmd = "objdump -h {}/{}_{} | grep .text".format(NGINX_OBJ_PATH, benchmark, BMARK_SUFFIX)
+    cmd = "objdump -h {}/{}/{}/{}_{} | grep .text".format(INPUT_PATH, benchmark, benchmark, benchmark, BMARK_SUFFIX)
     result = subprocess.getoutput(cmd)
     size = int(result.split()[2], 16)
     return size
 
 
 def cp_orig_bin_to_start_page_group_bin(benchmark, page_group_id):
-    cmd = 'cp {}/{}_{} {}/{}/{}_pg_{}.bin'.format(NGINX_OBJ_PATH, benchmark, BMARK_SUFFIX, OUTPUT_PATH, benchmark, benchmark, page_group_id)
+    cmd = 'cp {}/{}/{}/{}_{} {}/{}/{}/{}_pg_{}.bin'.format(INPUT_PATH, benchmark, benchmark, benchmark, BMARK_SUFFIX, OUTPUT_PATH, benchmark, benchmark, benchmark, page_group_id)
     # XXX skipping binary copy command b/c it is already done and script is under development
     #rc = subprocess.call(cmd, shell=True)
     #assert rc == 0
@@ -64,9 +58,7 @@ def cp_orig_bin_to_start_page_group_bin(benchmark, page_group_id):
 
 def zero_out_file_part(benchmark, page_group_id, offset, size):
     # ./zofp file offset size
-    cmd = "zero_out_file_part\\zofp {}/{}/{}_pg_{}.bin {} {}".format(OUTPUT_PATH, benchmark, benchmark, page_group_id, offset, size)
-    #cmd_pretty = "zero_out_file_part\\zofp {}/{}/{}_pg_{}.bin {} {}".format(OUTPUT_PATH, benchmark, benchmark, page_group_id, hex(offset), hex(size))
-    #print(cmd_pretty)
+    cmd = "./zero_out_file_part/zofp {}/{}/{}/{}_pg_{}.bin {} {}".format(OUTPUT_PATH, benchmark, benchmark, benchmark, page_group_id, offset, size)
     rc = subprocess.call(cmd, shell=True)
     assert rc == 0
 
@@ -84,9 +76,7 @@ def main():
 
         text_offset = get_text_offset(benchmark)
         text_size   = get_text_size(benchmark)
-        rx_pages_files = ['{}/{}'.format(NGINX_PATH, x)
-                          for x in os.listdir(NGINX_PATH)
-                            if x.startswith(MAPPED_PAGES_FILE_PREFIX)]
+        rx_pages_files = ['{}/{}/{}/{}'.format(INPUT_PATH, benchmark, benchmark, MAPPED_PAGES_FILENAME)]
         already_copied_page_groups = set()
         already_done_page_groups = set()
         #print('text_offset: {}'.format(text_offset))
@@ -161,7 +151,7 @@ def main():
         # of page groups (i.e. the *_pg_*.bin files) that get checked by the
         # ROP tool. So it will be useful to know which pages were part of the
         # group.
-        with open('{}/{}/{}_page_groups'.format(OUTPUT_PATH, benchmark, benchmark), 'w') as f:
+        with open('{}/{}/{}/{}_page_groups'.format(OUTPUT_PATH, benchmark, benchmark, benchmark), 'w') as f:
             for page_group_id, page_group in sorted(page_group_id_to_group.items()):
                 f.write('{}: {}\n'.format(page_group_id, page_group))
 
