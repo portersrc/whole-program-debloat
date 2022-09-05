@@ -47,7 +47,7 @@ cl::opt<bool> EnableBasicIndirectCallStaticAnalysis(
 
 typedef struct{
     int id;
-    set<Function *> s;
+    set<Function *> *s;
 }disjoint_set_t;
 
 
@@ -91,7 +91,8 @@ namespace {
         map<Function *, set<Function *> > static_reachability;
         map<int, set<Function *> > loop_static_reachability;
         vector<set<Function *>> instrumented_sets;
-        map<int, set<Function *>> disjoint_sets;
+        //map<int, set<Function *>> disjoint_sets;
+        map<int, set<Function *> *> disjoint_sets;
         map<Function *, disjoint_set_t> func_to_disjoint_set;
         map<int, int> loop_id_to_func_id; // for debugging
         set<string> func_name_has_addr_taken;
@@ -127,6 +128,7 @@ namespace {
         void extend_encompassed_funcs(void);
         void build_toplevel_funcs(void);
         void create_disjoint_sets(void);
+        void finalize_disjoint_sets(void);
 
         bool instrument_main_start(Module &M);
         bool instrument_main_end(Module &M);
@@ -181,6 +183,7 @@ namespace {
         void dump_func_name_to_id(void);
         void dump_func_ptrs(void);
         void dump_disjoint_sets(void);
+        void print_disjoint_sets(void);
         void dump_stats(void);
     };
 }
@@ -1275,6 +1278,7 @@ void WholeProgramDebloat::update_disjoint_sets(set<Function *> &new_set)
 
     // a new disjoint set with just elements from new_set, if needed
     disjoint_set_t parentless_disjoint_set;
+    parentless_disjoint_set.s = NULL;
 
     // For each function in the new deck set
     for(Function *func : new_set){
@@ -1282,21 +1286,22 @@ void WholeProgramDebloat::update_disjoint_sets(set<Function *> &new_set)
         if(func_to_disjoint_set.find(func) == func_to_disjoint_set.end()){
             // ... it does not
             // It goes into a new parentless disjoint set
-            parentless_disjoint_set.s.insert(func);
+            if(parentless_disjoint_set.s == NULL){
+                parentless_disjoint_set.s = new set<Function *>;
+            }
+            parentless_disjoint_set.s->insert(func);
             func_to_disjoint_set[func] = parentless_disjoint_set;
         } else {
             // ... it does
             // Grab the disjoint set where it resides. (this is now the 'parent')
-            disjoint_set_t &disjoint_set = func_to_disjoint_set[func];
+            disjoint_set_t disjoint_set = func_to_disjoint_set[func];
             // Check if we already have a factored-out disjoint set for this parent
             if(factored_disjoint_sets.find(disjoint_set.id) == factored_disjoint_sets.end()){
                 // ... we don't
-                // We'll need to separate it out.
-                assert(disjoint_set.s.find(func) != disjoint_set.s.end());
-                disjoint_set.s.erase(func);
                 disjoint_set_t ds; // a new, factored-out disjoint set
                 ds.id = disjoint_set_id;
-                ds.s.insert(func);
+                ds.s = new set<Function *>;
+                ds.s->insert(func);
                 disjoint_set_id++;
                 factored_disjoint_sets[disjoint_set.id] = ds;
                 // Update the mapping of function to the disjoint set where it resides
@@ -1304,15 +1309,19 @@ void WholeProgramDebloat::update_disjoint_sets(set<Function *> &new_set)
             } else {
                 // ... we do
                 // So add to that factored-out disjoint set
-                factored_disjoint_sets[disjoint_set.id].s.insert(func);
+                factored_disjoint_sets[disjoint_set.id].s->insert(func);
                 // Update the mapping of function to the disjoint set where it resides
                 func_to_disjoint_set[func] = factored_disjoint_sets[disjoint_set.id];
             }
+            // Irrespective of whether we already had a factored-out set, we
+            // still need to remove the function from the parent.
+            assert(disjoint_set.s->find(func) != disjoint_set.s->end());
+            disjoint_set.s->erase(func);
         }
     }
 
     // If we actually made a new parentless disjoint set
-    if(parentless_disjoint_set.s.size() > 0){
+    if(parentless_disjoint_set.s != NULL){
         // ... then give it an ID and incorporate it into our factored-out sets
         parentless_disjoint_set.id = disjoint_set_id;
         disjoint_set_id++;
@@ -1322,14 +1331,32 @@ void WholeProgramDebloat::update_disjoint_sets(set<Function *> &new_set)
     // Last step: Update our global disjoint sets with any new factored-out
     // sets we created. Note that we don't need to do any erasing here, because
     // it's already been handled when we factored out functions.
-    // TODO Maybe we should clear out any empty disjoint sets, though? This
-    // could happen i think? We'll see when we start dumping.
+    // We don't clear out any empty sets in disjoint_sets. We just ignore them
+    // when dumping.
     for(auto &it : factored_disjoint_sets){
         int parent_id = it.first;
         disjoint_set_t &ds = it.second;
         disjoint_sets[ds.id] = ds.s;
     }
+    // TODO should actually free the memory for the disjoint sets.
+    // could do that after dump_disjoint_sets
 
+    //print_disjoint_sets(); // debug
+}
+
+
+void WholeProgramDebloat::finalize_disjoint_sets(void)
+{
+    // Set of functions that have addresses taken so we take their reachability
+    // and consider it as a set (Sharjeel)
+    errs() << "Finalizing disjoint sets\n";
+    for(auto F : func_has_addr_taken)
+    {
+        set<Function *> temp;
+        temp.insert(F);
+        temp.insert(static_reachability[F].begin(), static_reachability[F].end());
+        update_disjoint_sets(temp);
+    }
 }
 
 void WholeProgramDebloat::create_disjoint_sets(void)
@@ -1412,7 +1439,11 @@ void WholeProgramDebloat::create_disjoint_sets(void)
         // If set A is not empty, we consider it as a disjoint set
         if(current.size() != 0)
         {
-            disjoint_sets[index].insert(current.begin(), current.end());
+            // XXX cporter 2022.09.04 technically the old code was fine.
+            // but i changed the disjoint-sets type. just uncomment the
+            // member variable version if i ever revert it.
+            //disjoint_sets[index].insert(current.begin(), current.end());
+            disjoint_sets[index]->insert(current.begin(), current.end());
         }
         index += 1;
     }
@@ -1768,6 +1799,8 @@ bool WholeProgramDebloat::runOnModule_real(Module &M)
 
     // create disjoint sets
     //create_disjoint_sets();
+    // finalize disjoint sets
+    finalize_disjoint_sets();
 }
 
 bool WholeProgramDebloat::runOnModule(Module &M)
@@ -1942,16 +1975,34 @@ void WholeProgramDebloat::dump_func_name_to_id(void)
     }
     fclose(fp);
 }
+void WholeProgramDebloat::print_disjoint_sets(void)
+{
+    for(auto set : disjoint_sets){
+        if(set.second->size() > 0)
+        {
+            errs() << set.first << ": ";
+            for(auto f : *(set.second))
+            {
+                errs() << func_to_id[f] << " ";
+            }
+            errs() << "\n";
+        }
+    }
+}
 void WholeProgramDebloat::dump_disjoint_sets(void)
 {
     FILE *fp = fopen("wpd_disjoint_sets.txt", "w");
     for(auto set : disjoint_sets){
-        fprintf(fp, "%u: ", set.first);
-        for(auto f : set.second)
+        if(set.second->size() > 0)
         {
-            fprintf(fp, "%u ", func_to_id[f]);
+            fprintf(fp, "%u: ", set.first);
+            //for(auto f : set.second)
+            for(auto f : *(set.second))
+            {
+                fprintf(fp, "%u ", func_to_id[f]);
+            }
+            fprintf(fp, "\n");
         }
-        fprintf(fp, "\n");
     }
     fclose(fp);
 }
