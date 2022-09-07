@@ -28,6 +28,10 @@
 #include <sstream>
 
 
+// hacky build for asplos 2023 rebuttal.
+// Will attempt to trace all function calls (with the help of debrt)
+#define TRACE_BUILD
+
 using namespace llvm;
 using namespace std;
 
@@ -69,6 +73,9 @@ namespace {
         Function *debrt_protect_indirect_end_func;
         Function *debrt_protect_sink_func;
         Function *debrt_protect_sink_end_func;
+#ifdef TRACE_BUILD
+        Function *debrt_trace_func; // asplos 2023 rebuttal
+#endif
         Function *ics_map_indirect_call_func;
         Function *ics_wrapper_debrt_protect_loop_end_func;
         map<Function *, int> func_to_id;
@@ -1130,6 +1137,12 @@ bool WholeProgramDebloat::instrument_external_with_callback(Instruction &I,
 bool WholeProgramDebloat::instrument_main_start(Module &M)
 {
     errs() << "Instrumenting main start\n";
+#ifdef TRACE_BUILD
+    errs() << "WARNING: TRACE_BUILD is set\n";
+    errs() << "WARNING: TRACE_BUILD is set\n";
+    errs() << "WARNING: TRACE_BUILD is set\n";
+    errs() << "WARNING: TRACE_BUILD is set\n";
+#endif
     int found_main = 0;
     for(auto &F : M){
         string func_name = get_demangled_name(F);
@@ -1145,7 +1158,21 @@ bool WholeProgramDebloat::instrument_main_start(Module &M)
             builder.CreateCall(debrt_init_func, ArgsV);
 
             found_main = 1;
+#ifndef TRACE_BUILD
             break;
+#endif
+#ifdef TRACE_BUILD
+        }else{
+            if(F.hasName() && !F.isDeclaration()){
+                // instrument start of function with debrt-trace
+                vector<Value *> ArgsV;
+                Instruction *I = F.getEntryBlock().getFirstNonPHI();
+                assert(I);
+                IRBuilder<> builder(I);
+                ArgsV.push_back(ConstantInt::get(int32Ty, func_to_id[&F], false));
+                builder.CreateCall(debrt_trace_func, ArgsV);
+            }
+#endif
         }
     }
     assert(found_main == 1);
@@ -1730,6 +1757,12 @@ void WholeProgramDebloat::wpd_init(Module &M)
             Function::ExternalLinkage,
             "debrt_protect_sink_end",
             M);
+#ifdef TRACE_BUILD
+    debrt_trace_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+            Function::ExternalLinkage,
+            "debrt_trace",
+            M);
+#endif
 
     // FIXME ? not sure if external weak linkage is what i want here
     ics_map_indirect_call_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),

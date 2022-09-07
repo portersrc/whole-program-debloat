@@ -28,6 +28,11 @@ using namespace std;
 //#define DEBRT_DEBUG
 //#define DEBRT_ABSOLUTE_ELF_ADDRS
 
+
+// hacky build for asplos 2023 rebuttal.
+// Will attempt to trace all function calls (with the help of wpd pass)
+#define DEBRT_TRACE
+
 // to enable, set env var DEBRT_ENABLE_STATS=1
 int ENV_DEBRT_ENABLE_STATS = 0;
 // to enable, set env var DEBRT_ENABLE_STACK_CLEANING=1
@@ -157,6 +162,8 @@ set<int>    ptd_to_func_ids;
 
 map<long long, int> page_to_count;
 
+set<int> trace_seen_funcs;
+
 
 int *stats_hist;
 unsigned long long ics_set_short_circuit_count = 0;
@@ -233,6 +240,25 @@ void _dump_func_id_to_pages(void)
             DEBRT_PRINTF("%d: 0x%llx\n", func_id, pages[i]);
         }
     }
+}
+
+void _write_func_id_to_pages(void)
+{
+    FILE *fp_fitp;
+    int i;
+    int func_id;
+    long long page;
+    fp_fitp = fopen("wpd_func_id_to_pages.txt", "w");
+    for(map<int, vector<long long> >::iterator it = func_id_to_pages.begin(); it != func_id_to_pages.end(); it++){
+        func_id = it->first;
+        auto pages = it->second;
+        fprintf(fp_fitp, "%d:", func_id);
+        for(i = 0; i < pages.size(); i++){
+            fprintf(fp_fitp, " %lld", (pages[i] - text_start_aligned) >> 12);
+        }
+        fprintf(fp_fitp, "\n");
+    }
+    fclose(fp_fitp);
 }
 
 void _dump_func_id_to_addr_and_size(void)
@@ -405,10 +431,19 @@ mapped_func_node_t *deq(void)
 static inline
 void _write_mapped_pages_to_file(int yes_stats_got_updated)
 {
+
     long long page;
     int count;
     if(ENV_DEBRT_ENABLE_STATS){
         if(yes_stats_got_updated){
+#ifdef DEBRT_TRACE
+            fprintf(fp_mapped_pages, "T ");
+            for(int func_id : trace_seen_funcs){
+                fprintf(fp_mapped_pages, "%d ", func_id);
+            }
+            fprintf(fp_mapped_pages, "\n");
+            trace_seen_funcs.clear();
+#endif
             _stats_update_hist();
             for(auto p2c : page_to_count){
                 page  = p2c.first;
@@ -1977,6 +2012,13 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     int rv;
     rv = update_page_counts(main_func_id, 1);
     _write_mapped_pages_to_file(rv);
+#ifdef DEBRT_TRACE
+    // minor point: For this init case, we do this after
+    // write-mapped-pages-to-file b/c we want the fact that we executed main to
+    // be in the next write-mapped-pages-to-file output.
+    int debrt_trace(int);
+    debrt_trace(main_func_id);
+#endif
 
     lib_initialized = 1;
 
@@ -1988,6 +2030,9 @@ extern "C" {
 int debrt_destroy(int notused)
 {
     _debrt_protect_destroy();
+#ifdef DEBRT_TRACE
+    _write_func_id_to_pages();
+#endif
     return 0;
 }
 }
@@ -2247,5 +2292,15 @@ int debrt_protect_sink_end(int sink_id)
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
     _protect_sink(sink_id, -1);
+}
+}
+
+extern "C" {
+int debrt_trace(int func_id)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+    trace_seen_funcs.insert(func_id);
+    return 0;
 }
 }
