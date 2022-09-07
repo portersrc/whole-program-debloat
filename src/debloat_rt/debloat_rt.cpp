@@ -31,7 +31,7 @@ using namespace std;
 
 // hacky build for asplos 2023 rebuttal.
 // Will attempt to trace all function calls (with the help of wpd pass)
-#define DEBRT_TRACE
+//#define DEBRT_TRACE
 
 // to enable, set env var DEBRT_ENABLE_STATS=1
 int ENV_DEBRT_ENABLE_STATS = 0;

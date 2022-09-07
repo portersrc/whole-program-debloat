@@ -30,7 +30,7 @@
 
 // hacky build for asplos 2023 rebuttal.
 // Will attempt to trace all function calls (with the help of debrt)
-#define TRACE_BUILD
+//#define TRACE_BUILD
 
 using namespace llvm;
 using namespace std;
