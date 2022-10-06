@@ -140,7 +140,9 @@ namespace {
         void extend_encompassed_funcs(void);
         void build_toplevel_funcs(void);
         void create_disjoint_sets(void);
+#ifdef BOTTOM_UP_DISJOINT_SET
         void finalize_disjoint_sets(void);
+#endif
 
         bool instrument_main_start(Module &M);
         bool instrument_main_end(Module &M);
@@ -182,7 +184,9 @@ namespace {
         int get_set_byte_size(set<Function *> &functions);
         void get_address_taken_uses(Function &F, vector<User *> &offenders);
         void build_func_to_fps(Module &M);
+#ifdef BOTTOM_UP_DISJOINT_SET
         void update_disjoint_sets(set<Function *> &new_set);
+#endif
 
 
         string get_demangled_name(const Function &F);
@@ -195,7 +199,9 @@ namespace {
         void dump_func_name_to_id(void);
         void dump_func_ptrs(void);
         void dump_disjoint_sets(void);
+#ifdef BOTTOM_UP_DISJOINT_SET
         void print_disjoint_sets(void);
+#endif
         void dump_stats(void);
     };
 }
@@ -1296,6 +1302,7 @@ void WholeProgramDebloat::build_basic_structs(Module &M)
 }
 
 
+#ifdef BOTTOM_UP_DISJOINT_SET
 void WholeProgramDebloat::update_disjoint_sets(set<Function *> &new_set)
 {
     // sharjeel's approach (+ create_disjoint_sets at the end of the pass)
@@ -1399,6 +1406,7 @@ void WholeProgramDebloat::finalize_disjoint_sets(void)
         update_disjoint_sets(temp);
     }
 }
+#endif
 
 void WholeProgramDebloat::create_disjoint_sets(void)
 {
@@ -2027,6 +2035,7 @@ void WholeProgramDebloat::dump_func_name_to_id(void)
     }
     fclose(fp);
 }
+#ifdef BOTTOM_UP_DISJOINT_SET
 void WholeProgramDebloat::print_disjoint_sets(void)
 {
     for(auto set : disjoint_sets){
@@ -2041,24 +2050,32 @@ void WholeProgramDebloat::print_disjoint_sets(void)
         }
     }
 }
+#endif
 void WholeProgramDebloat::dump_disjoint_sets(void)
 {
     FILE *fp = fopen("wpd_disjoint_sets.txt", "w");
+#ifdef BOTTOM_UP_DISJOINT_SET
     for(auto set : disjoint_sets){
         if(set.second->size() > 0)
         {
             fprintf(fp, "%u: ", set.first);
-#ifdef BOTTOM_UP_DISJOINT_SET
             for(auto f : *(set.second))
-#else
-            for(auto f : set.second)
-#endif
             {
                 fprintf(fp, "%u ", func_to_id[f]);
             }
             fprintf(fp, "\n");
         }
     }
+#else
+    for(auto set : disjoint_sets){
+        fprintf(fp, "%u: ", set.first);
+        for(auto f : set.second)
+        {
+            fprintf(fp, "%u ", func_to_id[f]);
+        }
+        fprintf(fp, "\n");
+    }
+#endif
     fclose(fp);
 }
 void WholeProgramDebloat::dump_stats(void)
