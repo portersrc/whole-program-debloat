@@ -32,6 +32,8 @@
 // Will attempt to trace all function calls (with the help of debrt)
 //#define TRACE_BUILD
 
+#define BOTTOM_UP_DISJOINT_SET // comment out to use sharjeel's alg.
+
 using namespace llvm;
 using namespace std;
 
@@ -98,8 +100,11 @@ namespace {
         map<Function *, set<Function *> > static_reachability;
         map<int, set<Function *> > loop_static_reachability;
         vector<set<Function *>> instrumented_sets;
-        //map<int, set<Function *>> disjoint_sets;
+#ifdef BOTTOM_UP_DISJOINT_SET
         map<int, set<Function *> *> disjoint_sets;
+#else
+        map<int, set<Function *>> disjoint_sets;
+#endif
         map<Function *, disjoint_set_t> func_to_disjoint_set;
         map<int, int> loop_id_to_func_id; // for debugging
         set<string> func_name_has_addr_taken;
@@ -421,8 +426,11 @@ void WholeProgramDebloat::instrument_sink_point(pair<Function *, CallBase *> par
             temp.insert(func);
         }
     }
-    //instrumented_sets.push_back(temp);
+#ifdef BOTTOM_UP_DISJOINT_SET
     update_disjoint_sets(temp);
+#else
+    instrumented_sets.push_back(temp);
+#endif
     sink_id_to_func_id[sink_id] = func_to_id[parent_func.first]; // for debugging
 }
 
@@ -596,8 +604,11 @@ void WholeProgramDebloat::instrument_loop(int func_id, Loop *loop)
         //Set of functions debloated within loop (Sharjeel)
         // cporter update: added check in case 0-element case matters
         if(loop_static_reachability[loop_id].size() > 0){
-            //instrumented_sets.push_back(loop_static_reachability[loop_id]);
+#ifdef BOTTOM_UP_DISJOINT_SET
             update_disjoint_sets(loop_static_reachability[loop_id]);
+#else
+            instrumented_sets.push_back(loop_static_reachability[loop_id]);
+#endif
         }
         // errs() << "Inserted library function within preheader(" << preheader->getName().str() << "\n";
 
@@ -973,9 +984,12 @@ void WholeProgramDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
                                 assert(0);
                             }
                         }
-                        //An example of set of functions that will be debloated (Sharjeel)
-                        //instrumented_sets.push_back(temp);
+                        // An example of set of functions that will be debloated (Sharjeel)
+#ifdef BOTTOM_UP_DISJOINT_SET
                         update_disjoint_sets(temp);
+#else
+                        instrumented_sets.push_back(temp);
+#endif
                     }
                 }
             }
@@ -1467,10 +1481,12 @@ void WholeProgramDebloat::create_disjoint_sets(void)
         if(current.size() != 0)
         {
             // XXX cporter 2022.09.04 technically the old code was fine.
-            // but i changed the disjoint-sets type. just uncomment the
-            // member variable version if i ever revert it.
-            //disjoint_sets[index].insert(current.begin(), current.end());
+            // but i changed the disjoint-sets type
+#ifdef BOTTOM_UP_DISJOINT_SET
             disjoint_sets[index]->insert(current.begin(), current.end());
+#else
+            disjoint_sets[index].insert(current.begin(), current.end());
+#endif
         }
         index += 1;
     }
@@ -1830,10 +1846,13 @@ bool WholeProgramDebloat::runOnModule_real(Module &M)
     // before instrument().)
     instrument_main_end(M);
 
-    // create disjoint sets
-    //create_disjoint_sets();
+#ifdef BOTTOM_UP_DISJOINT_SET
     // finalize disjoint sets
     finalize_disjoint_sets();
+#else
+    // create disjoint sets
+    create_disjoint_sets();
+#endif
 }
 
 bool WholeProgramDebloat::runOnModule(Module &M)
@@ -2029,8 +2048,11 @@ void WholeProgramDebloat::dump_disjoint_sets(void)
         if(set.second->size() > 0)
         {
             fprintf(fp, "%u: ", set.first);
-            //for(auto f : set.second)
+#ifdef BOTTOM_UP_DISJOINT_SET
             for(auto f : *(set.second))
+#else
+            for(auto f : set.second)
+#endif
             {
                 fprintf(fp, "%u ", func_to_id[f]);
             }
