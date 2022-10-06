@@ -52,7 +52,7 @@ cl::opt<bool> EnableBasicIndirectCallStaticAnalysis(
 
 
 typedef struct{
-    int id;
+    long id;
     set<Function *> *s;
 }disjoint_set_t;
 
@@ -101,9 +101,9 @@ namespace {
         map<int, set<Function *> > loop_static_reachability;
         vector<set<Function *>> instrumented_sets;
 #ifdef BOTTOM_UP_DISJOINT_SET
-        map<int, set<Function *> *> disjoint_sets;
+        map<long, set<Function *> *> disjoint_sets;
 #else
-        map<int, set<Function *>> disjoint_sets;
+        map<size_t, set<Function *>> disjoint_sets;
 #endif
         map<Function *, disjoint_set_t> func_to_disjoint_set;
         map<int, int> loop_id_to_func_id; // for debugging
@@ -1305,8 +1305,10 @@ void WholeProgramDebloat::build_basic_structs(Module &M)
 #ifdef BOTTOM_UP_DISJOINT_SET
 void WholeProgramDebloat::update_disjoint_sets(set<Function *> &new_set)
 {
-    // sharjeel's approach (+ create_disjoint_sets at the end of the pass)
-    //instrumented_sets.push_back(new_set);
+    // sharjeel's approach is to do this in places:
+    //   instrumented_sets.push_back(new_set)
+    // then call this at the end of the pass:
+    //   create_disjoint_sets()
 
     //
     // New approach (bottom-up)
@@ -1318,14 +1320,17 @@ void WholeProgramDebloat::update_disjoint_sets(set<Function *> &new_set)
     // sets.
 
     // unique IDs for the all disjoint sets
-    static int disjoint_set_id = 0;
+    static long disjoint_set_id = 0;
+    #define DISJOINT_SET_ID_PARENTLESS    (-1)
+    #define DISJOINT_SET_ID_UNINITIALIZED (-2)
 
     // a map from a new disjoint set's parent id to that new, factored-out
     // disjoint set
-    map<int, disjoint_set_t> factored_disjoint_sets;
+    map<long, disjoint_set_t> factored_disjoint_sets;
 
     // a new disjoint set with just elements from new_set, if needed
     disjoint_set_t parentless_disjoint_set;
+    parentless_disjoint_set.id = DISJOINT_SET_ID_UNINITIALIZED;
     parentless_disjoint_set.s = NULL;
 
     // For each function in the new deck set
@@ -1336,6 +1341,8 @@ void WholeProgramDebloat::update_disjoint_sets(set<Function *> &new_set)
             // It goes into a new parentless disjoint set
             if(parentless_disjoint_set.s == NULL){
                 parentless_disjoint_set.s = new set<Function *>;
+                parentless_disjoint_set.id = disjoint_set_id;
+                disjoint_set_id++;
             }
             parentless_disjoint_set.s->insert(func);
             func_to_disjoint_set[func] = parentless_disjoint_set;
@@ -1370,10 +1377,7 @@ void WholeProgramDebloat::update_disjoint_sets(set<Function *> &new_set)
 
     // If we actually made a new parentless disjoint set
     if(parentless_disjoint_set.s != NULL){
-        // ... then give it an ID and incorporate it into our factored-out sets
-        parentless_disjoint_set.id = disjoint_set_id;
-        disjoint_set_id++;
-        factored_disjoint_sets[-1] = parentless_disjoint_set;
+        factored_disjoint_sets[DISJOINT_SET_ID_PARENTLESS] = parentless_disjoint_set;
     }
 
     // Last step: Update our global disjoint sets with any new factored-out
@@ -1406,8 +1410,7 @@ void WholeProgramDebloat::finalize_disjoint_sets(void)
         update_disjoint_sets(temp);
     }
 }
-#endif
-
+#else
 void WholeProgramDebloat::create_disjoint_sets(void)
 {
     errs() << "Creating disjoint sets\n";
@@ -1488,17 +1491,12 @@ void WholeProgramDebloat::create_disjoint_sets(void)
         // If set A is not empty, we consider it as a disjoint set
         if(current.size() != 0)
         {
-            // XXX cporter 2022.09.04 technically the old code was fine.
-            // but i changed the disjoint-sets type
-#ifdef BOTTOM_UP_DISJOINT_SET
-            disjoint_sets[index]->insert(current.begin(), current.end());
-#else
             disjoint_sets[index].insert(current.begin(), current.end());
-#endif
         }
         index += 1;
     }
 }
+#endif
 
 ///
 // XXX Commented out, leaving for posterity. This function is wrong, I think,
@@ -2058,7 +2056,7 @@ void WholeProgramDebloat::dump_disjoint_sets(void)
     for(auto set : disjoint_sets){
         if(set.second->size() > 0)
         {
-            fprintf(fp, "%u: ", set.first);
+            fprintf(fp, "%ld: ", set.first);
             for(auto f : *(set.second))
             {
                 fprintf(fp, "%u ", func_to_id[f]);
@@ -2068,7 +2066,7 @@ void WholeProgramDebloat::dump_disjoint_sets(void)
     }
 #else
     for(auto set : disjoint_sets){
-        fprintf(fp, "%u: ", set.first);
+        fprintf(fp, "%lu: ", set.first);
         for(auto f : set.second)
         {
             fprintf(fp, "%u ", func_to_id[f]);
