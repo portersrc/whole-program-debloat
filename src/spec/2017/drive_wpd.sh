@@ -4,8 +4,8 @@ set -eo pipefail
 
 
 # set env if needed
-[ $SPEC ]     || pushd ~/wo/spec/spec2017; source shrc; popd
-[ $LLVM_BIN ] || source ~/wo/whole-program-debloat/setenv
+# [ $SPEC ]     || pushd ~/wo/spec/spec2017; source shrc; popd
+# [ $LLVM_BIN ] || source ~/wo/whole-program-debloat/setenv
 
 SPEC_ROOT=/home/rudy/wo/spec/spec2017
 SPEC_BMARKS_PATH=${SPEC_ROOT}/benchspec/CPU
@@ -13,6 +13,7 @@ SPEC_BUILD_FOLDER_SUFFIX=build/build_peak_mytest-m64.0000
 
 BMARKS=(
     500.perlbench_r
+    502.gcc_r
     505.mcf_r
     508.namd_r
     510.parest_r
@@ -54,6 +55,30 @@ GROUP_C=(
     538.imagick_r
 )
 
+GROUP_D=(
+    502.gcc_r
+)
+
+# all
+GROUP_E=(
+    500.perlbench_r
+    502.gcc_r
+    505.mcf_r
+    508.namd_r
+    510.parest_r
+    511.povray_r
+    519.lbm_r
+    520.omnetpp_r
+    523.xalancbmk_r
+    525.x264_r
+    526.blender_r
+    531.deepsjeng_r
+    538.imagick_r
+    541.leela_r
+    544.nab_r
+    557.xz_r
+)
+
 declare -A TARGET_EQUALS=(
     [525.x264_r]=x264_r
     [511.povray_r]=povray_r
@@ -62,13 +87,16 @@ declare -A TARGET_EQUALS=(
 )
 
 declare -A GROUP_TO_BMARKS=(
-    [GROUP_A]=${GROUP_A[@]}
-    [GROUP_B]=${GROUP_B[@]}
-    [GROUP_C]=${GROUP_C[@]}
+    #[GROUP_A]=${GROUP_A[@]}
+    #[GROUP_B]=${GROUP_B[@]}
+    #[GROUP_C]=${GROUP_C[@]}
+    #[GROUP_D]=${GROUP_D[@]}
+    [GROUP_E]=${GROUP_E[@]}
 )
 
 
 CMDS=(
+    #"./run.sh base_ls large"
     #"make wpd"
     #"python3 linker.py ."
     #"make wpd_custlink"
@@ -88,12 +116,12 @@ CMDS=(
     #"cp readelf-sections-custlink-sink.out readelf-sections.out"
     #"./run.sh wpd_cl_sink large"
     #"make base_loop_simplify_ics" # Note: do this step ALONE before the next three steps, and then disable the llvm-link line in the Makefile before enabling the next three steps.
-    #"make wpd_ics"
-    #"python3 linker.py ."
-    #"make wpd_custlink_ics"
-    #"cp readelf-ics.out readelf.out"
-    #"cp readelf-sections-ics.out readelf-sections.out"
-    #"./run.sh wpd_ics large"
+    "make wpd_ics"
+    "python3 linker.py ."
+    "make wpd_custlink_ics"
+    "cp readelf-ics.out readelf.out"
+    "cp readelf-sections-ics.out readelf-sections.out"
+    "./run.sh wpd_ics large"
     "cp readelf-custlink-ics.out readelf.out"
     "cp readelf-sections-custlink-ics.out readelf-sections.out"
     "./run.sh wpd_cl_ics large"
@@ -106,6 +134,12 @@ CMDS=(
     #"cp readelf-custlink-bicsa.out readelf.out"
     #"cp readelf-sections-custlink-bicsa.out readelf-sections.out"
     #"./run.sh wpd_cl_bicsa large"
+    #"make wpd_ics_split"
+    #"python3 linker.py ."
+    #"make wpd_custlink_ics_split"
+    #"cp readelf-custlink-ics-split.out readelf.out"
+    #"cp readelf-sections-custlink-ics-split.out readelf-sections.out"
+    #"./run.sh wpd_cl_ics_split large"
 )
 
 
