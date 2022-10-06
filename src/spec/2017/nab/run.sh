@@ -40,6 +40,9 @@ elif [ "$1" == "wpd_cl_sink" ]; then
 elif [ "$1" == "wpd_cl_ics" ]; then
     BIN=544.nab_r_wpd_custlink_ics
     WHICH=wpd_cl_ics
+elif [ "$1" == "wpd_cl_ics_split" ]; then
+    BIN=544.nab_r_wpd_custlink_ics_split
+    WHICH=wpd_cl_ics_split
 elif [ "$1" == "wpd_cl_bicsa" ]; then
     BIN=544.nab_r_wpd_custlink_bicsa
     WHICH=wpd_cl_bicsa
