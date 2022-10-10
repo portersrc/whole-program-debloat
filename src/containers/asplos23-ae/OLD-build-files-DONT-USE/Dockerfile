@@ -6,5 +6,8 @@ RUN apt-get install -y git
 
 RUN mkdir -p /root/decker
 
-# Next steps which are committed manually:
-# clone 
+RUN ln -s /mnt/wo/whole-program-debloat /root/decker
+                
+
+# ...
+# Everything else was done manually and with docker commit
