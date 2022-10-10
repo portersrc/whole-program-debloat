@@ -1,0 +1,5 @@
+2022.10.10
+
+Don't use these anymore. I already built the base image using this dockerfile
+and build script. But I've since added and committed a lot of stuff to it
+manually, so these files are now obsolete.
