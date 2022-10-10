@@ -1,21 +1,13 @@
 #!/bin/bash
 
 # LLVM 11.0.0
-export LLVM_DIR=/home/rudy/wo/llvm/llvm-project
+export LLVM_DIR=/root/decker/llvm-project
 export LLVM_BIN=$LLVM_DIR/build/bin
 
-export PROJ_DIR=/home/rudy/wo/whole-program-debloat
-export PROJ_DEBPROF_LIB=$PROJ_DIR/build/debloat_prof
+export PROJ_DIR=/root/decker/whole-program-debloat
 export PROJ_DEBRT_LIB=$PROJ_DIR/build/debloat_rt
-export PROJ_PASS_PROFILING=$PROJ_DIR/build/passes/profiling
-export PROJ_PASS_RUNTIME=$PROJ_DIR/build/passes/runtime
-export PROJ_PASS_CG_PREDICT=$PROJ_DIR/build/passes/cg_predict
 export PROJ_PASS_WPD=$PROJ_DIR/build/passes/wpd
-export PROJ_PASS_LS=$PROJ_DIR/build/passes/LS
-
-#export SVF_DIR=/home/rudy/wo/svf/SVF/Release-build/lib
 
 export PATH=$PATH:$LLVM_BIN
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PROJ_DEBPROF_LIB:$PROJ_DEBRT_LIB:$PROJ_PASS_PROFILING:$PROJ_PASS_RUNTIME:$PROJ_PASS_CG_PREDICT:$PROJ_PASS_WPD:$PROJ_PASS_LS
-#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PROJ_DEBPROF_LIB:$PROJ_DEBRT_LIB:$PROJ_PASS_PROFILING:$PROJ_PASS_RUNTIME:$PROJ_PASS_CG_PREDICT:$PROJ_PASS_WPD:$PROJ_PASS_LS:$SVF_DIR
-export LIBRARY_PATH=$LIBRARY_PATH:$PROJ_DEBPROF_LIB:$PROJ_DEBRT_LIB
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PROJ_DEBRT_LIB:$PROJ_PASS_WPD
+export LIBRARY_PATH=$LIBRARY_PATH:$PROJ_DEBRT_LIB
