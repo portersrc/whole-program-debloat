@@ -32,12 +32,12 @@ function build_spec() {
     BASE_FOLDER=/root/decker/spec2017/benchspec/CPU
     BMARKS=(
         #500.perlbench_r
-        #502.gcc_r
+        502.gcc_r
         #505.mcf_r
         #508.namd_r
         #510.parest_r
-        511.povray_r
-        #519.lbm_r
+        #511.povray_r
+        519.lbm_r
         #520.omnetpp_r
         #523.xalancbmk_r
         #525.x264_r
@@ -64,15 +64,23 @@ function build_spec() {
         fi
         echo "optional target: $OPTIONAL_TARGET"
 
-        make all base_loop_simplify base_loop_simplify_ics wpd_ics ${OPTIONAL_TARGET}
+        if [ "${BMARK}" == "502.gcc_r" ]; then
+            make all_gcc ${OPTIONAL_TARGET}
+        else
+            make all ${OPTIONAL_TARGET}
+        fi
+
+        make base_loop_simplify base_loop_simplify_ics wpd_ics ${OPTIONAL_TARGET}
         python3 linker.py .
-        make wpd_custlink_ic ${OPTIONAL_TARGET}
+        make wpd_custlink_ics ${OPTIONAL_TARGET}
 
         popd
     done
 
     popd
 }
+
+
 
 
 #build_decker 
