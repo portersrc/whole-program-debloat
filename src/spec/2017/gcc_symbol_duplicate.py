@@ -13,7 +13,17 @@ remove = ["@getchar()", "@vprintf(i8*", "@fgetc_unlocked(%struct._IO_FILE*", "@g
 for f in onlyfiles:
     string = ""
     with open(f, 'r') as read:
-        line = read.readline()
+        try:
+            line = read.readline()
+        except UnicodeDecodeError:
+            # Quick hack: on the first build of gcc, this exception won't
+            # happen.
+            # On subsequence builds, however, there are proper .bc files (not
+            # these .ll files masquerading as .bc files), and they will
+            # throw an error when trying to read a line. Example of a file
+            # that would cause this: 502.gcc_r_linked_ics.bc. Just skip
+            # over them in case we ever need to.
+            pass
         while(line):
             temp = ""
             temp += line
