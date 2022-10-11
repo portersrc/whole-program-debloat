@@ -8,4 +8,5 @@ docker run \
   -e HOST_PERMS="$(id -u):$(id -g)" \
   -v /home/rudy:/mnt \
   --name decker-ae \
-  decker:latest
+  decker-05:latest \
+  /bin/bash
