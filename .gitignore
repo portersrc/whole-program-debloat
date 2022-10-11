@@ -13,7 +13,12 @@ test/*/main_mod.bc
 test/*/main_mod.s
 test/*/nm.out
 test/*/readelf.out
-test/*/wpd_func_name_to_id.txt
+test/*/readelf-sections.out
+test/*/*.ll
+test/*/debrt.out
+test/*/wpd_*.txt
+test/*/callgraph.png
+test/*/*.dot
 src/gadget-chains/output/*/
 src/gadget-chains/input/coreutils/*/
 src/gadget-chains/input/spec/*/
@@ -23,3 +28,4 @@ src/nginx/performance/time-variation/blankit-stuff
 src/size-increase/worst-case-growth/readelf-*
 src/size-increase/worst-case-growth/nm-*
 src/size-increase/*-sizes.out
+.gdb_history
