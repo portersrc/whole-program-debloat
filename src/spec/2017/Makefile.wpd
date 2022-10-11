@@ -348,6 +348,10 @@ ifndef NEEDATFILE
 	$(LD) $^ $(LDOUT)
 	$(LD) $^ ics.ll -o $(NUMBER).$(NAME)_linked_ics.bc
 # cporter
+all_gcc: $(OBJS)
+	python3 gcc_symbol_duplicate.py
+	$(LD) $^ $(LDOUT)
+	$(LD) $^ ics.ll -o $(NUMBER).$(NAME)_linked_ics.bc
 base_loop_simplify:
 	opt \
       --function-sections \
