@@ -348,7 +348,7 @@ ifndef NEEDATFILE
 	$(LD) $^ $(LDOUT)
 	$(LD) $^ ics.ll -o $(NUMBER).$(NAME)_linked_ics.bc
 # cporter
-base_loop_simplify: $(EXEBASE)
+base_loop_simplify:
 	opt \
       --function-sections \
       -O3 \
@@ -363,14 +363,14 @@ base_loop_simplify: $(EXEBASE)
       $(NUMBER).$(NAME)_baseline_ls_opt.s \
       -o $(NUMBER).$(NAME)_baseline_ls \
       -lm -lrt
-base_loop_simplify_ics: $(EXEBASE)
+base_loop_simplify_ics:
 	opt \
       --function-sections \
       -O3 \
       -loop-simplify \
       < $(NUMBER).$(NAME)_linked_ics.bc \
       > $(NUMBER).$(NAME)_baseline_ls_ics_opt.bc
-wpd_ics: $(EXEBASE)
+wpd_ics:
 	opt \
 	  --function-sections \
       -load libWholeProgramDebloat.so \
@@ -427,7 +427,7 @@ wpd_ics: $(EXEBASE)
 	cp wpd_static_reachability.txt wpd_static_reachability_ics.txt
 	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_ics.txt
 	cp wpd_stats.txt wpd_stats_ics.txt
-wpd_custlink_ics: $(EXEBASE)
+wpd_custlink_ics:
 	g++ \
       -ffunction-sections \
       -c $(NUMBER).$(NAME)_wpd_ics_opt.s \
