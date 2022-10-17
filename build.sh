@@ -81,7 +81,37 @@ function build_spec() {
 }
 
 
+function build_coreutils() {
+    echo "======================"
+    echo "Building GNU Coreutils"
+    echo "======================"
+
+    BASE_FOLDER=/root/decker/security-bench
+    BMARKS=(
+        bzip2
+        chown
+        date
+        grep
+        gzip
+        mkdir
+        rm
+        sort
+        tar
+        uniq
+    )
+
+    for BMARK in ${BMARKS[@]}; do
+        pushd ${BASE_FOLDER}/${BMARK}
+
+        make base_ls_nostatic wpd_ics_nostatic
+        python3 linker.py .
+        make wpd_custlink_ics_nostatic
+
+        popd
+    done
+}
 
 
 #build_decker 
-build_spec
+#build_spec
+build_coreutils
