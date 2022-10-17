@@ -63,6 +63,7 @@ elif [ "$2" == "large" ]; then
     # more large inputs if i want to try:
     { time ./${BIN} --pass 2 --stats x264_stats.log --bitrate 1000 --dumpyuv 200 --frames 1000 -o BuckBunny_New.264 large.yuv 1280x720; } &> large2-${WHICH}.out
     #{ time ./${BIN} --seek 500 --dumpyuv 200 --frames 1250 -o BuckBunny_New.264 large.yuv 1280x720; } &> large3-${WHICH}.out
+    cp large2-${WHICH}.out large-${WHICH}.out
 else
     usage_exit
 fi
