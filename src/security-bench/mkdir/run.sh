@@ -163,15 +163,15 @@ fi
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_1_$1.out
 #cp debrt.out debrt_1_$1.out
 
-#{ time ./${BIN} -p d1/d2/d3; } &> 2-${WHICH}.out
-#rm -rf d1
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_2_$1.out
-#cp debrt.out debrt_2_$1.out
+{ time ./${BIN} -p d1/d2/d3; } &> 2-${WHICH}.out
+rm -rf d1
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_2_$1.out
+cp debrt.out debrt_2_$1.out
 
-#{ time ./${BIN} -p -m 567 d1/d2/d3; } &> 3-${WHICH}.out
-#rm -rf d1
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_3_$1.out
-#cp debrt.out debrt_3_$1.out
+{ time ./${BIN} -p -m 567 d1/d2/d3; } &> 3-${WHICH}.out
+rm -rf d1
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_3_$1.out
+cp debrt.out debrt_3_$1.out
 
 # 2021.09.24 cporter: This test returns 1
 #{ time ./${BIN} -m 777 d1/d2; } &> 4-${WHICH}.out
@@ -179,44 +179,44 @@ fi
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_4_$1.out
 #cp debrt.out debrt_4_$1.out
 
-#{ time ./${BIN} -p -m 777 d1/d2/d3; } &> 5-${WHICH}.out
-#rm -rf d1
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_5_$1.out
-#cp debrt.out debrt_5_$1.out
+{ time ./${BIN} -p -m 777 d1/d2/d3; } &> 5-${WHICH}.out
+rm -rf d1
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_5_$1.out
+cp debrt.out debrt_5_$1.out
 
-#{ time ./${BIN} -p -m 777 d1/d2/d3; } &> 6-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_6_$1.out
-#cp debrt.out debrt_6_$1.out
-#{ time ./${BIN} -p -m 500 d1/d2/d3/d4; } &> 7-${WHICH}.out
-#rm -rf d1
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_7_$1.out
-#cp debrt.out debrt_7_$1.out
+{ time ./${BIN} -p -m 777 d1/d2/d3; } &> 6-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_6_$1.out
+cp debrt.out debrt_6_$1.out
+{ time ./${BIN} -p -m 500 d1/d2/d3/d4; } &> 7-${WHICH}.out
+rm -rf d1
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_7_$1.out
+cp debrt.out debrt_7_$1.out
 
-#{ time ./${BIN} -p -m 555 d1/d2/d3/d4; } &> 8-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_8_$1.out
-#cp debrt.out debrt_8_$1.out
-#{ time ./${BIN} -m 644 d1/d2/d3/d5; } &> 9-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_9_$1.out
-#cp debrt.out debrt_9_$1.out
-#{ time ./${BIN} -m 610 d1/d6; } &> 10-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_10_$1.out
-#cp debrt.out debrt_10_$1.out
+{ time ./${BIN} -p -m 555 d1/d2/d3/d4; } &> 8-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_8_$1.out
+cp debrt.out debrt_8_$1.out
+{ time ./${BIN} -m 644 d1/d2/d3/d5; } &> 9-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_9_$1.out
+cp debrt.out debrt_9_$1.out
+{ time ./${BIN} -m 610 d1/d6; } &> 10-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_10_$1.out
+cp debrt.out debrt_10_$1.out
 # 2021.09.24 cporter: This test returns 1
 #{ time ./${BIN} -m 777 d1/d6/d7; } &> 11-${WHICH}.out
 #rm -rf d1
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_11_$1.out
 #cp debrt.out debrt_11_$1.out
 
-#{ time ./${BIN} -p -m 777 d1/d2/d3; } &> 12-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_12_$1.out
-#cp debrt.out debrt_12_$1.out
+{ time ./${BIN} -p -m 777 d1/d2/d3; } &> 12-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_12_$1.out
+cp debrt.out debrt_12_$1.out
 # 2021.09.24 cporter: This test returns 1
 #{ time ./${BIN} -m 555 d1/d2/d3; } &> 13-${WHICH}.out
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_13_$1.out
-#cp debrt.out debrt_13_$1.out
-#{ time ./${BIN} -m 644 d1/d2/d3/d4; } &> 14-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_14_$1.out
-#cp debrt.out debrt_14_$1.out
+cp debrt.out debrt_13_$1.out
+{ time ./${BIN} -m 644 d1/d2/d3/d4; } &> 14-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_14_$1.out
+cp debrt.out debrt_14_$1.out
 # 2021.09.24 cporter: This test returns 1
 #{ time ./${BIN} -m 610 d1/d2/d3/d4/d5; } &> 15-${WHICH}.out
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_15_$1.out
@@ -227,33 +227,33 @@ fi
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_16_$1.out
 #cp debrt.out debrt_16_$1.out
 
-#{ time ./${BIN} -p -m 777 d1/d2/d3; } &> 17-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_17_$1.out
-#cp debrt.out debrt_17_$1.out
-#{ time ./${BIN} -m 555 d1/d2/d4; } &> 18-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_18_$1.out
-#cp debrt.out debrt_18_$1.out
-#{ time ./${BIN} -m 644 d1/d2/d5; } &> 19-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_19_$1.out
-#cp debrt.out debrt_19_$1.out
-#{ time ./${BIN} -m 610 d1/d2/d6; } &> 20-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_20_$1.out
-#cp debrt.out debrt_20_$1.out
-#{ time ./${BIN} -m 777 d1/d2/d7; } &> 21-${WHICH}.out
-#rm -rf d1
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_21_$1.out
-#cp debrt.out debrt_21_$1.out
+{ time ./${BIN} -p -m 777 d1/d2/d3; } &> 17-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_17_$1.out
+cp debrt.out debrt_17_$1.out
+{ time ./${BIN} -m 555 d1/d2/d4; } &> 18-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_18_$1.out
+cp debrt.out debrt_18_$1.out
+{ time ./${BIN} -m 644 d1/d2/d5; } &> 19-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_19_$1.out
+cp debrt.out debrt_19_$1.out
+{ time ./${BIN} -m 610 d1/d2/d6; } &> 20-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_20_$1.out
+cp debrt.out debrt_20_$1.out
+{ time ./${BIN} -m 777 d1/d2/d7; } &> 21-${WHICH}.out
+rm -rf d1
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_21_$1.out
+cp debrt.out debrt_21_$1.out
 
-#{ time ./${BIN} -p d1/d2/d3; } &> 22-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_22_$1.out
-#cp debrt.out debrt_22_$1.out
-#{ time ./${BIN} -p d1/d2/d3/d4; } &> 23-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_23_$1.out
-#cp debrt.out debrt_23_$1.out
-#{ time ./${BIN} -p d1/d2/d3/d5; } &> 24-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_24_$1.out
-#cp debrt.out debrt_24_$1.out
-#{ time ./${BIN} -p d1/d2/d3/d5/d6; } &> 25-${WHICH}.out
-#rm -rf d1
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_25_$1.out
-#cp debrt.out debrt_25_$1.out
+{ time ./${BIN} -p d1/d2/d3; } &> 22-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_22_$1.out
+cp debrt.out debrt_22_$1.out
+{ time ./${BIN} -p d1/d2/d3/d4; } &> 23-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_23_$1.out
+cp debrt.out debrt_23_$1.out
+{ time ./${BIN} -p d1/d2/d3/d5; } &> 24-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_24_$1.out
+cp debrt.out debrt_24_$1.out
+{ time ./${BIN} -p d1/d2/d3/d5/d6; } &> 25-${WHICH}.out
+rm -rf d1
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_25_$1.out
+cp debrt.out debrt_25_$1.out
