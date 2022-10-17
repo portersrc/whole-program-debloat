@@ -56,4 +56,52 @@ function run_spec() {
 }
 
 
-run_spec
+function run_coreutils() {
+    echo "====================="
+    echo "Running GNU Coreutils"
+    echo "====================="
+
+
+    BASE_FOLDER=/root/decker/security-bench
+    BMARKS=(
+        bzip2
+        chown
+        date
+        grep
+        gzip
+        mkdir
+        rm
+        sort
+        tar
+        uniq
+    )
+
+
+    for BMARK in ${BMARKS[@]}; do
+        pushd ${BASE_FOLDER}/${BMARK}
+
+        cp readelf-custlink-ics-nostatic.out readelf.out
+        cp readelf-sections-custlink-ics-nostatic.out readelf-sections.out
+
+        # baseline run
+        ./run.sh base_ls large # "base_ls" here will run base_ls_nostatic
+
+        # performance run (i.e. no extra logging)
+        # Run perf first for coreutils, b/c there are many inputs, and we
+        # can blow over the performance logs but not the security logs. (perf
+        # is negligible difference; just running for completeness.)
+        DEBRT_ENABLE_INDIRECT_CALL_SINKING=1 ./run.sh wpd_cl_ics large
+
+        # security run (i.e. log the page sets)
+        # (again, "wpd_cl_ics" here will run wpd_cl_ics_nostatic)
+        DEBRT_ENABLE_STATS=1 DEBRT_ENABLE_INDIRECT_CALL_SINKING=1 ./run.sh wpd_cl_ics large
+
+
+        popd
+    done
+
+}
+
+
+#run_spec
+run_coreutils
