@@ -42,7 +42,7 @@ function run_spec() {
         # security run (i.e. log the page sets)
         DEBRT_ENABLE_STATS=1 DEBRT_ENABLE_INDIRECT_CALL_SINKING=1 ./run.sh wpd_cl_ics large
         # back up the security result, b/c performance run blows over them
-        cp debrt-mapped-rx-pages_wpd_cl_ics.out debrt-mapped-rx-pages_wpd_cl_ics-security.out
+        cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_wpd_cl_ics-security.out
         cp debrt_wpd_cl_ics.out debrt_wpd_cl_ics-security.out
         cp large-wpd_cl_ics.out large-wpd_cl_ics-security.out
 
