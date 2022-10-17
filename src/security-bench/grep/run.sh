@@ -150,48 +150,48 @@ else
     usage_exit
 fi
 
-#{ time ./${BIN} "a" test1; } &> 1-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_1_$1.out
-#cp debrt.out debrt_1_$1.out
-#{ time ./${BIN} "a" ./test2; } &> 2-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_2_$1.out
-#cp debrt.out debrt_2_$1.out
+{ time ./${BIN} "a" test1; } &> 1-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_1_$1.out
+cp debrt.out debrt_1_$1.out
+{ time ./${BIN} "a" ./test2; } &> 2-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_2_$1.out
+cp debrt.out debrt_2_$1.out
 
 # 2021.09.24 cporter: This test has a return value of 1.
 #{ time ./${BIN} -n "si" ./test1; } &> 3-${WHICH}.out
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_3_$1.out
 #cp debrt.out debrt_3_$1.out
 
-#{ time ./${BIN} -n "si" ./test2; } &> 4-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_4_$1.out
-#cp debrt.out debrt_4_$1.out
+{ time ./${BIN} -n "si" ./test2; } &> 4-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_4_$1.out
+cp debrt.out debrt_4_$1.out
 
 # 2021.09.24 cporter: This test has a return value of 1.
 #{ time ./${BIN} -o [r][a][n][d]* ./test1; } &> 5-${WHICH}.out
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_5_$1.out
 #cp debrt.out debrt_5_$1.out
 
-#{ time ./${BIN} -o [r][a][n][d]* ./test2; } &> 6-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_6_$1.out
-#cp debrt.out debrt_6_$1.out
+{ time ./${BIN} -o [r][a][n][d]* ./test2; } &> 6-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_6_$1.out
+cp debrt.out debrt_6_$1.out
 
 # 2021.09.24 cporter: This test has a return value of 1.
 #{ time ./${BIN} -v "a" ./test1; } &> 7-${WHICH}.out
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_7_$1.out
 #cp debrt.out debrt_7_$1.out
 
-#{ time ./${BIN} -v "a" ./test2; } &> 8-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_8_$1.out
-#cp debrt.out debrt_8_$1.out
+{ time ./${BIN} -v "a" ./test2; } &> 8-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_8_$1.out
+cp debrt.out debrt_8_$1.out
 
 # 2021.09.24 cporter: This test has a return value of 1.
 #{ time ./${BIN} -i "Si" ./test1; } &> 9-${WHICH}.out
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_9_$1.out
 #cp debrt.out debrt_9_$1.out
 
-#{ time ./${BIN} -i "Si" ./test2; } &> 10-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_10_$1.out
-#cp debrt.out debrt_10_$1.out
+{ time ./${BIN} -i "Si" ./test2; } &> 10-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_10_$1.out
+cp debrt.out debrt_10_$1.out
 
 # 2021.09.24 cporter: This test has a return value of 1.
 #{ time ./${BIN} -w "Si" ./test1; } &> 11-${WHICH}.out
@@ -228,9 +228,9 @@ fi
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_17_$1.out
 #cp debrt.out debrt_17_$1.out
 
-#{ time ./${BIN} "ye " ./test2; } &> 18-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_18_$1.out
-#cp debrt.out debrt_18_$1.out
+{ time ./${BIN} "ye " ./test2; } &> 18-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_18_$1.out
+cp debrt.out debrt_18_$1.out
 
 # 2021.09.24 cporter: This test has a return value of 1.
 #{ time ./${BIN} "cold" ./test1; } &> 19-${WHICH}.out
@@ -247,30 +247,30 @@ fi
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_21_$1.out
 #cp debrt.out debrt_21_$1.out
 
-#{ time ./${BIN} "not exist" ./test2; } &> 22-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_22_$1.out
-#cp debrt.out debrt_22_$1.out
+{ time ./${BIN} "not exist" ./test2; } &> 22-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_22_$1.out
+cp debrt.out debrt_22_$1.out
 
 # 2021.09.24 cporter: This test has a return value of 1.
 #{ time ./${BIN} ^D  ./test1; } &> 23-${WHICH}.out
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_23_$1.out
 #cp debrt.out debrt_23_$1.out
 
-#{ time ./${BIN} ^D  ./test2; } &> 24-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_24_$1.out
-#cp debrt.out debrt_24_$1.out
-#{ time ./${BIN} .$  ./test1; } &> 25-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_25_$1.out
-#cp debrt.out debrt_25_$1.out
-#{ time ./${BIN} .$  ./test2; } &> 26-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_26_$1.out
-#cp debrt.out debrt_26_$1.out
-#{ time ./${BIN} \^  ./test1; } &> 27-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_27_$1.out
-#cp debrt.out debrt_27_$1.out
-#{ time ./${BIN} \^  ./test2; } &> 28-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_28_$1.out
-#cp debrt.out debrt_28_$1.out
+{ time ./${BIN} ^D  ./test2; } &> 24-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_24_$1.out
+cp debrt.out debrt_24_$1.out
+{ time ./${BIN} .$  ./test1; } &> 25-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_25_$1.out
+cp debrt.out debrt_25_$1.out
+{ time ./${BIN} .$  ./test2; } &> 26-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_26_$1.out
+cp debrt.out debrt_26_$1.out
+{ time ./${BIN} \^  ./test1; } &> 27-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_27_$1.out
+cp debrt.out debrt_27_$1.out
+{ time ./${BIN} \^  ./test2; } &> 28-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_28_$1.out
+cp debrt.out debrt_28_$1.out
 
 # 2021.09.24 cporter: This test has a return value of 1.
 #{ time ./${BIN} \^$  ./test1; } &> 29-${WHICH}.out
@@ -287,24 +287,24 @@ fi
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_31_$1.out
 #cp debrt.out debrt_31_$1.out
 
-#{ time ./${BIN} ^[AEIOU]  ./test2; } &> 32-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_32_$1.out
-#cp debrt.out debrt_32_$1.out
-#{ time ./${BIN} ^[^AEIOU]  ./test1; } &> 33-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_33_$1.out
-#cp debrt.out debrt_33_$1.out
-#{ time ./${BIN} ^[^AEIOU]  ./test2; } &> 34-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_34_$1.out
-#cp debrt.out debrt_34_$1.out
+{ time ./${BIN} ^[AEIOU]  ./test2; } &> 32-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_32_$1.out
+cp debrt.out debrt_32_$1.out
+{ time ./${BIN} ^[^AEIOU]  ./test1; } &> 33-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_33_$1.out
+cp debrt.out debrt_33_$1.out
+{ time ./${BIN} ^[^AEIOU]  ./test2; } &> 34-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_34_$1.out
+cp debrt.out debrt_34_$1.out
 
 # 2021.09.24 cporter: This test has a return value of 1.
 #{ time ./${BIN} -E "free[^[:space:]]+"  ./test1; } &> 35-${WHICH}.out
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_35_$1.out
 #cp debrt.out debrt_35_$1.out
 
-#{ time ./${BIN} -E "free[^[:space:]]+"  ./test2; } &> 36-${WHICH}.out
-#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_36_$1.out
-#cp debrt.out debrt_36_$1.out
+{ time ./${BIN} -E "free[^[:space:]]+"  ./test2; } &> 36-${WHICH}.out
+cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_36_$1.out
+cp debrt.out debrt_36_$1.out
 
 # 2021.09.24 cporter: This test has a return value of 1.
 #{ time ./${BIN} -E '\b(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?\.)3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)'  ./test1; } &> 37-${WHICH}.out
