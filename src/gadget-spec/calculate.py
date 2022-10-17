@@ -988,7 +988,8 @@ if(args.ics_linker):
             ma = maxTotal[bench]
             mi = minTotal[bench]
             avg = avgTotal[bench]
-            output += bench + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+            #output += bench + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+            output += bench + "," + str(actual_total) + "," + str(ma) + "," + str(round(100 - (ma*100/total),1)) + "," + str(mi) + "," + str(round(100 - (mi*100/total),1)) + "," + str(round(avg,1)) + "," + str(round(100 - (avg*100/total),1)) + "\n"
     
     with open("ics_linker.csv", 'w') as write:
         write.write(output)
