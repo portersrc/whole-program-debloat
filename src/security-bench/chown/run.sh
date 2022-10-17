@@ -153,7 +153,7 @@ else
 fi
 
 touch .file1
-{ time ./${BIN} rudy:rudy .file1; } &> 1-${WHICH}.out
+{ time ./${BIN} root:root .file1; } &> 1-${WHICH}.out
 rm -rf .file1
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_1_$1.out
 cp debrt.out debrt_1_$1.out
@@ -161,17 +161,17 @@ cp debrt.out debrt_1_$1.out
 mkdir -p d1/d1/d1/d1/d1/d1/d1/d1/d1
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/file
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/.file
-{ time ./${BIN} rudy:rudy d1/d1/d1/d1/d1/d1/d1/d1/d1/file; } &> 2-${WHICH}.out
+{ time ./${BIN} root:root d1/d1/d1/d1/d1/d1/d1/d1/d1/file; } &> 2-${WHICH}.out
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_2_$1.out
 cp debrt.out debrt_2_$1.out
-{ time ./${BIN} rudy:rudy d1/d1/d1/d1/d1/d1/d1/d1/d1/.file; } &> 3-${WHICH}.out
+{ time ./${BIN} root:root d1/d1/d1/d1/d1/d1/d1/d1/d1/.file; } &> 3-${WHICH}.out
 rm -rf d1
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_3_$1.out
 cp debrt.out debrt_3_$1.out
 
 mkdir -p d1/d1/d1/d1/d1/d1/d1/d1/d1
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/file
-{ time ./${BIN} rudy:rudy d1; } &> 4-${WHICH}.out
+{ time ./${BIN} root:root d1; } &> 4-${WHICH}.out
 rm -rf d1
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_4_$1.out
 cp debrt.out debrt_4_$1.out
@@ -179,7 +179,7 @@ cp debrt.out debrt_4_$1.out
 mkdir -p d1/d1/d1/d1/d1/d1/d1/d1/d1
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/file
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/.file
-{ time ./${BIN} -R rudy:rudy d1; } &> 5-${WHICH}.out
+{ time ./${BIN} -R root:root d1; } &> 5-${WHICH}.out
 rm -rf d1
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_5_$1.out
 cp debrt.out debrt_5_$1.out
@@ -187,7 +187,7 @@ cp debrt.out debrt_5_$1.out
 mkdir -p d1/d1/d1/d1/d1/d1/d1/d1/d1
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/file
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/.file
-{ time ./${BIN} -R rudy:rudy d1/d1; } &> 6-${WHICH}.out
+{ time ./${BIN} -R root:root d1/d1; } &> 6-${WHICH}.out
 rm -rf d1
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_6_$1.out
 cp debrt.out debrt_6_$1.out
@@ -195,7 +195,7 @@ cp debrt.out debrt_6_$1.out
 mkdir -p d1/d1/d1/d1/d1/d1/d1/d1/d1
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/file
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/.file
-{ time ./${BIN} -R rudy:rudy d1/d1/d1; } &> 7-${WHICH}.out
+{ time ./${BIN} -R root:root d1/d1/d1; } &> 7-${WHICH}.out
 rm -rf d1
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_7_$1.out
 cp debrt.out debrt_7_$1.out
@@ -203,7 +203,7 @@ cp debrt.out debrt_7_$1.out
 mkdir -p d1/d1/d1/d1/d1/d1/d1/d1/d1
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/file
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/.file
-{ time ./${BIN} -R rudy:rudy d1/d1/d1/d1; } &> 8-${WHICH}.out
+{ time ./${BIN} -R root:root d1/d1/d1/d1; } &> 8-${WHICH}.out
 rm -rf d1
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_8_$1.out
 cp debrt.out debrt_8_$1.out
@@ -211,7 +211,7 @@ cp debrt.out debrt_8_$1.out
 mkdir -p d1/d1/d1/d1/d1/d1/d1/d1/d1
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/file
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/.file
-{ time ./${BIN} -R rudy:rudy d1/d1/d1/d1/d1; } &> 9-${WHICH}.out
+{ time ./${BIN} -R root:root d1/d1/d1/d1/d1; } &> 9-${WHICH}.out
 rm -rf d1
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_9_$1.out
 cp debrt.out debrt_9_$1.out
@@ -219,7 +219,7 @@ cp debrt.out debrt_9_$1.out
 mkdir -p d1/d1/d1/d1/d1/d1/d1/d1/d1
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/file
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/.file
-{ time ./${BIN} -R rudy:rudy d1/d1/d1/d1/d1/d1; } &> 10-${WHICH}.out
+{ time ./${BIN} -R root:root d1/d1/d1/d1/d1/d1; } &> 10-${WHICH}.out
 rm -rf d1
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_10_$1.out
 cp debrt.out debrt_10_$1.out
@@ -227,7 +227,7 @@ cp debrt.out debrt_10_$1.out
 mkdir -p d1/d1/d1/d1/d1/d1/d1/d1/d1
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/file
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/.file
-{ time ./${BIN} -R rudy:rudy d1/d1/d1/d1/d1/d1/d1; } &> 11-${WHICH}.out
+{ time ./${BIN} -R root:root d1/d1/d1/d1/d1/d1/d1; } &> 11-${WHICH}.out
 rm -rf d1
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_11_$1.out
 cp debrt.out debrt_11_$1.out
@@ -235,7 +235,7 @@ cp debrt.out debrt_11_$1.out
 mkdir -p d1/d1/d1/d1/d1/d1/d1/d1/d1
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/file
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/.file
-{ time ./${BIN} -R rudy:rudy d1/d1/d1/d1/d1/d1/d1/d1; } &> 12-${WHICH}.out
+{ time ./${BIN} -R root:root d1/d1/d1/d1/d1/d1/d1/d1; } &> 12-${WHICH}.out
 rm -rf d1
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_12_$1.out
 cp debrt.out debrt_12_$1.out
@@ -243,7 +243,7 @@ cp debrt.out debrt_12_$1.out
 mkdir -p d1/d1/d1/d1/d1/d1/d1/d1/d1
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/file
 touch d1/d1/d1/d1/d1/d1/d1/d1/d1/.file
-{ time ./${BIN} -R rudy:rudy d1/d1/d1/d1/d1/d1/d1/d1/d1; } &> 13-${WHICH}.out
+{ time ./${BIN} -R root:root d1/d1/d1/d1/d1/d1/d1/d1/d1; } &> 13-${WHICH}.out
 rm -rf d1
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_13_$1.out
 cp debrt.out debrt_13_$1.out
@@ -251,7 +251,7 @@ cp debrt.out debrt_13_$1.out
 touch file1
 ln -s file1 symfile1
 ln -s file1 symfile2
-{ time ./${BIN} -h rudy:rudy file1; } &> 14-${WHICH}.out
+{ time ./${BIN} -h root:root file1; } &> 14-${WHICH}.out
 rm -rf file1 symfile*
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_14_$1.out
 cp debrt.out debrt_14_$1.out
@@ -259,7 +259,7 @@ cp debrt.out debrt_14_$1.out
 touch file1
 ln -s file1 symfile1
 ln -s file1 symfile2
-{ time ./${BIN} -h rudy:rudy symfile1; } &> 15-${WHICH}.out
+{ time ./${BIN} -h root:root symfile1; } &> 15-${WHICH}.out
 rm -rf file1 symfile*
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_15_$1.out
 cp debrt.out debrt_15_$1.out
@@ -267,7 +267,7 @@ cp debrt.out debrt_15_$1.out
 touch file1
 ln -s file1 symfile1
 ln -s file1 symfile2
-{ time ./${BIN} -h rudy:rudy symfile2; } &> 16-${WHICH}.out
+{ time ./${BIN} -h root:root symfile2; } &> 16-${WHICH}.out
 rm -rf file1 symfile*
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_16_$1.out
 cp debrt.out debrt_16_$1.out
@@ -275,7 +275,7 @@ cp debrt.out debrt_16_$1.out
 touch file1
 ln -s file1 symfile1
 ln -s file1 symfile2
-{ time ./${BIN} -h rudy:rudy symfile*; } &> 17-${WHICH}.out
+{ time ./${BIN} -h root:root symfile*; } &> 17-${WHICH}.out
 rm -rf file1 symfile*
 cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_17_$1.out
 cp debrt.out debrt_17_$1.out
