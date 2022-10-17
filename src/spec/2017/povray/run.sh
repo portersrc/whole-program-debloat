@@ -54,11 +54,11 @@ else
 fi
 
 if [ "$2" == "small" ]; then
-    { time ./${BIN} SPEC-benchmark-test.ini +L/home/rudy/wo/spec/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> small-${WHICH}.out
+    { time ./${BIN} SPEC-benchmark-test.ini +L/root/decker/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> small-${WHICH}.out
 elif [ "$2" == "medium" ]; then
-    { time ./${BIN} SPEC-benchmark-train.ini +L/home/rudy/wo/spec/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> medium-${WHICH}.out
+    { time ./${BIN} SPEC-benchmark-train.ini +L/root/decker/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> medium-${WHICH}.out
 elif [ "$2" == "large" ]; then
-    { time ./${BIN} SPEC-benchmark-ref.ini +L/home/rudy/wo/spec/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> large-${WHICH}.out
+    { time ./${BIN} SPEC-benchmark-ref.ini +L/root/decker/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> large-${WHICH}.out
 else
     usage_exit
 fi
