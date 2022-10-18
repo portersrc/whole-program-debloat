@@ -13,6 +13,8 @@ Decker code itself, benchmarks, and the scripts to drive artifact evaluation.
 
 
 
+
+
 Kick the tires
 ==============
 
@@ -26,7 +28,6 @@ with the artifact itself. We have a reference of that output in this same
 folder that should match. Importantly, these results will also roughly match
 those in the paper. In the full evaluation steps, you'll reproduce everything
 yourself.
-
 
 Step 1
 ------
@@ -72,7 +73,6 @@ Congratulations, you've kicked the tires!
 
 
 
-
 Evaluation
 ==========
 
@@ -112,7 +112,6 @@ Expectations:
 
 
 
-
 What this artifact evaluation covers
 ====================================
 - Sections 5.1, 5.2, 5.3, and 5.4 of the paper. These are the performance and
@@ -123,14 +122,15 @@ What this artifact evaluation covers
 
 
 
+
+
 What this artifact evaluation does not cover
 ============================================
 - Sections 5.5 and 5.6. Though these are important results, it is more
-difficult to automate, as it depends on additional dependencies, as well
-as analysis.
+difficult to automate, as they depend on additional dependencies (including
+a third-party docker container, and an entire Windows environment with
+a separately built LLVM), as well as analysis.
 
-FIXME: Can try to include some of our logs or intermediate files so that we
-can at least show how the final result is parsed.
 
 
 
