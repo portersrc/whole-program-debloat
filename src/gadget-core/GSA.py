@@ -98,25 +98,25 @@ for f in files:
 
     # Prepare file line arrays
     # Output file 1: Gadget Counts/Reduction, Total and by Category
-    file_1_lines = ["Package Variant,ROP Gadgets,JOP Gadgets,COP Gadgets,Special Purpose Gadgets,Total Gadgets\r"]
+    file_1_lines = ["Package Variant,ROP Gadgets,JOP Gadgets,COP Gadgets,Special Purpose Gadgets,Total Gadgets\n"]
     orig_counts = original.name + "," + str(len(original.ROPGadgets))
     orig_counts = orig_counts + "," + str(len(original.JOPGadgets))
     orig_counts = orig_counts + "," + str(len(original.COPGadgets))
     orig_counts = orig_counts + "," + str(original.total_sp_gadgets)
-    orig_counts = orig_counts + "," + str(original.total_unique_gadgets) + "\r"
+    orig_counts = orig_counts + "," + str(original.total_unique_gadgets) + "\n"
     file_1_lines.append(orig_counts)
 
     # Output file 2: Gadget Introduction Rates
-    file_2_lines = ["Package Variant,Total Gadgets,Total Introduction Rate,ROP Gadgets,ROP Introduction Rate,JOP Gadgets,JOP Introduction Rate,COP Gadgets,COP Introduction Rate\r"]
+    file_2_lines = ["Package Variant,Total Gadgets,Total Introduction Rate,ROP Gadgets,ROP Introduction Rate,JOP Gadgets,JOP Introduction Rate,COP Gadgets,COP Introduction Rate\n"]
     orig_counts = original.name + "," + str(original.total_unique_gadgets) + ", ,"
     orig_counts = orig_counts + str(len(original.ROPGadgets)) + ", ,"
     orig_counts = orig_counts + str(len(original.JOPGadgets)) + ", ,"
-    orig_counts = orig_counts + str(len(original.COPGadgets)) + "\r"
+    orig_counts = orig_counts + str(len(original.COPGadgets)) + "\n"
     file_2_lines.append(orig_counts)
 
     # Output file #3: SP Gadget Counts + Introduction
-    file_3_lines = ["Special Purpose Gadget Counts + Introduction\r",
-                    "Package Variant,Syscall Gadgets,JOP Dispatcher Gadgets,JOP Dataloader Gadgets,JOP Initializers,JOP Trampolines,COP Dispatcher Gadgets,COP Dataloader Gadgets,COP Initializers,COP Strong Trampoline Gadgets,COP Intra-stack Pivot Gadgets\r"]
+    file_3_lines = ["Special Purpose Gadget Counts + Introduction\n",
+                    "Package Variant,Syscall Gadgets,JOP Dispatcher Gadgets,JOP Dataloader Gadgets,JOP Initializers,JOP Trampolines,COP Dispatcher Gadgets,COP Dataloader Gadgets,COP Initializers,COP Strong Trampoline Gadgets,COP Intra-stack Pivot Gadgets\n"]
     orig_counts = original.name + "," + str(len(original.SyscallGadgets))
     orig_counts = orig_counts + "," + str(len(original.JOPDispatchers))
     orig_counts = orig_counts + "," + str(len(original.JOPDataLoaders))
@@ -126,11 +126,11 @@ for f in files:
     orig_counts = orig_counts + "," + str(len(original.COPDataLoaders))
     orig_counts = orig_counts + "," + str(len(original.COPInitializers))
     orig_counts = orig_counts + "," + str(len(original.COPStrongTrampolines))
-    orig_counts = orig_counts + "," + str(len(original.COPIntrastackPivots)) + "\r"
+    orig_counts = orig_counts + "," + str(len(original.COPIntrastackPivots)) + "\n"
     file_3_lines.append(orig_counts)
 
     # Output File 4: Special Purpose Gadget Introduction Counts/Rates
-    file_4_lines = ["Special Purpose Gadget Introduction Data\r",
+    file_4_lines = ["Special Purpose Gadget Introduction Data\n",
                     "Package Variant,Syscall Gadgets,Syscall Gadget Introduction Rate," +
                     "JOP Dispatcher Gadgets,JOP Dispatcher Gadget Introduction Rate," +
                     "JOP Dataloader Gadgets,JOP Dataloader Gadget Introduction Rate," +
@@ -140,7 +140,7 @@ for f in files:
                     "COP Dataloader Gadgets,COP Dataloader Gadget Introduction Rate," +
                     "COP Initializer Gadgets,COP Initializer Gadget Introduction Rate," +
                     "COP Strong Trampoline Gadgets,COP Strong Trampoline Gadget Introduction Rate," +
-                    "COP Intra-stack Pivot Gadgets,COP Intra-stack Pivot Gadget Introduction Rate\r"]
+                    "COP Intra-stack Pivot Gadgets,COP Intra-stack Pivot Gadget Introduction Rate\n"]
     orig_counts = original.name + "," + str(len(original.SyscallGadgets)) + ", ,"
     orig_counts = orig_counts + str(len(original.JOPDispatchers)) + ", ,"
     orig_counts = orig_counts + str(len(original.JOPDataLoaders)) + ", ,"
@@ -150,28 +150,28 @@ for f in files:
     orig_counts = orig_counts + str(len(original.COPDataLoaders)) + ", ,"
     orig_counts = orig_counts + str(len(original.COPInitializers)) + ", ,"
     orig_counts = orig_counts + str(len(original.COPStrongTrampolines)) + ", ,"
-    orig_counts = orig_counts + str(len(original.COPIntrastackPivots)) + "\r"
+    orig_counts = orig_counts + str(len(original.COPIntrastackPivots)) + "\n"
     file_4_lines.append(orig_counts)
 
     # Output File 5: Gadget Expressivity Classes Fulfilled By Variant
     orig_prac_rop = str(original.practical_ROP_expressivity) + " of 11"
     orig_ASLR_prac_rop = str(original.practical_ASLR_ROP_expressivity) + " of 35"
     orig_simple_tc = str(original.turing_complete_ROP_expressivity) + " of 17"
-    file_5_lines = ["Package Variant,Practical ROP Exploit,ASLR-Proof Practical ROP Exploit,Simple Turing Completeness\r"]
+    file_5_lines = ["Package Variant,Practical ROP Exploit,ASLR-Proof Practical ROP Exploit,Simple Turing Completeness\n"]
     orig_counts = original.name + ","
     orig_counts = orig_counts + orig_prac_rop + ","
     orig_counts = orig_counts + orig_ASLR_prac_rop + ","
-    orig_counts = orig_counts + orig_simple_tc + "\r"
+    orig_counts = orig_counts + orig_simple_tc + "\n"
     file_5_lines.append(orig_counts)
 
     # Output File 6: Overall Gadget Locality
-    file_6_lines = ["Package Variant,Gadget Locality\r"]
+    file_6_lines = ["Package Variant,Gadget Locality\n"]
 
     # Output File 7: Average Gadget Quality (and count of quality functional gadgets)
-    file_7_lines = ["Package Variant,Quality ROP Gadgets,Average ROP Gadget Quality,Quality JOP Gadgets,Average JOP Gadget Quality,Quality COP Gadgets,Average COP Gadget Quality\r"]
+    file_7_lines = ["Package Variant,Quality ROP Gadgets,Average ROP Gadget Quality,Quality JOP Gadgets,Average JOP Gadget Quality,Quality COP Gadgets,Average COP Gadget Quality\n"]
     orig_quality = original.name + "," + str(len(original.ROPGadgets)) + "," + str(original.averageROPQuality)
     orig_quality += "," + str(len(original.JOPGadgets)) + "," + str(original.averageJOPQuality)
-    orig_quality += "," + str(len(original.COPGadgets)) + "," + str(original.averageCOPQuality) + "\r"
+    orig_quality += "," + str(len(original.COPGadgets)) + "," + str(original.averageCOPQuality) + "\n"
     file_7_lines.append(orig_quality)
 
     # Iterate through the variants. Scan them to get a gadget set, compare it to the original, add data to output files
@@ -196,7 +196,7 @@ for f in files:
             stat_counts = stat_counts + "," + str(len(variant.JOPGadgetsVariant)) 
             stat_counts = stat_counts + "," + str(len(variant.COPGadgetsVariant)) 
             stat_counts = stat_counts + "," + str(variant.total_sp_gadgetsVariant) 
-            stat_counts = stat_counts + "," + str(variant.total_unique_gadgetsVariant) + "\r"
+            stat_counts = stat_counts + "," + str(variant.total_unique_gadgetsVariant) + "\n"
             file1[key] = stat_counts
             file_1_lines.append(stat_counts)
 
@@ -208,7 +208,7 @@ for f in files:
             stat_counts = stat_counts + str(len(variant.JOPGadgetsVariant)) + ","
             stat_counts = stat_counts + rate_format.format(stat.JOPIntroductionRate) + ","
             stat_counts = stat_counts + str(len(variant.COPGadgetsVariant)) + ","
-            stat_counts = stat_counts + rate_format.format(stat.COPIntroductionRate) + "\r"
+            stat_counts = stat_counts + rate_format.format(stat.COPIntroductionRate) + "\n"
             file2[key] = stat_counts
             file_2_lines.append(stat_counts)
 
@@ -244,7 +244,7 @@ for f in files:
             stat_counts = stat_counts + "," + str(len(variant.COPDataLoadersVariant)) 
             stat_counts = stat_counts + "," + str(len(variant.COPInitializersVariant)) 
             stat_counts = stat_counts + "," + str(len(variant.COPStrongTrampolinesVariant)) 
-            stat_counts = stat_counts + "," + str(len(variant.COPIntrastackPivotsVariant)) + "\r"
+            stat_counts = stat_counts + "," + str(len(variant.COPIntrastackPivotsVariant)) + "\n"
             file3[key] = stat_counts
             file_3_lines.append(stat_counts)
 
@@ -268,20 +268,20 @@ for f in files:
             stat_counts = stat_counts + str(len(variant.COPStrongTrampolinesVariant)) + ","
             stat_counts = stat_counts + rate_format.format(stat.COPStrongTrampolinesIntroductionRate) + ","
             stat_counts = stat_counts + str(len(variant.COPIntrastackPivotsVariant)) + ","
-            stat_counts = stat_counts + rate_format.format(stat.COPIntrastackPivotsIntroductionRate) + "\r"
+            stat_counts = stat_counts + rate_format.format(stat.COPIntrastackPivotsIntroductionRate) + "\n"
             file4[key] = stat_counts
             file_4_lines.append(stat_counts)
 
             # Output file 5 variant lines
             stat_counts = key + "," + str(variant.practical_ROP_expressivityVariant) + " (" + str(stat.practical_ROP_exp_diff) + "),"
             stat_counts += str(variant.practical_ASLR_ROP_expressivityVariant) + " (" + str(stat.practical_ASLR_ROP_exp_diff)  + "),"
-            stat_counts += str(variant.turing_complete_ROP_expressivityVariant) + " (" + str(stat.turing_complete_ROP_exp_diff) + ")\r"
+            stat_counts += str(variant.turing_complete_ROP_expressivityVariant) + " (" + str(stat.turing_complete_ROP_exp_diff) + ")\n"
             file5[key] = stat_counts
             file_5_lines.append(stat_counts)
 
             # Output file 6 variant lines
             if args.output_locality:
-                stat_locality = key + "," + rate_format.format(stat.gadgetLocality) + "\r"
+                stat_locality = key + "," + rate_format.format(stat.gadgetLocality) + "\n"
                 file6[key] = stat_locality
                 file_6_lines.append(stat_locality)
 
@@ -291,7 +291,7 @@ for f in files:
             stat_quality += str(len(variant.JOPGadgetsVariant)) + " (" + str(stat.keptQualityJOPCountDiff) + "),"
             stat_quality += str(variant.averageJOPQualityVariant) + " (" + str(stat.averageJOPQualityDiff) + "),"
             stat_quality += str(len(variant.COPGadgetsVariant)) + " (" + str(stat.keptQualityCOPCountDiff) + "),"
-            stat_quality += str(variant.averageCOPQualityVariant) + " (" + str(stat.averageCOPQualityDiff) + ")\r"
+            stat_quality += str(variant.averageCOPQualityVariant) + " (" + str(stat.averageCOPQualityDiff) + ")\n"
             file7[key] = stat_quality
             file_7_lines.append(stat_quality)
 
