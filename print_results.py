@@ -326,9 +326,9 @@ def section_5_4():
 
 
 def main():
-    #section_5_1()
-    #section_5_2()
-    #section_5_3()
+    section_5_1()
+    section_5_2()
+    section_5_3()
     section_5_4()
 
 main()
