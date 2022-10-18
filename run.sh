@@ -163,7 +163,7 @@ function run_nginx() {
 
     # OK to copy here (and not in the other run script) b/c the security
     # doesn't iterate more than once
-    cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages-security.out
+    cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_1_wpd_cl_ics.out
 
     # (no extra pop needed here)
     pkill nginx
