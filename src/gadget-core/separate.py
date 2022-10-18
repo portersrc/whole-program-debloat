@@ -56,7 +56,7 @@ if(args.base):
                 line = f.readline()
                 line = f.readline().strip()
                 split = line.split(",")[1:]
-                first[number] = str(number) + "," + ",".join(split) + "\r"
+                first[number] = str(number) + "," + ",".join(split) + "\n"
                 split = [int(i) for i in split]
                 totalROP[number], totalJOP[number], totalCOP[number], totalOther[number], totalTotal[number] = split
                 count = 0
@@ -107,18 +107,18 @@ if(args.base):
                 f.close()
 
         numbers.sort()
-        output = ",ROP,JOP,COP,Special,Total\r"
+        output = ",ROP,JOP,COP,Special,Total\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 output += first[n]
-        output += "\r"
+        output += "\n"
         
-        output += "ROP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "ROP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalROP[n]
                 actual_total = total
@@ -127,13 +127,13 @@ if(args.base):
                 ma = maxROP[n]
                 mi = minROP[n]
                 avg = avgROP[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
         
-        output += "JOP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "JOP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalJOP[n]
                 actual_total = total
@@ -142,12 +142,12 @@ if(args.base):
                 ma = maxJOP[n]
                 mi = minJOP[n]
                 avg = avgJOP[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
-        output += "COP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
+        output += "COP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalCOP[n]
                 actual_total = total
@@ -156,13 +156,13 @@ if(args.base):
                 ma = maxCOP[n]
                 mi = minCOP[n]
                 avg = avgCOP[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
         
-        output += "Special,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "Special,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalOther[n]
                 actual_total = total
@@ -171,13 +171,13 @@ if(args.base):
                 ma = maxOther[n]
                 mi = minOther[n]
                 avg = avgOther[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
         
-        output += "Total,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "Total,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalTotal[n]
                 actual_total = total
@@ -186,7 +186,7 @@ if(args.base):
                 ma = maxTotal[n]
                 mi = minTotal[n]
                 avg = avgTotal[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
         
         with open("output/"+bench+"/base.csv", 'w') as write:
             write.write(output)
@@ -230,7 +230,7 @@ if(args.linker):
                 line = f.readline()
                 line = f.readline().strip()
                 split = line.split(",")[1:]
-                first[number] = str(number) + "," + ",".join(split) + "\r"
+                first[number] = str(number) + "," + ",".join(split) + "\n"
                 split = [int(i) for i in split]
                 #print(split)
                 totalROP[number], totalJOP[number], totalCOP[number], totalOther[number], totalTotal[number] = split
@@ -282,18 +282,18 @@ if(args.linker):
                 f.close()
 
         numbers.sort()
-        output = ",ROP,JOP,COP,Special,Total\r"
+        output = ",ROP,JOP,COP,Special,Total\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 output += first[n]
-        output += "\r"
+        output += "\n"
         
-        output += "ROP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "ROP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalROP[n]
                 actual_total = total
@@ -302,13 +302,13 @@ if(args.linker):
                 ma = maxROP[n]
                 mi = minROP[n]
                 avg = avgROP[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
         
-        output += "JOP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "JOP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalJOP[n]
                 actual_total = total
@@ -317,12 +317,12 @@ if(args.linker):
                 ma = maxJOP[n]
                 mi = minJOP[n]
                 avg = avgJOP[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
-        output += "COP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
+        output += "COP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalCOP[n]
                 actual_total = total
@@ -331,13 +331,13 @@ if(args.linker):
                 ma = maxCOP[n]
                 mi = minCOP[n]
                 avg = avgCOP[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
         
-        output += "Special,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "Special,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalOther[n]
                 actual_total = total
@@ -346,13 +346,13 @@ if(args.linker):
                 ma = maxOther[n]
                 mi = minOther[n]
                 avg = avgOther[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
         
-        output += "Total,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "Total,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalTotal[n]
                 actual_total = total
@@ -361,7 +361,7 @@ if(args.linker):
                 ma = maxTotal[n]
                 mi = minTotal[n]
                 avg = avgTotal[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
         
         with open("output/"+bench+"/linker.csv", 'w') as write:
             write.write(output)
@@ -405,7 +405,7 @@ if(args.ics):
                 line = f.readline()
                 line = f.readline().strip()
                 split = line.split(",")[1:]
-                first[number] = str(number) + "," + ",".join(split) + "\r"
+                first[number] = str(number) + "," + ",".join(split) + "\n"
                 split = [int(i) for i in split]
                 #print(split)
                 totalROP[number], totalJOP[number], totalCOP[number], totalOther[number], totalTotal[number] = split
@@ -457,18 +457,18 @@ if(args.ics):
                 f.close()
         
         numbers.sort()
-        output = ",ROP,JOP,COP,Special,Total\r"
+        output = ",ROP,JOP,COP,Special,Total\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 output += first[n]
-        output += "\r"
+        output += "\n"
         
-        output += "ROP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "ROP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalROP[n]
                 actual_total = total
@@ -477,13 +477,13 @@ if(args.ics):
                 ma = maxROP[n]
                 mi = minROP[n]
                 avg = avgROP[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
         
-        output += "JOP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "JOP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalJOP[n]
                 actual_total = total
@@ -492,12 +492,12 @@ if(args.ics):
                 ma = maxJOP[n]
                 mi = minJOP[n]
                 avg = avgJOP[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
-        output += "COP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
+        output += "COP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalCOP[n]
                 actual_total = total
@@ -506,13 +506,13 @@ if(args.ics):
                 ma = maxCOP[n]
                 mi = minCOP[n]
                 avg = avgCOP[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
         
-        output += "Special,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "Special,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalOther[n]
                 actual_total = total
@@ -521,13 +521,13 @@ if(args.ics):
                 ma = maxOther[n]
                 mi = minOther[n]
                 avg = avgOther[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
         
-        output += "Total,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "Total,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalTotal[n]
                 actual_total = total
@@ -536,7 +536,7 @@ if(args.ics):
                 ma = maxTotal[n]
                 mi = minTotal[n]
                 avg = avgTotal[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
         
         with open("output/"+bench+"/ics.csv", 'w') as write:
             write.write(output)
@@ -601,7 +601,7 @@ if(args.ics_linker):
                 line = f.readline()
                 line = f.readline().strip()
                 split = line.split(",")[1:]
-                first[number] = str(number) + "," + ",".join(split) + "\r"
+                first[number] = str(number) + "," + ",".join(split) + "\n"
                 split = [int(i) for i in split]
                 totalROP[number], totalJOP[number], totalCOP[number], totalOther[number], totalTotal[number] = split
                 count = 0
@@ -650,18 +650,18 @@ if(args.ics_linker):
                 minTotal[number] = Totalmin
                 avgTotal[number] = Totalsum / count 
         numbers.sort()
-        output = ",ROP,JOP,COP,Special,Total\r"
+        output = ",ROP,JOP,COP,Special,Total\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 output += first[n]
-        output += "\r"
+        output += "\n"
         
-        output += "ROP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "ROP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalROP[n]
                 actual_total = total
@@ -670,13 +670,13 @@ if(args.ics_linker):
                 ma = maxROP[n]
                 mi = minROP[n]
                 avg = avgROP[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
         
-        output += "JOP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "JOP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalJOP[n]
                 actual_total = total
@@ -685,12 +685,12 @@ if(args.ics_linker):
                 ma = maxJOP[n]
                 mi = minJOP[n]
                 avg = avgJOP[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
-        output += "COP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
+        output += "COP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalCOP[n]
                 actual_total = total
@@ -699,13 +699,13 @@ if(args.ics_linker):
                 ma = maxCOP[n]
                 mi = minCOP[n]
                 avg = avgCOP[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
         
-        output += "Special,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "Special,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalOther[n]
                 actual_total = total
@@ -714,13 +714,13 @@ if(args.ics_linker):
                 ma = maxOther[n]
                 mi = minOther[n]
                 avg = avgOther[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
         
-        output += "Total,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "Total,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalTotal[n]
                 actual_total = total
@@ -729,7 +729,7 @@ if(args.ics_linker):
                 ma = maxTotal[n]
                 mi = minTotal[n]
                 avg = avgTotal[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
         
         with open("output/"+bench+"/ics_linker.csv", 'w') as write:
             write.write(output)
@@ -758,20 +758,20 @@ if(args.ics_linker):
         tTotal[bench] = totalTotal[numbers[0]]
 
         
-    output = ",ROP,JOP,COP,Special,Total\r"
+    output = ",ROP,JOP,COP,Special,Total\n"
     for n in all_benches:
         if(n not in firstb):
-            output += str(n) + "\r"
+            output += str(n) + "\n"
         else:
             lst = firstb[n].split(",")
             lst[0] = n
             output += ",".join(lst)
-    output += "\r"
+    output += "\n"
     
-    output += "ROP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+    output += "ROP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
     for n in all_benches:
         if(n not in firstb):
-            output += str(n) + "\r"
+            output += str(n) + "\n"
         else:
             total = tROP[n]
             actual_total = total
@@ -780,13 +780,13 @@ if(args.ics_linker):
             ma = mxROP[n]
             mi = miROP[n]
             avg = agROP[n]
-            output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-    output += "\r"
+            output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+    output += "\n"
     
-    output += "JOP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+    output += "JOP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
     for n in all_benches:
         if(n not in firstb):
-            output += str(n) + "\r"
+            output += str(n) + "\n"
         else:
             total = tJOP[n]
             actual_total = total
@@ -795,12 +795,12 @@ if(args.ics_linker):
             ma = mxJOP[n]
             mi = miJOP[n]
             avg = agJOP[n]
-            output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-    output += "\r"
-    output += "COP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+            output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+    output += "\n"
+    output += "COP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
     for n in all_benches:
         if(n not in firstb):
-            output += str(n) + "\r"
+            output += str(n) + "\n"
         else:
             total = tCOP[n]
             actual_total = total
@@ -809,13 +809,13 @@ if(args.ics_linker):
             ma = mxCOP[n]
             mi = miCOP[n]
             avg = agCOP[n]
-            output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-    output += "\r"
+            output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+    output += "\n"
     
-    output += "Special,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+    output += "Special,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
     for n in all_benches:
         if(n not in firstb):
-            output += str(n) + "\r"
+            output += str(n) + "\n"
         else:
             total = tOther[n]
             actual_total = total
@@ -824,13 +824,13 @@ if(args.ics_linker):
             ma = mxOther[n]
             mi = miOther[n]
             avg = agOther[n]
-            output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-    output += "\r"
+            output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+    output += "\n"
     
-    output += "Total,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+    output += "Total,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
     for n in all_benches:
         if(n not in firstb):
-            output += str(n) + "\r"
+            output += str(n) + "\n"
         else:
             total = tTotal[n]
             actual_total = total
@@ -839,7 +839,7 @@ if(args.ics_linker):
             ma = mxTotal[n]
             mi = miTotal[n]
             avg = agTotal[n]
-            output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
+            output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str(round(100 - (ma*100/total),1)) + "," + str(mi) + "," + str(round(100 - (mi*100/total),1)) + "," + str(round(avg,1)) + "," + str(round(100 - (avg*100/total),1)) + "\n"
 
     with open("ics_linker.csv", 'w') as write:
         write.write(output)
@@ -883,7 +883,7 @@ if(args.ics_sc_linker):
                 line = f.readline()
                 line = f.readline().strip()
                 split = line.split(",")[1:]
-                first[number] = str(number) + "," + ",".join(split) + "\r"
+                first[number] = str(number) + "," + ",".join(split) + "\n"
                 split = [int(i) for i in split]
                 #print(split)
                 totalROP[number], totalJOP[number], totalCOP[number], totalOther[number], totalTotal[number] = split
@@ -935,18 +935,18 @@ if(args.ics_sc_linker):
                 f.close()
         
         numbers.sort()
-        output = ",ROP,JOP,COP,Special,Total\r"
+        output = ",ROP,JOP,COP,Special,Total\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 output += first[n]
-        output += "\r"
+        output += "\n"
         
-        output += "ROP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "ROP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalROP[n]
                 actual_total = total
@@ -955,13 +955,13 @@ if(args.ics_sc_linker):
                 ma = maxROP[n]
                 mi = minROP[n]
                 avg = avgROP[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
         
-        output += "JOP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "JOP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalJOP[n]
                 actual_total = total
@@ -970,12 +970,12 @@ if(args.ics_sc_linker):
                 ma = maxJOP[n]
                 mi = minJOP[n]
                 avg = avgJOP[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
-        output += "COP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
+        output += "COP,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalCOP[n]
                 actual_total = total
@@ -984,13 +984,13 @@ if(args.ics_sc_linker):
                 ma = maxCOP[n]
                 mi = minCOP[n]
                 avg = avgCOP[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
         
-        output += "Special,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "Special,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalOther[n]
                 actual_total = total
@@ -999,13 +999,13 @@ if(args.ics_sc_linker):
                 ma = maxOther[n]
                 mi = minOther[n]
                 avg = avgOther[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
-        output += "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
+        output += "\n"
         
-        output += "Total,total,max,min-decrease,min,max-decrease,avg,avg-decrease\r"
+        output += "Total,total,max,min-decrease,min,max-decrease,avg,avg-decrease\n"
         for n in numbers:
             if(n not in first):
-                output += str(n) + "\r"
+                output += str(n) + "\n"
             else:
                 total = totalTotal[n]
                 actual_total = total
@@ -1014,7 +1014,7 @@ if(args.ics_sc_linker):
                 ma = maxTotal[n]
                 mi = minTotal[n]
                 avg = avgTotal[n]
-                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\r"
+                output += str(n) + "," + str(actual_total) + "," + str(ma) + "," + str((100 - (ma*100/total))) + "," + str(mi) + "," + str((100 - (mi*100/total))) + "," + str(avg) + "," + str((100 - (avg*100/total))) + "\n"
         
         with open("output/"+bench+"/ics_sc_linker.csv", 'w') as write:
             write.write(output)
