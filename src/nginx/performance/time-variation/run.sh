@@ -1,7 +1,8 @@
 #!/bin/bash
 
+BASE_WPD=$1
 
-WRK_BASE=$HOME/wo/wrk
+WRK_BASE=/root/decker/wrk
 
 
 NUM_SEC_ARR=(
@@ -10,10 +11,10 @@ NUM_SEC_ARR=(
     300
 )
 
-BASE_WPD_ARR=(
-    #baseline_ls
-    wpd_custlink_ics
-)
+#BASE_WPD_ARR=(
+#    #baseline_ls
+#    wpd_custlink_ics
+#)
 
 
 function LAUNCH_WRK() {
@@ -24,12 +25,13 @@ function LAUNCH_WRK() {
 }
 
 
-for x in {1..3}; do
+#for x in {1..3}; do
     for NUM_SEC in ${NUM_SEC_ARR[@]}; do
-        for BP in ${BASE_WPD_ARR[@]}; do
+        #for BP in ${BASE_WPD_ARR[@]}; do
+            BP=${BASE_WPD}
             LAUNCH_WRK $NUM_SEC $BP
-        done
+        #done
     done
-    mkdir -p $x
-    mv *.out $x
-done
+    #mkdir -p $x
+    #mv *.out $x
+#done

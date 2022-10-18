@@ -1,7 +1,9 @@
 #!/bin/bash
 
+BASE_WPD=$1
 
-WRK_BASE=$HOME/wo/wrk
+WRK_BASE=/root/decker/wrk
+NGINX_BASE=/root/decker/nginx
 
 
 NUM_SEC_ARR=(
@@ -10,15 +12,17 @@ NUM_SEC_ARR=(
     #300
 )
 
-BASE_WPD_ARR=(
-    #baseline_ls
-    wpd_custlink_ics
-)
+#BASE_WPD_ARR=(
+#    #baseline_ls
+#    wpd_custlink_ics
+#)
 
 
 function LAUNCH_WRK() {
     NUM_SEC=$1
     BP=$2
+    #ITER=$3
+    #WRK_OUT=wrk.${NUM_SEC}s.${ITER}.${BP}.out
     WRK_OUT=wrk.${NUM_SEC}s.${BP}.out
     $WRK_BASE/wrk -t12 -c400 -d${NUM_SEC}s http://127.0.0.1:8080/wikipedia_main_page.html &> $WRK_OUT
 }
@@ -27,12 +31,14 @@ function LAUNCH_WRK() {
 #for x in {1..3}; do
 #for x in {1..1}; do
 #for x in {2..2}; do
-for x in {3..3}; do
+#for x in {3..3}; do
     for NUM_SEC in ${NUM_SEC_ARR[@]}; do
-        for BP in ${BASE_WPD_ARR[@]}; do
+        #for BP in ${BASE_WPD_ARR[@]}; do
+            BP=${BASE_WPD}
+            #LAUNCH_WRK $NUM_SEC $BP $x
             LAUNCH_WRK $NUM_SEC $BP
-        done
+        #done
     done
-    mkdir -p $x
-    mv *.out $x
-done
+    #mkdir -p $x
+    #mv *.out $x
+#done
