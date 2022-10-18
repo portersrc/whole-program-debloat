@@ -150,6 +150,11 @@ def parse_du(du_output):
 
 
 def section_5_1():
+    print()
+    print('=====================================')
+    print('Results from Section 5.1 of the paper')
+    print('=====================================')
+    print()
     #
     # Slowdown on SPEC 2017
     #
@@ -168,6 +173,7 @@ def section_5_1():
         print('{} {}'.format(bmark, slowdown))
         some += slowdown
     print('Avg-slowdown {}'.format(some / len(slowdowns)))
+    print()
 
 
 
@@ -193,6 +199,7 @@ def section_5_1():
         some_avg += float(line_vec[3])
         count += 1
     print('AVERAGE {} {} {}'.format(round(some_min/count,1), round(some_max/count,1), round(some_avg/count,1)))
+    print()
 
     os.chdir(SCRIPT_DIR)
 
@@ -200,6 +207,11 @@ def section_5_1():
 
 
 def section_5_2():
+    print()
+    print('=====================================')
+    print('Results from Section 5.2 of the paper')
+    print('=====================================')
+    print()
     #
     # Gadget reduction on coreutils
     #
@@ -222,6 +234,7 @@ def section_5_2():
         some_avg += float(line_vec[3])
         count += 1
     print('AVERAGE {} {} {}'.format(round(some_min/count,1), round(some_max/count,1), round(some_avg/count,1)))
+    print()
 
     os.chdir(SCRIPT_DIR)
 
@@ -231,6 +244,11 @@ def section_5_2():
 
 
 def section_5_3():
+    print()
+    print('=====================================')
+    print('Results from Section 5.3 of the paper')
+    print('=====================================')
+    print()
     #
     # Slowdown on nginx
     #
@@ -265,6 +283,11 @@ def section_5_3():
 
 
 def section_5_4():
+    print()
+    print('=====================================')
+    print('Results from Section 5.4 of the paper')
+    print('=====================================')
+    print()
     size_increases = []
     for bmark in BMARKS_SPEC:
         bin_name_prefix = SPEC_BASE + '/' + SPEC_BMARK_TO_FOLDER[bmark] + '/' + bmark
@@ -319,6 +342,7 @@ def section_5_4():
     print('Binary size increase for nginx')
     print('------------------------------')
     print('{}'.format(round(size_increase,1)))
+    print()
 
 
 
