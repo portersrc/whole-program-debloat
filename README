@@ -56,7 +56,7 @@ Once inside the container:
     # cd whole-program-debloat
     # source setenv
     # time ./print_results.py &> results.out
-    # diff results.out artifact-eval/ref-results.out
+    # diff results.out ref-results.out
 
 Expectations:
   - The print_results.py script should take about 35 minutes to run. (This
@@ -104,7 +104,7 @@ Expected time: 35 minutes
 Expectations:
   - The output from print_results.py should roughly match the reference output
     here:
-      /root/decker/whole-program-debloat/artifact-eval/ref-results.out
+      /root/decker/whole-program-debloat/ref-results.out
     It should also roughly match the results in the paper.
 
 
