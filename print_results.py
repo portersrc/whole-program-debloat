@@ -135,6 +135,9 @@ def parse_du(du_output):
 
 
 def section_5_1():
+    #
+    # Slowdown on SPEC 2017
+    #
     slowdowns = []
     for bmark in BMARKS_SPEC:
         decker_time = parse_runtime(bmark, 'large-wpd_cl_ics.out')
@@ -153,8 +156,9 @@ def section_5_1():
 
 
 
-
-def section_5_2():
+    #
+    # Gadget reduction on SPEC 2017
+    #
     os.chdir('/root/decker/whole-program-debloat/src/gadget-spec/')
 
     _, rv =run_cmd('./spec.sh')
@@ -173,7 +177,36 @@ def section_5_2():
         some_max += float(line_vec[2])
         some_avg += float(line_vec[3])
         count += 1
-    print('AVERGE {} {} {}'.format(round(some_min/count,1), round(some_max/count,1), round(some_avg/count,1)))
+    print('AVERAGE {} {} {}'.format(round(some_min/count,1), round(some_max/count,1), round(some_avg/count,1)))
+
+    os.chdir(SCRIPT_DIR)
+
+
+
+
+def section_5_2():
+    #
+    # Gadget reduction on coreutils
+    #
+    os.chdir('/root/decker/whole-program-debloat/src/gadget-core/')
+
+    _, rv =run_cmd('./security.sh')
+    print('Total gadget reduction for GNU coreutils')
+    print('----------------------------------------')
+    print('Application Min Max Avg')
+    print(rv)
+
+    some_min = 0
+    some_max = 0
+    some_avg = 0
+    count = 0
+    for line in rv.splitlines():
+        line_vec = line.strip().split()
+        some_min += float(line_vec[1])
+        some_max += float(line_vec[2])
+        some_avg += float(line_vec[3])
+        count += 1
+    print('AVERAGE {} {} {}'.format(round(some_min/count,1), round(some_max/count,1), round(some_avg/count,1)))
 
     os.chdir(SCRIPT_DIR)
 
@@ -181,8 +214,10 @@ def section_5_2():
 
 
 
+
 def section_5_3():
-    pass
+    print('todo nginx')
+
 
 
 # TODO this is just for spec. must do for others.
