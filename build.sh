@@ -112,6 +112,28 @@ function build_coreutils() {
 }
 
 
+function build_nginx() {
+    echo "=============="
+    echo "Building nginx"
+    echo "=============="
+
+    BASE_FOLDER=/root/decker/nginx
+
+    pushd ${BASE_FOLDER}
+
+    make base_ls wpd_ics
+    pushd objs
+    ln -fs ../wpd_func_name_to_id.txt
+    ln -fs ../wpd_disjoint_sets.txt
+    python3 linker.py .
+    popd
+    make wpd_custlink_ics
+
+    popd
+}
+
+
 #build_decker 
 #build_spec
-build_coreutils
+#build_coreutils
+build_nginx
