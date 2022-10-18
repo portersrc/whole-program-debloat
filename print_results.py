@@ -230,7 +230,36 @@ def section_5_2():
 
 
 def section_5_3():
-    print('todo nginx')
+    #
+    # Slowdown on nginx
+    #
+    print('Transfer/sec degradation for nginx')
+    print('----------------------------------')
+    print('Test-case Slowdown')
+    os.chdir('/root/decker/whole-program-debloat/src/nginx/performance/size-variation')
+    _, rv = run_cmd('./run_results.sh')
+    print(rv)
+    os.chdir('/root/decker/whole-program-debloat/src/nginx/performance/time-variation')
+    _, rv = run_cmd('./run_results.sh')
+    print(rv)
+    print()
+
+
+    #
+    # Gadget reduction on nginx
+    #
+    os.chdir('/root/decker/whole-program-debloat/src/gadget-core/')
+
+    _, rv = run_cmd('./nginx.sh')
+    print('Total gadget reduction for nginx')
+    print('--------------------------------')
+    print('Min Max Avg')
+    print(rv)
+    print()
+
+
+
+    os.chdir(SCRIPT_DIR)
 
 
 
@@ -274,9 +303,11 @@ def section_5_4():
         print('{} {}'.format(bmark, round(size_increase,1)))
         some += size_increase
     print('Avg-size-increase {}'.format(round(some / len(size_increases),1)))
+    print()
 
 
     # TODO nginx
+    print("TODO: NGINX BINARY SIZE CHANGE")
 
 
 
