@@ -4,6 +4,19 @@ from os import listdir
 from os.path import isfile, join
 import statistics
 
+# FIXME? This option turns out to be stupid? That file that you pass still
+# has to start with "out-jop-pg_"
+def usage_and_exit():
+    print()
+    print('Usage:')
+    print('  {} [out-jop-pg_* file to parse]'.format(sys.argv[0]))
+    print()
+    print('If the file to parse is not provided, then the current directory is used.')
+    print()
+    print('NOTE: only files that begin with "out-jop-pg_" will be parsed')
+    print()
+    sys.exit(1)
+
 
 reg_ids = {
     'rax': 0,
@@ -132,13 +145,27 @@ class Gadget:
 
 
 
+def dump_metric(metric, arr):
+    print('{}'.format(metric))
+    print('min: {}'.format(min(arr)))
+    print('max: {}'.format(max(arr)))
+    print('avg: {}'.format(statistics.mean(arr)))
+    print('stdev: {}'.format(statistics.stdev(arr)))
+    print()
+
 
 
 path = '.'
 all_jop_files = [f for f in listdir(path) if isfile(join(path, f))]
+if len(sys.argv) == 2:
+    all_jop_files = [sys.argv[1]]
+if len(sys.argv) > 2:
+    usage_and_exit()
+
 
 
 all_num_gadgets = []
+all_num_dispatcher_gadgets = []
 all_num_uniq_first_ops = []
 all_usable_counts = []
 all_not_usable_counts = []
@@ -146,14 +173,17 @@ all_uniq_first_op_usable_size_counts = []
 
 
 final_avg_num_gadgets = []
+jop_files_with_max_usable_first_op = set()
 
-
+at_least_one_file_was_parsed = False
 for jop_file in all_jop_files:
     if not jop_file.startswith('out-jop-pg_'):
         continue
+    at_least_one_file_was_parsed = True
     print(jop_file)
     gadgets = []
     dispatcher_gadgets = []
+    dispatcher_gadgets_set = set() # track unique strings. has no effect, possibly because ropgadget already filters those out.
     non_dispatcher_gadgets = []
     uniq_first_ops = set()
     with open(jop_file) as f:
@@ -180,8 +210,9 @@ for jop_file in all_jop_files:
                         regs_in_use.add(part)
 
             g = Gadget(gadget_vec, first_op, len(gadget_vec)-1, regs_in_use)
-            if g.is_dg:
+            if g.is_dg and gadget not in dispatcher_gadgets_set:
                 dispatcher_gadgets.append(g)
+                dispatcher_gadgets_set.add(gadget)
             else:
                 non_dispatcher_gadgets.append(g)
                 uniq_first_ops.add(g.first_op)
@@ -209,6 +240,10 @@ for jop_file in all_jop_files:
                 dg_to_usability[dg]['usable'] += 1
                 dg_to_usability[dg]['uniq_first_op_usable'].add(g.first_op)
                 dg_to_usability[dg]['uniq_first_op_usable_size'] = len(dg_to_usability[dg]['uniq_first_op_usable'])
+                # hard-coding this after already running the results and seeing
+                # 23. I want to use this for analysis in the writing.
+                if len(dg_to_usability[dg]['uniq_first_op_usable']) == 23:
+                    jop_files_with_max_usable_first_op.add(jop_file)
             else:
                 #print('gadget not usable: {}'.format(g))
                 dg_to_usability[dg]['not_usable'] += 1
@@ -237,6 +272,7 @@ for jop_file in all_jop_files:
 
 
     num_gadgets = len(gadgets)
+    num_dispatcher_gadgets = len(dispatcher_gadgets)
     num_uniq_first_ops = len(uniq_first_ops)
     avg_usable_counts = statistics.mean(usable_counts)
     avg_not_usable_counts = statistics.mean(not_usable_counts)
@@ -244,6 +280,7 @@ for jop_file in all_jop_files:
 
 
     print('num_gadgets: {}'.format(num_gadgets))
+    print('num_dispatcher_gadgets: {}'.format(num_dispatcher_gadgets))
     print('num_uniq_first_ops: {}'.format(num_uniq_first_ops))
     print('avg_usable_counts: {}'.format(avg_usable_counts))
     print('avg_not_usable_counts: {}'.format(avg_not_usable_counts))
@@ -252,6 +289,7 @@ for jop_file in all_jop_files:
 
     # For a given jop file, these are just scalars (num_gadgets, num_uniq_first_ops)
     all_num_gadgets.append(num_gadgets)
+    all_num_dispatcher_gadgets.append(num_dispatcher_gadgets)
     all_num_uniq_first_ops.append(num_uniq_first_ops)
 
     # For a given jop file, these are arrays (usable_counts, not_usable_counts,
@@ -262,17 +300,22 @@ for jop_file in all_jop_files:
     all_not_usable_counts.extend(not_usable_counts)
     all_uniq_first_op_usable_size_counts.extend(uniq_first_op_usable_size_counts)
 
-def dump_metric(metric, arr):
-    print('{}'.format(metric))
-    print('min: {}'.format(min(arr)))
-    print('max: {}'.format(max(arr)))
-    print('avg: {}'.format(statistics.mean(arr)))
+
+
+if not at_least_one_file_was_parsed:
     print()
+    print('ERROR: No files were processed. Maybe check your args or the filenames begin with out-jop-pg_?')
+    print('Dumping usage and then exiting')
+    print()
+    usage_and_exit()
+
 
 dump_metric('all_num_gadgets', all_num_gadgets)
+dump_metric('all_num_dispatcher_gadgets', all_num_dispatcher_gadgets)
 dump_metric('all_num_uniq_first_ops', all_num_uniq_first_ops)
 dump_metric('all_usable_counts', all_usable_counts)
 dump_metric('all_not_usable_counts', all_not_usable_counts)
 dump_metric('all_uniq_first_op_usable_size_counts', all_uniq_first_op_usable_size_counts)
 
 
+print('jop_files_with_max_usable_first_op: {}'.format(jop_files_with_max_usable_first_op))
