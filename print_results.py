@@ -9,6 +9,7 @@ import subprocess
 PROJ_BASE = '/root/decker/whole-program-debloat'
 SPEC_BASE = '/root/decker/spec2017/benchspec/CPU'
 COREUTILS_BASE = '/root/decker/security-bench'
+NGINX_BASE = '/root/decker/nginx'
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
@@ -306,8 +307,18 @@ def section_5_4():
     print()
 
 
-    # TODO nginx
-    print("TODO: NGINX BINARY SIZE CHANGE")
+    bmark = 'nginx'
+    bin_name_prefix = NGINX_BASE + '/objs/' + bmark
+    bin_name_base   = bin_name_prefix + '_baseline_ls'
+    bin_name_decker = bin_name_prefix + '_wpd_custlink_ics'
+    _, rv = run_cmd('du -sb '+bin_name_base)
+    base_size   = parse_du(rv)
+    _, rv = run_cmd('du -sb '+bin_name_decker)
+    decker_size = parse_du(rv)
+    size_increase = decker_size / base_size
+    print('Binary size increase for nginx')
+    print('------------------------------')
+    print('{}'.format(round(size_increase,1)))
 
 
 
@@ -317,7 +328,7 @@ def section_5_4():
 def main():
     #section_5_1()
     #section_5_2()
-    section_5_3()
-    #section_5_4()
+    #section_5_3()
+    section_5_4()
 
 main()
