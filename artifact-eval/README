@@ -1,0 +1,164 @@
+ASPLOS 2023
+Artifact Evaluation
+Summer
+#700 Decker: Attack Surface Reduction via On-demand Code Mapping
+
+
+Decker consists of a compiler pass and runtime library. Its main objective is
+to debloat software at runtime.
+
+This tarball includes a Docker image that encapsulates basic dependencies, the
+Decker code itself, benchmarks, and the scripts to drive artifact evaluation.
+
+
+
+
+Kick the tires
+==============
+
+You'll do two things in this step:
+  1. Unpack the artifact and launch a bash shell inside the container.
+  2. Print the results.
+When we built the Docker image, we included the output of our own test run with
+it. So to kick the tires, we just want to verify that (1) yes, you can access
+the running container; and (2) yes, you can see the results, which we generated
+with the artifact itself. We have a reference of that output in this same
+folder that should match. Importantly, these results will also roughly match
+those in the paper. In the full evaluation steps, you'll reproduce everything
+yourself.
+
+
+Step 1
+------
+Unpacking the artifacts and getting to a shell in the container
+
+                TODO SHOULD SHOW HOW TO IMPORT AND LAUNCH THE CONTAINER
+                FIXME THIS IS OLD:
+                  Unpack and load the image:
+                      $ tar xvzf 700.tar.gz
+                      $ cd 700
+                      $ docker load -i ubuntu-18.04-decker.tar
+                FIXME DO SOMETHING LIKE THIS...
+                  Unpack and import the image:
+                      $ tar xvzf 700.tar.gz
+                      $ cd 700
+                      $ docker import decker-ae.tar decker
+                      FIXME Don't we need to run it, too?
+Step 2
+------
+Printing the results
+
+Launch the container:
+    FIXME
+
+Once inside the container:
+    # cd whole-program-debloat
+    # source setenv
+    # time ./print_results.py &> results.out
+    # diff results.out artifact-eval/ref-results.out
+
+Expectations:
+  - The print_results.py script should take about 35 minutes to run. (This
+    is mostly due to gadget analysis of all the traces of all benchmarks.)
+  - The diff should be clean.
+
+That's it! You can check the output for all of the relevant sections of the
+evaluation in results.out, and they should roughly match those in the paper.
+
+Congratulations, you've kicked the tires!
+
+
+
+
+
+
+
+Evaluation
+==========
+
+For the evaluation, you're going to build all software, run the automated
+experiments, and then print the results. At the end, you can compare
+these results with the reference output and with the paper.
+
+Once inside the container, set the necessary environment variables:
+  # cd /root/decker/spec2017
+  # source shrc
+  # cd /root/decker/whole-program-debloat
+  # source setenv
+
+Now build all software (decker source tree, plus all benchmarks):
+  # cd /root/decker/whole-program-debloat
+  # time ./build.sh
+Expected time: 1 hour
+
+Run everything:
+  # cd /root/decker/whole-program-debloat
+  # time ./run.sh
+Expected time: 4 hours
+
+Print the results:
+  # cd /root/decker/whole-program-debloat
+  # time ./print_results.py
+Expected time: 35 minutes
+
+Expectations:
+  - The output from print_results.py should roughly match the reference output
+    here:
+      /root/decker/whole-program-debloat/artifact-eval/ref-results.out
+    It should also roughly match the results in the paper.
+
+
+
+
+
+
+
+What this artifact evaluation covers
+====================================
+- Sections 5.1, 5.2, 5.3, and 5.4 of the paper. These are the performance and
+  general gadget reductions for SPEC (5.1), GNU coreutils (5.2), and nginx
+  (5.3), as well as binary size growth (5.4). This is the automated portion of
+  the results.
+
+
+
+
+What this artifact evaluation does not cover
+============================================
+- Sections 5.5 and 5.6. Though these are important results, it is more
+difficult to automate, as it depends on additional dependencies, as well
+as analysis.
+
+FIXME: Can try to include some of our logs or intermediate files so that we
+can at least show how the final result is parsed.
+
+
+
+
+
+Dependencies
+============
+
+The Ubuntu 18.04 Docker image should have all dependencies necessary for the
+artifact evaluation. Here are several known dependencies for anyone
+interested in more details:
+
+LLVM 11.0.0
+
+python3.6.9
+    via pip3:
+      angr (tested with 9.0.7833 and 9.2.6)
+      ropgadget tested with (6.5 and 7.1)
+
+Benchmarks:
+    SPEC 2017
+    nginx v1.20.1
+    wrk (an nginx workload generator)
+    Custom GNU coreutils versions (see paper, based on Razor paper, as well)
+
+Building GNU coreutils:
+  pcre library
+  libz
+
+Additional Linux tools:
+  bc
