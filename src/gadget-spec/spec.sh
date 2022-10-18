@@ -6,13 +6,14 @@ c=( 510.parest_r 538.imagick_r 526.blender_r )
 d=( 502.gcc_r )
 benches=( ${a[@]} ${b[@]} ${c[@]} ${d[@]} )
 
+echo "Gathering gadget results for spec" &> spec.log
 for i in "${!benches[@]}"
 do
     bench="${benches[$i]}"
 
     start=$(readelf -S /root/decker/spec2017/benchspec/CPU/${bench}/build/build_peak_mytest-m64.0000/${bench}_wpd_custlink_ics | grep .text | awk '{print $4}')
     size=$(readelf -S /root/decker/spec2017/benchspec/CPU/${bench}/build/build_peak_mytest-m64.0000/${bench}_wpd_custlink_ics | grep .text -A 1 | awk '{getline; print $1}')
-    echo $bench &> spec.log
+    echo $bench &>> spec.log
     echo $start &>> spec.log
     echo $size  &>> spec.log
     rm -rf resultswpd_cl_ics/$bench
