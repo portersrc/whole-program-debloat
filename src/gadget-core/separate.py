@@ -12,11 +12,15 @@ parser.add_argument("--linker", help="Produce Gadget results for Base Code with 
 parser.add_argument("--ics", help="Produce Gadget results for ICS Code", action='store_true')
 parser.add_argument("--ics_linker", help="Produce Gadget results for ICS Code with Linker Script", action='store_true')
 parser.add_argument("--ics_sc_linker", help="Produce Gadget results for ICS Code with Linker Script", action='store_true')
+parser.add_argument("--nginx", help="Use nginx benchmark (not coreutils)", action='store_true')
 
 args = parser.parse_args()
 
 #"bzip2", "gzip", "tar", "grep", "chown", "date", "mkdir", "rm", "sort", "uniq"
 all_benches = ["bzip2", "gzip", "tar", "grep", "chown", "date", "mkdir", "rm", "sort", "uniq"]
+if(args.nginx):
+    all_benches = ['nginx']
+
 
 if(args.base):
     for bench in all_benches:
