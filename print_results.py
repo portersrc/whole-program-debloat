@@ -8,6 +8,7 @@ import subprocess
 
 PROJ_BASE = '/root/decker/whole-program-debloat'
 SPEC_BASE = '/root/decker/spec2017/benchspec/CPU'
+COREUTILS_BASE = '/root/decker/security-bench'
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
@@ -88,6 +89,19 @@ SPEC_BMARK_TO_FOLDER = {
     '557.xz': '557.xz_r/build/build_peak_mytest-m64.0000',
 }
 
+
+BMARKS_COREUTILS = [
+  'bzip2',
+  'gzip',
+  'tar',
+  'grep',
+  'chown',
+  'date',
+  'mkdir',
+  'rm',
+  'sort',
+  'uniq',
+]
 
 
 
@@ -220,7 +234,6 @@ def section_5_3():
 
 
 
-# TODO this is just for spec. must do for others.
 def section_5_4():
     size_increases = []
     for bmark in BMARKS_SPEC:
@@ -237,9 +250,33 @@ def section_5_4():
     print('----------------------------------')
     some = 0
     for bmark, size_increase in size_increases:
-        print('{} {}'.format(bmark, size_increase))
+        print('{} {}'.format(bmark, round(size_increase,1)))
         some += size_increase
-    print('Avg-size-increase {}'.format(some / len(size_increases)))
+    print('Avg-size-increase {}'.format(round(some / len(size_increases),1)))
+    print()
+
+
+    size_increases = []
+    for bmark in BMARKS_COREUTILS:
+        bin_name_prefix = COREUTILS_BASE + '/' + bmark + '/' + bmark
+        bin_name_base   = bin_name_prefix + '_nostatic'
+        bin_name_decker = bin_name_prefix + '_wpd_custlink_ics_nostatic'
+        _, rv = run_cmd('du -sb '+bin_name_base)
+        base_size   = parse_du(rv)
+        _, rv = run_cmd('du -sb '+bin_name_decker)
+        decker_size = parse_du(rv)
+        size_increase = decker_size / base_size
+        size_increases.append((bmark, size_increase))
+    print('Binary size increase for GNU coreutils')
+    print('--------------------------------------')
+    some = 0
+    for bmark, size_increase in size_increases:
+        print('{} {}'.format(bmark, round(size_increase,1)))
+        some += size_increase
+    print('Avg-size-increase {}'.format(round(some / len(size_increases),1)))
+
+
+    # TODO nginx
 
 
 
@@ -248,8 +285,8 @@ def section_5_4():
 
 def main():
     #section_5_1()
-    section_5_2()
-    #section_5_3()
+    #section_5_2()
+    section_5_3()
     #section_5_4()
 
 main()
