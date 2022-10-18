@@ -1,5 +1,4 @@
 #!/bin/bash
-#set -euo pipefail
 
 
 function run_spec() {
@@ -103,5 +102,104 @@ function run_coreutils() {
 }
 
 
+function run_nginx() {
+    echo "============="
+    echo "Running nginx"
+    echo "============="
+
+
+    BASE_NGINX_FOLDER=/root/decker/nginx
+    BASE_WRK_FOLDER=/root/decker/wrk
+
+    NGINX_WARMUP_TIME_S=3 # hacky time in seconds for nginx to get started
+    NGINX_TEARDOWN_TIME_S=3 # hacky time in seconds for nginx to tear down and release address
+
+
+    pushd ${BASE_NGINX_FOLDER}
+
+    cp readelf-custlink-ics.out readelf.out
+    cp readelf-sections-custlink-ics.out readelf-sections.out
+
+    #
+    # baseline run
+    #
+    echo "Running baseline version"
+
+    # nginx is launched in the background
+    objs/nginx_baseline_ls \
+      -c conf/nginx.conf \
+      -p .
+    sleep ${NGINX_WARMUP_TIME_S}
+    pushd /root/decker/whole-program-debloat/src/nginx/performance
+
+    echo "Running baseline version - size variation"
+    pushd size-variation
+    ./run.sh baseline_ls
+    popd
+    echo "Running baseline version - time variation"
+    pushd time-variation
+    ./run.sh baseline_ls
+    popd
+
+    popd # leave src/nginx/performance
+    pkill nginx
+    sleep ${NGINX_TEARDOWN_TIME_S}
+
+
+    #
+    # security run (i.e. log the page sets)
+    #
+    echo "Running decker version for security"
+
+    # nginx is launched in the background
+    DEBRT_ENABLE_STATS=1 DEBRT_ENABLE_INDIRECT_CALL_SINKING=1 objs/nginx_wpd_custlink_ics \
+      -c conf/nginx.conf \
+      -p .
+    sleep ${NGINX_WARMUP_TIME_S}
+
+    pushd /root/decker/whole-program-debloat/src/nginx/security
+    ./run.sh wpd_custlink_ics
+    popd
+
+    # OK to copy here (and not in the other run script) b/c the security
+    # doesn't iterate more than once
+    cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages-security.out
+
+    # (no extra pop needed here)
+    pkill nginx
+    sleep ${NGINX_TEARDOWN_TIME_S}
+
+
+    #
+    # performance run (i.e. no extra logging)
+    #
+    echo "Running decker version for performance"
+
+    # nginx is launched in the background
+    DEBRT_ENABLE_INDIRECT_CALL_SINKING=1 objs/nginx_wpd_custlink_ics \
+      -c conf/nginx.conf \
+      -p .
+    sleep ${NGINX_WARMUP_TIME_S}
+    pushd /root/decker/whole-program-debloat/src/nginx/performance
+
+    echo "Running decker version for performance - size variation"
+    pushd size-variation
+    ./run.sh wpd_custlink_ics
+    popd
+    echo "Running decker version for performance - time variation"
+    pushd time-variation
+    ./run.sh wpd_custlink_ics
+    popd
+
+    popd # leave src/nginx/performance
+    pkill nginx
+    sleep ${NGINX_TEARDOWN_TIME_S}
+
+    popd
+
+}
+
+
 #run_spec
-run_coreutils
+#run_coreutils
+run_nginx
