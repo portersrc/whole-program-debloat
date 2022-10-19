@@ -18,9 +18,10 @@ Decker code itself, benchmarks, and the scripts to drive artifact evaluation.
 Kick the tires
 ==============
 
-You'll do two things in this step:
-  1. Unpack the artifact and launch a bash shell inside the container.
-  2. Print the results.
+You'll do three things in this step:
+  1. Install Docker (if you don't already have it).
+  2. Import the Docker image and launch a bash shell into a running container.
+  3. Print the results.
 When we built the Docker image, we included the output of our own test run with
 it. So to kick the tires, we just want to verify that (1) yes, you can access
 the running container; and (2) yes, you can see the results, which we generated
@@ -29,30 +30,49 @@ folder that should match. Importantly, these results will also roughly match
 those in the paper. In the full evaluation steps, you'll reproduce everything
 yourself.
 
-Step 1
-------
-Unpacking the artifacts and getting to a shell in the container
 
-                TODO SHOULD SHOW HOW TO IMPORT AND LAUNCH THE CONTAINER
-                FIXME THIS IS OLD:
-                  Unpack and load the image:
-                      $ tar xvzf 700.tar.gz
-                      $ cd 700
-                      $ docker load -i ubuntu-18.04-decker.tar
-                FIXME DO SOMETHING LIKE THIS...
-                  Unpack and import the image:
-                      $ tar xvzf 700.tar.gz
-                      $ cd 700
-                      $ docker import decker-ae.tar decker
-                      FIXME Don't we need to run it, too?
-Step 2
-------
-Printing the results
+Step 1: Install Docker
+-------
+Please follow official Docker documentation for this step. For example,
+if you are on Ubuntu, follow the documentation here:
+    https://docs.docker.com/engine/install/ubuntu/
 
-Launch the container:
-    FIXME
 
-Once inside the container:
+
+Step 2: Import the Docker image and launch a bash shell into a running container
+-------
+Import the image:
+    $ docker import decker-ae.tar decker
+
+Verify that you can see the imported image:
+    $ docker images
+    REPOSITORY      TAG               IMAGE ID       CREATED          SIZE
+    decker          latest            cf3e3168256f   4 minutes ago    19GB
+
+
+Launch a bash shell in a running container:
+    $ docker run \
+        -it \
+        --rm \
+        --network host \
+        -w /root/decker \
+        -e HOST_PERMS="$(id -u):$(id -g)" \
+        --name decker-ae \
+        decker:latest \
+        /bin/bash
+    # ls
+
+Verify in a separate terminal that the container is indeed running:
+    $ docker ps
+    CONTAINER ID   IMAGE           COMMAND       CREATED          STATUS          PORTS     NAMES
+    00f4201107f9   decker:latest   "/bin/bash"   45 seconds ago   Up 45 seconds             decker-ae
+
+
+
+
+Step 3: Print the results
+-------
+From inside the running container:
     # cd whole-program-debloat
     # source setenv
     # time ./print_results.py &> results.out
@@ -114,6 +134,7 @@ Expectations:
 
 What this artifact evaluation covers
 ====================================
+
 - Sections 5.1, 5.2, 5.3, and 5.4 of the paper. These are the performance and
   general gadget reductions for SPEC (5.1), GNU coreutils (5.2), and nginx
   (5.3), as well as binary size growth (5.4). This is the automated portion of
@@ -126,10 +147,11 @@ What this artifact evaluation covers
 
 What this artifact evaluation does not cover
 ============================================
+
 - Sections 5.5 and 5.6. Though these are important results, it is more
-difficult to automate, as they depend on additional dependencies (including
-a third-party docker container, and an entire Windows environment with
-a separately built LLVM), as well as analysis.
+  difficult to automate, as they depend on additional dependencies (including
+  a third-party docker container, and an entire Windows environment with
+  a separately built LLVM), as well as analysis.
 
 
 
