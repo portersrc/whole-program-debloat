@@ -11,6 +11,7 @@ BASE_PATH=/home/rudy/wo/spec/spec2017/benchspec/CPU
 
 BMARKS=(
 	500.perlbench_r
+	502.gcc_r
 	505.mcf_r
 	508.namd_r
     510.parest_r
@@ -30,12 +31,19 @@ BMARKS=(
 
 REG_FOLDER=build_peak_mytest-m64.0000
 MLI_FOLDER=build_peak_mytest-m64.0000-mli
+ARTD_FOLDER=build_peak_mytest-m64.0000-artd
 WPD_FOLDER=build_peak_mytest-m64.0000-wpd
 
 
 for BMARK in "${BMARKS[@]}"; do
     echo $BMARK
     cd ${BASE_PATH}/${BMARK}/build
-    mv ${REG_FOLDER} ${MLI_FOLDER}
-    cp -r ${WPD_FOLDER} ${REG_FOLDER}
+
+    #mv ${REG_FOLDER} ${MLI_FOLDER}
+    #mv ${REG_FOLDER} ${ARTD_FOLDER}
+    mv ${REG_FOLDER} ${WPD_FOLDER}
+
+    #cp -r ${WPD_FOLDER} ${REG_FOLDER}
+    #mv ${WPD_FOLDER} ${REG_FOLDER}
+    mv ${ARTD_FOLDER} ${REG_FOLDER}
 done
