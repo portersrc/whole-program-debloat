@@ -34,6 +34,8 @@ int debrt_protect_indirect_end(long long callee_addr);
 int debrt_protect_sink(int sink_id);
 int debrt_protect_sink_end(int sink_id);
 
+int debrt_trace(int func_id); // asplos 2023 rebuttal
+
 }
 
 #endif
