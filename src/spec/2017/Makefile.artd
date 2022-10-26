@@ -349,55 +349,41 @@ ifndef NEEDATFILE
 	#$(LD) $^ $(LDOUT)
 	#$(LD) $^ ics.ll -o $(NUMBER).$(NAME)_linked_ics.bc
 bc_base: $(OBJS)
-	$(LD) $^ $(LDOUT)
+	$(LD) $^ -o $(NUMBER).$(NAME)_base.bc
 bc_artd: $(OBJS)
-	$(LD) $^ ics.ll -o $(NUMBER).$(NAME)_linked_ics.bc
+	$(LD) $^ ics.ll -o $(NUMBER).$(NAME)_ics.bc
 # cporter
-base: $(EXEBASE)
-	opt \
-      -O3 \
-      < $(NUMBER).$(NAME)_linked.bc \
-      > $(NUMBER).$(NAME)_baseline_opt.bc
-	llc  \
-      $(NUMBER).$(NAME)_baseline_opt.bc \
-      -relocation-model=pic \
-      -o $(NUMBER).$(NAME)_baseline_opt.s
-	g++ \
-      $(NUMBER).$(NAME)_baseline_opt.s \
-      -o $(NUMBER).$(NAME)_baseline \
-      -lm -lrt
-base_loop_simplify: $(EXEBASE)
+#FIXME python3 gcc_symbol_duplicate.py
+base:
 	opt \
       --function-sections \
       -O3 \
       -loop-simplify \
-      < $(NUMBER).$(NAME)_linked.bc \
-      > $(NUMBER).$(NAME)_baseline_ls_opt.bc
+      < $(NUMBER).$(NAME)_base.bc \
+      > $(NUMBER).$(NAME)_base_opt.bc
 	llc  \
-      $(NUMBER).$(NAME)_baseline_ls_opt.bc \
+      $(NUMBER).$(NAME)_base_opt.bc \
       -relocation-model=pic \
-      -o $(NUMBER).$(NAME)_baseline_ls_opt.s
+      -o $(NUMBER).$(NAME)_base_opt.s
 	g++ \
-      $(NUMBER).$(NAME)_baseline_ls_opt.s \
-      -o $(NUMBER).$(NAME)_baseline_ls \
+      $(NUMBER).$(NAME)_base_opt.s \
+      -o $(NUMBER).$(NAME)_base \
       -lm -lrt
-base_loop_simplify_ics: $(EXEBASE)
+artd:
 	opt \
       --function-sections \
       -O3 \
       -loop-simplify \
-      < $(NUMBER).$(NAME)_linked_ics.bc \
-      > $(NUMBER).$(NAME)_baseline_ls_ics_opt.bc
-artd_ics: $(EXEBASE)
+      < $(NUMBER).$(NAME)_ics.bc \
+      > $(NUMBER).$(NAME)_ics_opt.bc
 	opt \
 	  --function-sections \
       -load libWholeProgramDebloat.so \
       -WholeProgramDebloat \
-      --enable-indirect-call-sinking=true \
-      < $(NUMBER).$(NAME)_baseline_ls_ics_opt.bc \
-      > $(NUMBER).$(NAME)_artd_ics_opt.bc
+      < $(NUMBER).$(NAME)_ics_opt.bc \
+      > $(NUMBER).$(NAME)_artd.bc
 	# disassemble so we can do a hacky fix to the ics symbols
-	llvm-dis $(NUMBER).$(NAME)_artd_ics_opt.bc
+	llvm-dis $(NUMBER).$(NAME)_artd.bc
 	sed -i \
       's/declare extern_weak i32 @ics_map_indirect_call.2(i64)//w sed_changes_0.txt' \
       $(NUMBER).$(NAME)_artd_ics_opt.ll
@@ -420,47 +406,35 @@ artd_ics: $(EXEBASE)
 	opt \
 	  --function-sections \
       -always-inline \
-      < $(NUMBER).$(NAME)_artd_ics_opt.ll \
-      > $(NUMBER).$(NAME)_artd_ics_opt.bc
+      < $(NUMBER).$(NAME)_artd.ll \
+      > $(NUMBER).$(NAME)_artd.bc
 	llc  \
 	  --function-sections \
-      $(NUMBER).$(NAME)_artd_ics_opt.bc \
+      $(NUMBER).$(NAME)_artd.bc \
       -relocation-model=pic \
-      -o $(NUMBER).$(NAME)_artd_ics_opt.s
+      -o $(NUMBER).$(NAME)_artd.s
+	# Produce a default linker script.
+	# FIXME Is there an easier way to do this than building the entire binary here?
 	g++ \
 	  -ffunction-sections \
 	  -Wl,--verbose \
-      $(NUMBER).$(NAME)_artd_ics_opt.s \
-      -o $(NUMBER).$(NAME)_artd_ics \
+      $(NUMBER).$(NAME)_artd.s \
+      -o $(NUMBER).$(NAME)_artd \
       -ldebloat_rt -lm -lrt > linker.lds
-	readelf -s --wide $(NUMBER).$(NAME)_artd_ics > readelf.out
-	readelf --sections $(NUMBER).$(NAME)_artd_ics > readelf-sections.out
-	cp readelf.out readelf-ics.out
-	cp readelf-sections.out readelf-sections-ics.out
-	cp artd_disjoint_sets.txt artd_disjoint_sets_ics.txt
-	cp artd_encompassed_funcs.txt artd_encompassed_funcs_ics.txt
-	cp artd_static_reachability.txt artd_static_reachability_ics.txt
-	cp artd_loop_static_reachability.txt artd_loop_static_reachability_ics.txt
-	cp artd_loop_to_func.txt artd_loop_to_func_ics.txt
-	cp artd_static_reachability.txt artd_static_reachability_ics.txt
-	cp artd_loop_static_reachability.txt artd_loop_static_reachability_ics.txt
-	cp artd_stats.txt artd_stats_ics.txt
-artd_custlink_ics: $(EXEBASE)
+	# Create a custom linker script
+	python3 linker.py .
 	g++ \
       -ffunction-sections \
-      -c $(NUMBER).$(NAME)_artd_ics_opt.s \
-      -o $(NUMBER).$(NAME)_artd_custlink_ics_opt.o
+      -c $(NUMBER).$(NAME)_artd.s \
+      -o $(NUMBER).$(NAME)_artd.o
 	g++ \
 	  -ffunction-sections \
       -T artd-linker-script.lds \
-      $(NUMBER).$(NAME)_artd_custlink_ics_opt.o \
-      -o $(NUMBER).$(NAME)_artd_custlink \
+      $(NUMBER).$(NAME)_artd.o \
+      -o $(NUMBER).$(NAME)_artd \
       -ldebloat_rt -lm -lrt
-	readelf -s --wide $(NUMBER).$(NAME)_artd_custlink > readelf.out
-	readelf --sections $(NUMBER).$(NAME)_artd_custlink > readelf-sections.out
-	cp $(NUMBER).$(NAME)_artd_custlink $(NUMBER).$(NAME)_artd_custlink_ics
-	cp readelf.out readelf-custlink-ics.out
-	cp readelf-sections.out readelf-sections-custlink-ics.out
+	readelf -s --wide $(NUMBER).$(NAME)_artd > readelf.out
+	readelf --sections $(NUMBER).$(NAME)_artd > readelf-sections.out
 else
 	$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) @$(OBJNAMES) $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
 endif
