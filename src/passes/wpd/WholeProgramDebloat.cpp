@@ -28,6 +28,12 @@
 #include <sstream>
 
 
+// hacky build for asplos 2023 rebuttal.
+// Will attempt to trace all function calls (with the help of debrt)
+//#define TRACE_BUILD
+
+#define BOTTOM_UP_DISJOINT_SET // comment out to use sharjeel's alg.
+
 using namespace llvm;
 using namespace std;
 
@@ -44,6 +50,11 @@ cl::opt<bool> EnableBasicIndirectCallStaticAnalysis(
     "enable-basic-indirect-call-static-analysis", cl::init(false), cl::Hidden,
     cl::desc("Attempts to apply basic static analysis to indirect calls for mapping them at loop headers."));
 
+
+typedef struct{
+    long id;
+    set<Function *> *s;
+}disjoint_set_t;
 
 
 namespace {
@@ -64,6 +75,9 @@ namespace {
         Function *debrt_protect_indirect_end_func;
         Function *debrt_protect_sink_func;
         Function *debrt_protect_sink_end_func;
+#ifdef TRACE_BUILD
+        Function *debrt_trace_func; // asplos 2023 rebuttal
+#endif
         Function *ics_map_indirect_call_func;
         Function *ics_wrapper_debrt_protect_loop_end_func;
         map<Function *, int> func_to_id;
@@ -86,7 +100,12 @@ namespace {
         map<Function *, set<Function *> > static_reachability;
         map<int, set<Function *> > loop_static_reachability;
         vector<set<Function *>> instrumented_sets;
-        map<int, set<Function *>> disjoint_sets;
+#ifdef BOTTOM_UP_DISJOINT_SET
+        map<long, set<Function *> *> disjoint_sets;
+#else
+        map<size_t, set<Function *>> disjoint_sets;
+#endif
+        map<Function *, disjoint_set_t> func_to_disjoint_set;
         map<int, int> loop_id_to_func_id; // for debugging
         set<string> func_name_has_addr_taken;
         set<Function *> func_has_addr_taken;
@@ -121,6 +140,9 @@ namespace {
         void extend_encompassed_funcs(void);
         void build_toplevel_funcs(void);
         void create_disjoint_sets(void);
+#ifdef BOTTOM_UP_DISJOINT_SET
+        void finalize_disjoint_sets(void);
+#endif
 
         bool instrument_main_start(Module &M);
         bool instrument_main_end(Module &M);
@@ -162,6 +184,9 @@ namespace {
         int get_set_byte_size(set<Function *> &functions);
         void get_address_taken_uses(Function &F, vector<User *> &offenders);
         void build_func_to_fps(Module &M);
+#ifdef BOTTOM_UP_DISJOINT_SET
+        void update_disjoint_sets(set<Function *> &new_set);
+#endif
 
 
         string get_demangled_name(const Function &F);
@@ -174,6 +199,9 @@ namespace {
         void dump_func_name_to_id(void);
         void dump_func_ptrs(void);
         void dump_disjoint_sets(void);
+#ifdef BOTTOM_UP_DISJOINT_SET
+        void print_disjoint_sets(void);
+#endif
         void dump_stats(void);
     };
 }
@@ -404,7 +432,11 @@ void WholeProgramDebloat::instrument_sink_point(pair<Function *, CallBase *> par
             temp.insert(func);
         }
     }
+#ifdef BOTTOM_UP_DISJOINT_SET
+    update_disjoint_sets(temp);
+#else
     instrumented_sets.push_back(temp);
+#endif
     sink_id_to_func_id[sink_id] = func_to_id[parent_func.first]; // for debugging
 }
 
@@ -578,7 +610,11 @@ void WholeProgramDebloat::instrument_loop(int func_id, Loop *loop)
         //Set of functions debloated within loop (Sharjeel)
         // cporter update: added check in case 0-element case matters
         if(loop_static_reachability[loop_id].size() > 0){
+#ifdef BOTTOM_UP_DISJOINT_SET
+            update_disjoint_sets(loop_static_reachability[loop_id]);
+#else
             instrumented_sets.push_back(loop_static_reachability[loop_id]);
+#endif
         }
         // errs() << "Inserted library function within preheader(" << preheader->getName().str() << "\n";
 
@@ -611,6 +647,7 @@ void WholeProgramDebloat::instrument_loop(int func_id, Loop *loop)
 
 void WholeProgramDebloat::extend_encompassed_funcs(void)
 {
+    errs() << "Extending encompassed funcs\n";
     for(auto F : func_has_addr_taken){
         encompassed_funcs.insert(F);
     }
@@ -853,7 +890,12 @@ void WholeProgramDebloat::instrument_indirect_and_external(Function *f, LoopInfo
 
 void WholeProgramDebloat::instrument(void)
 {
+    errs() << "Instrumenting all other funcs\n";
+    int i = 0;
     for(auto f : all_funcs){
+        if(i % 100 == 0){
+            errs() << "  processing function " << i << " / " << all_funcs.size() << "\n";
+        }
         if(libc_nonstatic_func_names.count(func_id_to_name[func_to_id[f]]) == 0){
             LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>(*f).getLoopInfo();
             if(toplevel_funcs.find(f) != toplevel_funcs.end()){
@@ -861,6 +903,7 @@ void WholeProgramDebloat::instrument(void)
             }
             instrument_indirect_and_external(f, LI);
         }
+        i++;
     }
 }
 
@@ -947,8 +990,12 @@ void WholeProgramDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
                                 assert(0);
                             }
                         }
-                        //An example of set of functions that will be debloated (Sharjeel)
+                        // An example of set of functions that will be debloated (Sharjeel)
+#ifdef BOTTOM_UP_DISJOINT_SET
+                        update_disjoint_sets(temp);
+#else
                         instrumented_sets.push_back(temp);
+#endif
                     }
                 }
             }
@@ -1109,6 +1156,13 @@ bool WholeProgramDebloat::instrument_external_with_callback(Instruction &I,
 
 bool WholeProgramDebloat::instrument_main_start(Module &M)
 {
+    errs() << "Instrumenting main start\n";
+#ifdef TRACE_BUILD
+    errs() << "WARNING: TRACE_BUILD is set\n";
+    errs() << "WARNING: TRACE_BUILD is set\n";
+    errs() << "WARNING: TRACE_BUILD is set\n";
+    errs() << "WARNING: TRACE_BUILD is set\n";
+#endif
     int found_main = 0;
     for(auto &F : M){
         string func_name = get_demangled_name(F);
@@ -1124,7 +1178,21 @@ bool WholeProgramDebloat::instrument_main_start(Module &M)
             builder.CreateCall(debrt_init_func, ArgsV);
 
             found_main = 1;
+#ifndef TRACE_BUILD
             break;
+#endif
+#ifdef TRACE_BUILD
+        }else{
+            if(F.hasName() && !F.isDeclaration()){
+                // instrument start of function with debrt-trace
+                vector<Value *> ArgsV;
+                Instruction *I = F.getEntryBlock().getFirstNonPHI();
+                assert(I);
+                IRBuilder<> builder(I);
+                ArgsV.push_back(ConstantInt::get(int32Ty, func_to_id[&F], false));
+                builder.CreateCall(debrt_trace_func, ArgsV);
+            }
+#endif
         }
     }
     assert(found_main == 1);
@@ -1132,6 +1200,7 @@ bool WholeProgramDebloat::instrument_main_start(Module &M)
 
 bool WholeProgramDebloat::instrument_main_end(Module &M)
 {
+    errs() << "Instrumenting main end\n";
     int found_main = 0;
     for(auto &F : M){
         string func_name = get_demangled_name(F);
@@ -1232,8 +1301,119 @@ void WholeProgramDebloat::build_basic_structs(Module &M)
     }
 }
 
+
+#ifdef BOTTOM_UP_DISJOINT_SET
+void WholeProgramDebloat::update_disjoint_sets(set<Function *> &new_set)
+{
+    // sharjeel's approach is to do this in places:
+    //   instrumented_sets.push_back(new_set)
+    // then call this at the end of the pass:
+    //   create_disjoint_sets()
+
+    //
+    // New approach (bottom-up)
+    //
+    // General idea: Each time we have a new set of functions that form a
+    // deck, we update our disjoint sets. Any completely new functions that
+    // we see will go into their own disjoint set. Any functions that intersect
+    // with an existing disjoint set will get factored out into new disjoint
+    // sets.
+
+    // unique IDs for the all disjoint sets
+    static long disjoint_set_id = 0;
+    #define DISJOINT_SET_ID_PARENTLESS    (-1)
+    #define DISJOINT_SET_ID_UNINITIALIZED (-2)
+
+    // a map from a new disjoint set's parent id to that new, factored-out
+    // disjoint set
+    map<long, disjoint_set_t> factored_disjoint_sets;
+
+    // a new disjoint set with just elements from new_set, if needed
+    disjoint_set_t parentless_disjoint_set;
+    parentless_disjoint_set.id = DISJOINT_SET_ID_UNINITIALIZED;
+    parentless_disjoint_set.s = NULL;
+
+    // For each function in the new deck set
+    for(Function *func : new_set){
+        // Check if the function already exists in a disjoint set.
+        if(func_to_disjoint_set.find(func) == func_to_disjoint_set.end()){
+            // ... it does not
+            // It goes into a new parentless disjoint set
+            if(parentless_disjoint_set.s == NULL){
+                parentless_disjoint_set.s = new set<Function *>;
+                parentless_disjoint_set.id = disjoint_set_id;
+                disjoint_set_id++;
+            }
+            parentless_disjoint_set.s->insert(func);
+            func_to_disjoint_set[func] = parentless_disjoint_set;
+        } else {
+            // ... it does
+            // Grab the disjoint set where it resides. (this is now the 'parent')
+            disjoint_set_t disjoint_set = func_to_disjoint_set[func];
+            // Check if we already have a factored-out disjoint set for this parent
+            if(factored_disjoint_sets.find(disjoint_set.id) == factored_disjoint_sets.end()){
+                // ... we don't
+                disjoint_set_t ds; // a new, factored-out disjoint set
+                ds.id = disjoint_set_id;
+                ds.s = new set<Function *>;
+                ds.s->insert(func);
+                disjoint_set_id++;
+                factored_disjoint_sets[disjoint_set.id] = ds;
+                // Update the mapping of function to the disjoint set where it resides
+                func_to_disjoint_set[func] = ds;
+            } else {
+                // ... we do
+                // So add to that factored-out disjoint set
+                factored_disjoint_sets[disjoint_set.id].s->insert(func);
+                // Update the mapping of function to the disjoint set where it resides
+                func_to_disjoint_set[func] = factored_disjoint_sets[disjoint_set.id];
+            }
+            // Irrespective of whether we already had a factored-out set, we
+            // still need to remove the function from the parent.
+            assert(disjoint_set.s->find(func) != disjoint_set.s->end());
+            disjoint_set.s->erase(func);
+        }
+    }
+
+    // If we actually made a new parentless disjoint set
+    if(parentless_disjoint_set.s != NULL){
+        factored_disjoint_sets[DISJOINT_SET_ID_PARENTLESS] = parentless_disjoint_set;
+    }
+
+    // Last step: Update our global disjoint sets with any new factored-out
+    // sets we created. Note that we don't need to do any erasing here, because
+    // it's already been handled when we factored out functions.
+    // We don't clear out any empty sets in disjoint_sets. We just ignore them
+    // when dumping.
+    for(auto &it : factored_disjoint_sets){
+        int parent_id = it.first;
+        disjoint_set_t &ds = it.second;
+        disjoint_sets[ds.id] = ds.s;
+    }
+    // TODO should actually free the memory for the disjoint sets.
+    // could do that after dump_disjoint_sets
+
+    //print_disjoint_sets(); // debug
+}
+
+
+void WholeProgramDebloat::finalize_disjoint_sets(void)
+{
+    // Set of functions that have addresses taken so we take their reachability
+    // and consider it as a set (Sharjeel)
+    errs() << "Finalizing disjoint sets\n";
+    for(auto F : func_has_addr_taken)
+    {
+        set<Function *> temp;
+        temp.insert(F);
+        temp.insert(static_reachability[F].begin(), static_reachability[F].end());
+        update_disjoint_sets(temp);
+    }
+}
+#else
 void WholeProgramDebloat::create_disjoint_sets(void)
 {
+    errs() << "Creating disjoint sets\n";
     // Set of functions that have addresses taken so we take their reachability and consider it as a set (Sharjeel)
     for(auto F : func_has_addr_taken)
     {
@@ -1316,6 +1496,7 @@ void WholeProgramDebloat::create_disjoint_sets(void)
         index += 1;
     }
 }
+#endif
 
 ///
 // XXX Commented out, leaving for posterity. This function is wrong, I think,
@@ -1394,11 +1575,20 @@ void WholeProgramDebloat::extend_adj_list(void)
 
 void WholeProgramDebloat::build_static_reachability(void)
 {
+    errs() << "Building static reachability\n";
+    int i = 0;
+    //errs() << "Size of all_funcs: " << all_funcs.size() << "\n";
     for(auto F : all_funcs){
+        if(i % 500 == 0){
+            errs() << "  processing function " << i << " / " << all_funcs.size() << "\n";
+        }
+        //errs() << i << " " << F->getName() << "\n";
         queue<Function *> q;
+        //errs() << "  pushing callees\n";
         for(auto callee : adj_list[F]){
             q.push(callee);
         }
+        //errs() << "  updating static reachability\n";
         while(!q.empty()){
             Function *f = q.front();
             q.pop();
@@ -1414,6 +1604,7 @@ void WholeProgramDebloat::build_static_reachability(void)
                 encompassed_funcs.insert(f);
             }
         }
+        i++;
     }
 }
 void WholeProgramDebloat::build_func_to_parents(void)
@@ -1476,6 +1667,7 @@ void WholeProgramDebloat::build_func_to_fps(Module &M)
 
 void WholeProgramDebloat::build_toplevel_funcs(void)
 {
+    errs() << "Building toplevel funcs\n";
     // toplevel_funcs = all_funcs \ encompassed_funcs
     set_difference(all_funcs.begin(),
                    all_funcs.end(),
@@ -1587,6 +1779,12 @@ void WholeProgramDebloat::wpd_init(Module &M)
             Function::ExternalLinkage,
             "debrt_protect_sink_end",
             M);
+#ifdef TRACE_BUILD
+    debrt_trace_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+            Function::ExternalLinkage,
+            "debrt_trace",
+            M);
+#endif
 
     // FIXME ? not sure if external weak linkage is what i want here
     ics_map_indirect_call_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
@@ -1654,8 +1852,13 @@ bool WholeProgramDebloat::runOnModule_real(Module &M)
     // before instrument().)
     instrument_main_end(M);
 
+#ifdef BOTTOM_UP_DISJOINT_SET
+    // finalize disjoint sets
+    finalize_disjoint_sets();
+#else
     // create disjoint sets
     create_disjoint_sets();
+#endif
 }
 
 bool WholeProgramDebloat::runOnModule(Module &M)
@@ -1830,17 +2033,47 @@ void WholeProgramDebloat::dump_func_name_to_id(void)
     }
     fclose(fp);
 }
+#ifdef BOTTOM_UP_DISJOINT_SET
+void WholeProgramDebloat::print_disjoint_sets(void)
+{
+    for(auto set : disjoint_sets){
+        if(set.second->size() > 0)
+        {
+            errs() << set.first << ": ";
+            for(auto f : *(set.second))
+            {
+                errs() << func_to_id[f] << " ";
+            }
+            errs() << "\n";
+        }
+    }
+}
+#endif
 void WholeProgramDebloat::dump_disjoint_sets(void)
 {
     FILE *fp = fopen("wpd_disjoint_sets.txt", "w");
+#ifdef BOTTOM_UP_DISJOINT_SET
     for(auto set : disjoint_sets){
-        fprintf(fp, "%u: ", set.first);
+        if(set.second->size() > 0)
+        {
+            fprintf(fp, "%ld: ", set.first);
+            for(auto f : *(set.second))
+            {
+                fprintf(fp, "%u ", func_to_id[f]);
+            }
+            fprintf(fp, "\n");
+        }
+    }
+#else
+    for(auto set : disjoint_sets){
+        fprintf(fp, "%lu: ", set.first);
         for(auto f : set.second)
         {
             fprintf(fp, "%u ", func_to_id[f]);
         }
         fprintf(fp, "\n");
     }
+#endif
     fclose(fp);
 }
 void WholeProgramDebloat::dump_stats(void)
