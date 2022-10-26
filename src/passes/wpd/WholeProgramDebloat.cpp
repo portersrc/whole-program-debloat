@@ -35,10 +35,10 @@ bool ENABLE_INSTRUMENTATION_SINKING = false; // can set via command line option 
 cl::opt<bool> EnableInstrumentationSinking(
     "enable-instrumentation-sinking", cl::init(false), cl::Hidden,
     cl::desc("Attempts to sink instrumentation into loops."));
-bool ENABLE_INDIRECT_CALL_SINKING = false; // can set via command line option below
-cl::opt<bool> EnableIndirectCallSinking(
-    "enable-indirect-call-sinking", cl::init(false), cl::Hidden,
-    cl::desc("Attempts to sink indirect call instrumentation into loops."));
+//bool ENABLE_INDIRECT_CALL_SINKING = false; // can set via command line option below
+//cl::opt<bool> EnableIndirectCallSinking(
+//    "enable-indirect-call-sinking", cl::init(false), cl::Hidden,
+//    cl::desc("Attempts to sink indirect call instrumentation into loops."));
 bool ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = false; // can set via command line option below
 cl::opt<bool> EnableBasicIndirectCallStaticAnalysis(
     "enable-basic-indirect-call-static-analysis", cl::init(false), cl::Hidden,
@@ -47,6 +47,8 @@ bool ENABLE_TRACING = false; // can set via command line option below
 cl::opt<bool> EnableTracing(
     "enable-tracing", cl::init(false), cl::Hidden,
     cl::desc("Uses the pass to instrument for tracing every function call. Does not do any deblolating."));
+
+#define INDIRECT_CALL_SINKING true
 
 
 typedef struct{
@@ -551,7 +553,7 @@ void WholeProgramDebloat::instrument_loop(int func_id, Loop *loop)
                           adj_list_fps[func_id_to_func[func_id]].end());
                     }
                 }
-                if(ENABLE_INDIRECT_CALL_SINKING){
+                if(INDIRECT_CALL_SINKING){
                     if(cb->getCalledFunction() == NULL){
                         has_toplevel_indirect_call = true;
                     }
@@ -807,12 +809,12 @@ void WholeProgramDebloat::instrument_indirect_and_external(Function *f, LoopInfo
             InvokeInst *II = dyn_cast<InvokeInst>(&I);
             if(CB){
                 Function *cf = CB->getCalledFunction();
-                // ENABLE_INDIRECT_CALL_SINKING ensures that only when ICS is
-                // active do we even instrument indirect calls now. This is
+                // INDIRECT_CALL_SINKING ensures that 
+                // we instrument indirect calls now. This is
                 // probably as it should have been from the start, because old
                 // wpd approaches just turned on the transitive closure of all
                 // func pointers.
-                if(cf == NULL && ENABLE_INDIRECT_CALL_SINKING){
+                if(cf == NULL && INDIRECT_CALL_SINKING){
                     errs() << "seeing indirect function call\n";
                     Value *v = CB->getCalledOperand();
                     if(dyn_cast<InlineAsm>(v)){
@@ -1567,8 +1569,8 @@ void WholeProgramDebloat::wpd_init(Module &M)
 
     ENABLE_INSTRUMENTATION_SINKING = EnableInstrumentationSinking;
     errs() << "ENABLE_INSTRUMENTATION_SINKING: " << ENABLE_INSTRUMENTATION_SINKING << "\n";
-    ENABLE_INDIRECT_CALL_SINKING = EnableIndirectCallSinking;
-    errs() << "ENABLE_INDIRECT_CALL_SINKING: " << ENABLE_INDIRECT_CALL_SINKING << "\n";
+    //ENABLE_INDIRECT_CALL_SINKING = EnableIndirectCallSinking;
+    //errs() << "ENABLE_INDIRECT_CALL_SINKING: " << ENABLE_INDIRECT_CALL_SINKING << "\n";
     ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = EnableBasicIndirectCallStaticAnalysis;
     errs() << "ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS: " << ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS << "\n";
     ENABLE_TRACING = EnableTracing;
