@@ -28,8 +28,6 @@
 #include <sstream>
 
 
-#define BOTTOM_UP_DISJOINT_SET // comment out to use sharjeel's alg.
-
 using namespace llvm;
 using namespace std;
 
@@ -98,11 +96,7 @@ namespace {
         map<Function *, set<Function *> > static_reachability;
         map<int, set<Function *> > loop_static_reachability;
         vector<set<Function *>> instrumented_sets;
-#ifdef BOTTOM_UP_DISJOINT_SET
         map<long, set<Function *> *> disjoint_sets;
-#else
-        map<size_t, set<Function *>> disjoint_sets;
-#endif
         map<Function *, disjoint_set_t> func_to_disjoint_set;
         map<int, int> loop_id_to_func_id; // for debugging
         set<string> func_name_has_addr_taken;
@@ -138,9 +132,7 @@ namespace {
         void extend_encompassed_funcs(void);
         void build_toplevel_funcs(void);
         void create_disjoint_sets(void);
-#ifdef BOTTOM_UP_DISJOINT_SET
         void finalize_disjoint_sets(void);
-#endif
 
         bool instrument_main_start(Module &M);
         bool instrument_main_end(Module &M);
@@ -182,9 +174,7 @@ namespace {
         int get_set_byte_size(set<Function *> &functions);
         void get_address_taken_uses(Function &F, vector<User *> &offenders);
         void build_func_to_fps(Module &M);
-#ifdef BOTTOM_UP_DISJOINT_SET
         void update_disjoint_sets(set<Function *> &new_set);
-#endif
 
 
         string get_demangled_name(const Function &F);
@@ -197,9 +187,7 @@ namespace {
         void dump_func_name_to_id(void);
         void dump_func_ptrs(void);
         void dump_disjoint_sets(void);
-#ifdef BOTTOM_UP_DISJOINT_SET
         void print_disjoint_sets(void);
-#endif
         void dump_stats(void);
     };
 }
@@ -430,11 +418,7 @@ void WholeProgramDebloat::instrument_sink_point(pair<Function *, CallBase *> par
             temp.insert(func);
         }
     }
-#ifdef BOTTOM_UP_DISJOINT_SET
     update_disjoint_sets(temp);
-#else
-    instrumented_sets.push_back(temp);
-#endif
     sink_id_to_func_id[sink_id] = func_to_id[parent_func.first]; // for debugging
 }
 
@@ -608,11 +592,7 @@ void WholeProgramDebloat::instrument_loop(int func_id, Loop *loop)
         //Set of functions debloated within loop (Sharjeel)
         // cporter update: added check in case 0-element case matters
         if(loop_static_reachability[loop_id].size() > 0){
-#ifdef BOTTOM_UP_DISJOINT_SET
             update_disjoint_sets(loop_static_reachability[loop_id]);
-#else
-            instrumented_sets.push_back(loop_static_reachability[loop_id]);
-#endif
         }
         // errs() << "Inserted library function within preheader(" << preheader->getName().str() << "\n";
 
@@ -988,12 +968,7 @@ void WholeProgramDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
                                 assert(0);
                             }
                         }
-                        // An example of set of functions that will be debloated (Sharjeel)
-#ifdef BOTTOM_UP_DISJOINT_SET
                         update_disjoint_sets(temp);
-#else
-                        instrumented_sets.push_back(temp);
-#endif
                     }
                 }
             }
@@ -1297,7 +1272,6 @@ void WholeProgramDebloat::build_basic_structs(Module &M)
 }
 
 
-#ifdef BOTTOM_UP_DISJOINT_SET
 void WholeProgramDebloat::update_disjoint_sets(set<Function *> &new_set)
 {
     // sharjeel's approach is to do this in places:
@@ -1405,93 +1379,7 @@ void WholeProgramDebloat::finalize_disjoint_sets(void)
         update_disjoint_sets(temp);
     }
 }
-#else
-void WholeProgramDebloat::create_disjoint_sets(void)
-{
-    errs() << "Creating disjoint sets\n";
-    // Set of functions that have addresses taken so we take their reachability and consider it as a set (Sharjeel)
-    for(auto F : func_has_addr_taken)
-    {
-        set<Function *> temp;
-        temp.insert(F);
-        temp.insert(static_reachability[F].begin(), static_reachability[F].end());
-        instrumented_sets.push_back(temp);
-    }
 
-    size_t index = 0;
-    set<Function *> intersection;
-    set<Function *> difference1;
-    set<Function *> difference2;
-    // While there are non-disjoint sets
-    while(!instrumented_sets.empty())
-    {
-        // Take a set A
-        vector<set<Function *>> temp(instrumented_sets.begin() + 1, instrumented_sets.end());
-        set<Function *> current(instrumented_sets[0]);
-        instrumented_sets.clear();
-
-        // Take a set B
-        for(auto setF : temp)
-        {
-            if(current.size() != 0)
-            {   
-                intersection.clear();
-                difference1.clear();
-                difference2.clear();
-
-                if(setF.size() == 0)
-                {
-                    continue;
-                }
-
-                // Take intersection of set A and set B to make set C
-                set_intersection(current.begin(), current.end(), setF.begin(), setF.end(), inserter(intersection, intersection.end()));
-                if(intersection.size() == 0)
-                {
-                    // If intersection is empty, we do not need to do any difference and keep set B for next stage
-                    instrumented_sets.push_back(setF);
-                }
-                else
-                {
-                    // Take difference between set A and set C to get set A-C
-                    set_difference(current.begin(), current.end(), intersection.begin(), intersection.end(), inserter(difference1, difference1.end()));
-
-                    // Take difference between set B and set C to get set B-C
-                    set_difference(setF.begin(), setF.end(), intersection.begin(), intersection.end(), inserter(difference2, difference2.end()));
-
-                    // If both set A and set B are the same, we remove set B and continue with set A
-                    if(difference1.size() == 0 && difference2.size() == 0)
-                    {
-                        continue;
-                    }
-
-                    // If set B is empty, we do not need to consider it for a future step
-                    if(difference2.size() != 0)
-                    {
-                        instrumented_sets.push_back(difference2);
-                    }
-                    
-                    instrumented_sets.push_back(intersection);
-
-                    current.clear();
-                    current.insert(difference1.begin(), difference1.end());
-                }
-            }
-            else 
-            {
-                instrumented_sets.push_back(setF);
-            }
-        }
-
-        // If set A is not empty, we consider it as a disjoint set
-        if(current.size() != 0)
-        {
-            disjoint_sets[index].insert(current.begin(), current.end());
-        }
-        index += 1;
-    }
-}
-#endif
 
 ///
 // XXX Commented out, leaving for posterity. This function is wrong, I think,
@@ -1848,13 +1736,8 @@ bool WholeProgramDebloat::runOnModule_real(Module &M)
     // before instrument().)
     instrument_main_end(M);
 
-#ifdef BOTTOM_UP_DISJOINT_SET
     // finalize disjoint sets
     finalize_disjoint_sets();
-#else
-    // create disjoint sets
-    create_disjoint_sets();
-#endif
 }
 
 bool WholeProgramDebloat::runOnModule(Module &M)
@@ -2029,7 +1912,6 @@ void WholeProgramDebloat::dump_func_name_to_id(void)
     }
     fclose(fp);
 }
-#ifdef BOTTOM_UP_DISJOINT_SET
 void WholeProgramDebloat::print_disjoint_sets(void)
 {
     for(auto set : disjoint_sets){
@@ -2044,11 +1926,9 @@ void WholeProgramDebloat::print_disjoint_sets(void)
         }
     }
 }
-#endif
 void WholeProgramDebloat::dump_disjoint_sets(void)
 {
     FILE *fp = fopen("wpd_disjoint_sets.txt", "w");
-#ifdef BOTTOM_UP_DISJOINT_SET
     for(auto set : disjoint_sets){
         if(set.second->size() > 0)
         {
@@ -2060,16 +1940,6 @@ void WholeProgramDebloat::dump_disjoint_sets(void)
             fprintf(fp, "\n");
         }
     }
-#else
-    for(auto set : disjoint_sets){
-        fprintf(fp, "%lu: ", set.first);
-        for(auto f : set.second)
-        {
-            fprintf(fp, "%u ", func_to_id[f]);
-        }
-        fprintf(fp, "\n");
-    }
-#endif
     fclose(fp);
 }
 void WholeProgramDebloat::dump_stats(void)
