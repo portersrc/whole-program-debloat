@@ -1130,8 +1130,8 @@ bool WholeProgramDebloat::instrument_external_with_callback(Instruction &I,
 bool WholeProgramDebloat::instrument_main_start(Module &M)
 {
     errs() << "Instrumenting main start\n";
-    if(ENABLE_TRACE){
-        errs() << "ENABLE_TRACE is set\n";
+    if(ENABLE_TRACING){
+        errs() << "ENABLE_TRACING is set\n";
     }
     int found_main = 0;
     for(auto &F : M){
@@ -1148,11 +1148,11 @@ bool WholeProgramDebloat::instrument_main_start(Module &M)
             builder.CreateCall(debrt_init_func, ArgsV);
 
             found_main = 1;
-            if(ENABLE_TRACE == false){
+            if(ENABLE_TRACING == false){
                 break;
             }
         }else{
-            if(ENABLE_TRACE){
+            if(ENABLE_TRACING){
                 if(F.hasName() && !F.isDeclaration()){
                     // instrument start of function with debrt-trace
                     vector<Value *> ArgsV;
@@ -1723,7 +1723,7 @@ bool WholeProgramDebloat::runOnModule_real(Module &M)
     build_toplevel_funcs();
 
     // Instrument main with a debrt-init call
-    // XXX Will instrument the top of other functions if ENABLE_TRACE is true
+    // XXX Will instrument the top of other functions if ENABLE_TRACING is true
     instrument_main_start(M);
 
     // Instrument all other functions
