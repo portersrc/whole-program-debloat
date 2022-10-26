@@ -31,9 +31,6 @@ using namespace std;
 //#define DEBRT_ABSOLUTE_ELF_ADDRS
 
 
-// hacky build for asplos 2023 rebuttal.
-// Will attempt to trace all function calls (with the help of wpd pass)
-//#define DEBRT_TRACE
 
 // to enable, set env var DEBRT_ENABLE_STATS=1
 int ENV_DEBRT_ENABLE_STATS = 0;
@@ -43,6 +40,9 @@ int ENV_DEBRT_ENABLE_STACK_CLEANING = 0;
 int ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING = 0;
 // to enable, set env var DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS=1
 int ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = 0;
+// to enable, set env var DEBRT_ENABLE_TRACING=1
+//   Will attempt to trace all function calls (with the help of wpd pass)
+int ENV_DEBRT_ENABLE_TRACING = 0;
 
 
 #define CGPredict
@@ -438,14 +438,14 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated)
     int count;
     if(ENV_DEBRT_ENABLE_STATS){
         if(yes_stats_got_updated){
-#ifdef DEBRT_TRACE
-            fprintf(fp_mapped_pages, "T ");
-            for(int func_id : trace_seen_funcs){
-                fprintf(fp_mapped_pages, "%d ", func_id);
+            if(ENV_DEBRT_ENABLE_TRACING){
+                fprintf(fp_mapped_pages, "T ");
+                for(int func_id : trace_seen_funcs){
+                    fprintf(fp_mapped_pages, "%d ", func_id);
+                }
+                fprintf(fp_mapped_pages, "\n");
+                trace_seen_funcs.clear();
             }
-            fprintf(fp_mapped_pages, "\n");
-            trace_seen_funcs.clear();
-#endif
             _stats_update_hist();
             for(auto p2c : page_to_count){
                 page  = p2c.first;
@@ -1941,6 +1941,9 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     if(getenv("DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS")){
         ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = 1;
     }
+    if(getenv("DEBRT_ENABLE_TRACING")){
+        ENV_DEBRT_ENABLE_TRACING = 1;
+    }
     DEBRT_PRINTF("ENV_DEBRT_ENABLE_STATS: %d\n", ENV_DEBRT_ENABLE_STATS);
     DEBRT_PRINTF("ENV_DEBRT_ENABLE_STACK_CLEANING: %d\n", ENV_DEBRT_ENABLE_STACK_CLEANING);
     DEBRT_PRINTF("ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING: %d\n", ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING);
@@ -2014,13 +2017,13 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     int rv;
     rv = update_page_counts(main_func_id, 1);
     _write_mapped_pages_to_file(rv);
-#ifdef DEBRT_TRACE
-    // minor point: For this init case, we do this after
-    // write-mapped-pages-to-file b/c we want the fact that we executed main to
-    // be in the next write-mapped-pages-to-file output.
-    int debrt_trace(int);
-    debrt_trace(main_func_id);
-#endif
+    if(ENV_DEBRT_ENABLE_TRACING){
+        // minor point: For this init case, we do this after
+        // write-mapped-pages-to-file b/c we want the fact that we executed main to
+        // be in the next write-mapped-pages-to-file output.
+        int debrt_trace(int);
+        debrt_trace(main_func_id);
+    }
 
     lib_initialized = 1;
 
@@ -2032,9 +2035,9 @@ extern "C" {
 int debrt_destroy(int notused)
 {
     _debrt_protect_destroy();
-#ifdef DEBRT_TRACE
-    _write_func_id_to_pages();
-#endif
+    if(ENV_DEBRT_ENABLE_TRACING){
+        _write_func_id_to_pages();
+    }
     return 0;
 }
 }
