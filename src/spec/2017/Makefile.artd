@@ -388,77 +388,77 @@ base_loop_simplify_ics: $(EXEBASE)
       -loop-simplify \
       < $(NUMBER).$(NAME)_linked_ics.bc \
       > $(NUMBER).$(NAME)_baseline_ls_ics_opt.bc
-wpd_ics: $(EXEBASE)
+artd_ics: $(EXEBASE)
 	opt \
 	  --function-sections \
       -load libWholeProgramDebloat.so \
       -WholeProgramDebloat \
       --enable-indirect-call-sinking=true \
       < $(NUMBER).$(NAME)_baseline_ls_ics_opt.bc \
-      > $(NUMBER).$(NAME)_wpd_ics_opt.bc
+      > $(NUMBER).$(NAME)_artd_ics_opt.bc
 	# disassemble so we can do a hacky fix to the ics symbols
-	llvm-dis $(NUMBER).$(NAME)_wpd_ics_opt.bc
+	llvm-dis $(NUMBER).$(NAME)_artd_ics_opt.bc
 	sed -i \
       's/declare extern_weak i32 @ics_map_indirect_call.2(i64)//w sed_changes_0.txt' \
-      $(NUMBER).$(NAME)_wpd_ics_opt.ll
+      $(NUMBER).$(NAME)_artd_ics_opt.ll
 	sed -i \
       's/declare extern_weak i32 @ics_wrapper_debrt_protect_loop_end.3(i32)//w sed_changes_1.txt' \
-      $(NUMBER).$(NAME)_wpd_ics_opt.ll
+      $(NUMBER).$(NAME)_artd_ics_opt.ll
 	sed -i \
       's/ics_map_indirect_call.2/ics_map_indirect_call/w sed_changes_2.txt' \
-      $(NUMBER).$(NAME)_wpd_ics_opt.ll
+      $(NUMBER).$(NAME)_artd_ics_opt.ll
 	sed -i \
       's/ics_wrapper_debrt_protect_loop_end.3/ics_wrapper_debrt_protect_loop_end/w sed_changes_3.txt' \
-      $(NUMBER).$(NAME)_wpd_ics_opt.ll
+      $(NUMBER).$(NAME)_artd_ics_opt.ll
 	sed -i \
       's/debrt_protect_indirect.1/debrt_protect_indirect/w sed_changes_5.txt' \
-      $(NUMBER).$(NAME)_wpd_ics_opt.ll
+      $(NUMBER).$(NAME)_artd_ics_opt.ll
 	sed -i \
       's/declare i32 @debrt_protect_indirect(i64)$$//w sed_changes_4.txt' \
-      $(NUMBER).$(NAME)_wpd_ics_opt.ll
+      $(NUMBER).$(NAME)_artd_ics_opt.ll
 	# now ingest the modified .ll file and run always-inline on it.
 	opt \
 	  --function-sections \
       -always-inline \
-      < $(NUMBER).$(NAME)_wpd_ics_opt.ll \
-      > $(NUMBER).$(NAME)_wpd_ics_opt.bc
+      < $(NUMBER).$(NAME)_artd_ics_opt.ll \
+      > $(NUMBER).$(NAME)_artd_ics_opt.bc
 	llc  \
 	  --function-sections \
-      $(NUMBER).$(NAME)_wpd_ics_opt.bc \
+      $(NUMBER).$(NAME)_artd_ics_opt.bc \
       -relocation-model=pic \
-      -o $(NUMBER).$(NAME)_wpd_ics_opt.s
+      -o $(NUMBER).$(NAME)_artd_ics_opt.s
 	g++ \
 	  -ffunction-sections \
 	  -Wl,--verbose \
-      $(NUMBER).$(NAME)_wpd_ics_opt.s \
-      -o $(NUMBER).$(NAME)_wpd_ics \
+      $(NUMBER).$(NAME)_artd_ics_opt.s \
+      -o $(NUMBER).$(NAME)_artd_ics \
       -ldebloat_rt -lm -lrt > linker.lds
-	readelf -s --wide $(NUMBER).$(NAME)_wpd_ics > readelf.out
-	readelf --sections $(NUMBER).$(NAME)_wpd_ics > readelf-sections.out
+	readelf -s --wide $(NUMBER).$(NAME)_artd_ics > readelf.out
+	readelf --sections $(NUMBER).$(NAME)_artd_ics > readelf-sections.out
 	cp readelf.out readelf-ics.out
 	cp readelf-sections.out readelf-sections-ics.out
-	cp wpd_disjoint_sets.txt wpd_disjoint_sets_ics.txt
-	cp wpd_encompassed_funcs.txt wpd_encompassed_funcs_ics.txt
-	cp wpd_static_reachability.txt wpd_static_reachability_ics.txt
-	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_ics.txt
-	cp wpd_loop_to_func.txt wpd_loop_to_func_ics.txt
-	cp wpd_static_reachability.txt wpd_static_reachability_ics.txt
-	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_ics.txt
-	cp wpd_stats.txt wpd_stats_ics.txt
-wpd_custlink_ics: $(EXEBASE)
+	cp artd_disjoint_sets.txt artd_disjoint_sets_ics.txt
+	cp artd_encompassed_funcs.txt artd_encompassed_funcs_ics.txt
+	cp artd_static_reachability.txt artd_static_reachability_ics.txt
+	cp artd_loop_static_reachability.txt artd_loop_static_reachability_ics.txt
+	cp artd_loop_to_func.txt artd_loop_to_func_ics.txt
+	cp artd_static_reachability.txt artd_static_reachability_ics.txt
+	cp artd_loop_static_reachability.txt artd_loop_static_reachability_ics.txt
+	cp artd_stats.txt artd_stats_ics.txt
+artd_custlink_ics: $(EXEBASE)
 	g++ \
       -ffunction-sections \
-      -c $(NUMBER).$(NAME)_wpd_ics_opt.s \
-      -o $(NUMBER).$(NAME)_wpd_custlink_ics_opt.o
+      -c $(NUMBER).$(NAME)_artd_ics_opt.s \
+      -o $(NUMBER).$(NAME)_artd_custlink_ics_opt.o
 	g++ \
 	  -ffunction-sections \
-      -T wpd-linker-script.lds \
-      $(NUMBER).$(NAME)_wpd_custlink_ics_opt.o \
-      -o $(NUMBER).$(NAME)_wpd_custlink \
+      -T artd-linker-script.lds \
+      $(NUMBER).$(NAME)_artd_custlink_ics_opt.o \
+      -o $(NUMBER).$(NAME)_artd_custlink \
       -ldebloat_rt -lm -lrt
-	readelf -s --wide $(NUMBER).$(NAME)_wpd_custlink > readelf.out
-	readelf --sections $(NUMBER).$(NAME)_wpd_custlink > readelf-sections.out
-	cp $(NUMBER).$(NAME)_wpd_custlink $(NUMBER).$(NAME)_wpd_custlink_ics
+	readelf -s --wide $(NUMBER).$(NAME)_artd_custlink > readelf.out
+	readelf --sections $(NUMBER).$(NAME)_artd_custlink > readelf-sections.out
+	cp $(NUMBER).$(NAME)_artd_custlink $(NUMBER).$(NAME)_artd_custlink_ics
 	cp readelf.out readelf-custlink-ics.out
 	cp readelf-sections.out readelf-sections-custlink-ics.out
 else
