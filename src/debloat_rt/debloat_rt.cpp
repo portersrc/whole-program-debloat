@@ -17,7 +17,9 @@
 #include <map>
 #include <stack>
 
-#include "debrt_decision_tree.h"
+// FIXME
+//#include "debrt_decision_tree.h"
+int debrt_decision_tree(const int *feature_vector) { return 0; }
 
 
 
