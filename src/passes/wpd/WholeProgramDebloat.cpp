@@ -58,10 +58,10 @@ typedef struct{
 
 
 namespace {
-    struct WholeProgramDebloat : public ModulePass {
+    struct AdvancedRuntimeDebloat : public ModulePass {
         static char ID;
 
-        WholeProgramDebloat() : ModulePass(ID) {}
+        AdvancedRuntimeDebloat() : ModulePass(ID) {}
 
         Function *debrt_init_func;
         Function *debrt_destroy_func;
@@ -205,7 +205,7 @@ struct wpd_stats{
 }stats;
 
 
-void WholeProgramDebloat::get_callees_aux(vector<pair<Function *, CallBase *> > &callees,
+void AdvancedRuntimeDebloat::get_callees_aux(vector<pair<Function *, CallBase *> > &callees,
                                                   Instruction &I)
 {
     pair<Function *, CallBase *> fcb;
@@ -222,7 +222,7 @@ void WholeProgramDebloat::get_callees_aux(vector<pair<Function *, CallBase *> > 
         }
     }
 }
-void WholeProgramDebloat::get_callees(pair<Function *, CallBase *> parent_func,
+void AdvancedRuntimeDebloat::get_callees(pair<Function *, CallBase *> parent_func,
                                       vector<pair<Function *, CallBase *> > &callees)
 {
     for(auto &B : *(parent_func.first)){
@@ -231,7 +231,7 @@ void WholeProgramDebloat::get_callees(pair<Function *, CallBase *> parent_func,
         }
     }
 }
-void WholeProgramDebloat::get_callees(Loop *loop,
+void AdvancedRuntimeDebloat::get_callees(Loop *loop,
                                       vector<pair<Function *, CallBase *> > &callees)
 {
     for(auto B : loop->getBlocks()){
@@ -241,7 +241,7 @@ void WholeProgramDebloat::get_callees(Loop *loop,
     }
 }
 
-int WholeProgramDebloat::get_set_byte_size(set<Function *> &functions)
+int AdvancedRuntimeDebloat::get_set_byte_size(set<Function *> &functions)
 {
     int sum = 0;
     for(auto f : functions){
@@ -254,7 +254,7 @@ int WholeProgramDebloat::get_set_byte_size(set<Function *> &functions)
 // Based on llvm 11 source tree's hasAddressTaken.
 // For some function F, adds to offenders any "users" that take the address
 // of F.
-void WholeProgramDebloat::get_address_taken_uses(Function &F, vector<User *> &offenders)
+void AdvancedRuntimeDebloat::get_address_taken_uses(Function &F, vector<User *> &offenders)
 {
   for (const Use &U : F.uses()) {
     User *FU = U.getUser();
@@ -272,7 +272,7 @@ void WholeProgramDebloat::get_address_taken_uses(Function &F, vector<User *> &of
 }
 
 
-bool WholeProgramDebloat::sinking_condition_satisfied(vector<pair<Function *, CallBase *> > &callees,
+bool AdvancedRuntimeDebloat::sinking_condition_satisfied(vector<pair<Function *, CallBase *> > &callees,
                                                       set<Function *> &visited_funcs)
 {
     // Debug/dev attempt
@@ -371,7 +371,7 @@ bool WholeProgramDebloat::sinking_condition_satisfied(vector<pair<Function *, Ca
     return false;
 }
 
-void WholeProgramDebloat::instrument_sink_point(pair<Function *, CallBase *> parent_func,
+void AdvancedRuntimeDebloat::instrument_sink_point(pair<Function *, CallBase *> parent_func,
                                                 set<Function *> *toplevel_bridge_list)
 {
     CallBase *CB = parent_func.second;
@@ -425,7 +425,7 @@ void WholeProgramDebloat::instrument_sink_point(pair<Function *, CallBase *> par
 }
 
 
-int WholeProgramDebloat::iterative_sink(set<Function *> &toplevel_bridge_list,
+int AdvancedRuntimeDebloat::iterative_sink(set<Function *> &toplevel_bridge_list,
                                         set<Function *> &visited_funcs,
                                         pair<Function *, CallBase *> toplevel_func)
 {
@@ -464,7 +464,7 @@ int WholeProgramDebloat::iterative_sink(set<Function *> &toplevel_bridge_list,
 
 
 
-void WholeProgramDebloat::instrument_loop_sink(int toplevel_func_id,
+void AdvancedRuntimeDebloat::instrument_loop_sink(int toplevel_func_id,
                                                Loop *toplevel_loop)
 {
     errs() << "Attempting to instrument loop sink for toplevel_func_id: " << toplevel_func_id << "\n";
@@ -516,7 +516,7 @@ void WholeProgramDebloat::instrument_loop_sink(int toplevel_func_id,
 }
 
 
-void WholeProgramDebloat::instrument_loop(int func_id, Loop *loop)
+void AdvancedRuntimeDebloat::instrument_loop(int func_id, Loop *loop)
 {
     //
     // XXX All this code is intentionally crammed in here. 'loop' is, I think,
@@ -625,7 +625,7 @@ void WholeProgramDebloat::instrument_loop(int func_id, Loop *loop)
 }
 
 
-void WholeProgramDebloat::extend_encompassed_funcs(void)
+void AdvancedRuntimeDebloat::extend_encompassed_funcs(void)
 {
     errs() << "Extending encompassed funcs\n";
     for(auto F : func_has_addr_taken){
@@ -639,7 +639,7 @@ void WholeProgramDebloat::extend_encompassed_funcs(void)
 }
 
 
-void WholeProgramDebloat::instrument_after_invoke(InvokeInst *II,
+void AdvancedRuntimeDebloat::instrument_after_invoke(InvokeInst *II,
                                                   vector<Value *> &ArgsV,
                                                   Function *debrt_func)
 {
@@ -793,7 +793,7 @@ void WholeProgramDebloat::instrument_after_invoke(InvokeInst *II,
 }
 
 
-void WholeProgramDebloat::instrument_indirect_and_external(Function *f, LoopInfo *LI)
+void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopInfo *LI)
 {
     errs() << "Instrumenting indirect and external for " << f->getName().str() << "\n";
     for(auto &b : *f){
@@ -868,7 +868,7 @@ void WholeProgramDebloat::instrument_indirect_and_external(Function *f, LoopInfo
     }
 }
 
-void WholeProgramDebloat::instrument(void)
+void AdvancedRuntimeDebloat::instrument(void)
 {
     errs() << "Instrumenting all other funcs\n";
     int i = 0;
@@ -887,7 +887,7 @@ void WholeProgramDebloat::instrument(void)
     }
 }
 
-void WholeProgramDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
+void AdvancedRuntimeDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
 {
     //for(auto f : toplevel_funcs){
         errs() << "Instrumenting " << f->getName().str() << "\n";
@@ -980,7 +980,7 @@ void WholeProgramDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
 
 }
 
-void WholeProgramDebloat::instrument_external_call(Instruction &I,
+void AdvancedRuntimeDebloat::instrument_external_call(Instruction &I,
                                                    bool call_is_outside_loop)
 {
     CallBase *CB = dyn_cast<CallBase>(&I);
@@ -1016,7 +1016,7 @@ void WholeProgramDebloat::instrument_external_call(Instruction &I,
 }
 
 
-bool WholeProgramDebloat::instrument_external_with_callback(Instruction &I,
+bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
                                                             bool call_is_outside_loop)
 {
     CallBase   *CB_external_call = dyn_cast<CallBase>(&I);
@@ -1129,7 +1129,7 @@ bool WholeProgramDebloat::instrument_external_with_callback(Instruction &I,
 
 
 
-bool WholeProgramDebloat::instrument_main_start(Module &M)
+bool AdvancedRuntimeDebloat::instrument_main_start(Module &M)
 {
     errs() << "Instrumenting main start\n";
     if(ENABLE_TRACING){
@@ -1170,7 +1170,7 @@ bool WholeProgramDebloat::instrument_main_start(Module &M)
     assert(found_main == 1);
 }
 
-bool WholeProgramDebloat::instrument_main_end(Module &M)
+bool AdvancedRuntimeDebloat::instrument_main_end(Module &M)
 {
     errs() << "Instrumenting main end\n";
     int found_main = 0;
@@ -1193,7 +1193,7 @@ bool WholeProgramDebloat::instrument_main_end(Module &M)
 }
 
 
-void WholeProgramDebloat::instrument_debrt_destroy(Instruction *I)
+void AdvancedRuntimeDebloat::instrument_debrt_destroy(Instruction *I)
 {
     assert(I);
     vector<Value *> ArgsV_return;
@@ -1203,7 +1203,7 @@ void WholeProgramDebloat::instrument_debrt_destroy(Instruction *I)
 }
 
 
-void WholeProgramDebloat::build_basic_structs(Module &M)
+void AdvancedRuntimeDebloat::build_basic_structs(Module &M)
 {
     LoopInfo *li;
     CallBase *cb;
@@ -1274,7 +1274,7 @@ void WholeProgramDebloat::build_basic_structs(Module &M)
 }
 
 
-void WholeProgramDebloat::update_disjoint_sets(set<Function *> &new_set)
+void AdvancedRuntimeDebloat::update_disjoint_sets(set<Function *> &new_set)
 {
     // sharjeel's approach is to do this in places:
     //   instrumented_sets.push_back(new_set)
@@ -1368,7 +1368,7 @@ void WholeProgramDebloat::update_disjoint_sets(set<Function *> &new_set)
 }
 
 
-void WholeProgramDebloat::finalize_disjoint_sets(void)
+void AdvancedRuntimeDebloat::finalize_disjoint_sets(void)
 {
     // Set of functions that have addresses taken so we take their reachability
     // and consider it as a set (Sharjeel)
@@ -1395,7 +1395,7 @@ void WholeProgramDebloat::finalize_disjoint_sets(void)
 // could be invoked on some (flow-insensitive) path to F in the callgraph.
 // "Could be invoked" is very conservative: It's true if a function has
 // its address taken along that path, and false otherwise.
-/*void WholeProgramDebloat::extend_static_reachability(void)
+/*void AdvancedRuntimeDebloat::extend_static_reachability(void)
 {
     for(auto func_parents : func_to_parents){
         auto func    = func_parents.first;
@@ -1432,7 +1432,7 @@ void WholeProgramDebloat::finalize_disjoint_sets(void)
     }
 }*/
 
-void WholeProgramDebloat::extend_adj_list(void)
+void AdvancedRuntimeDebloat::extend_adj_list(void)
 {
     for(auto func_parents : func_to_parents){
         auto func    = func_parents.first;
@@ -1458,7 +1458,7 @@ void WholeProgramDebloat::extend_adj_list(void)
     }
 }
 
-void WholeProgramDebloat::build_static_reachability(void)
+void AdvancedRuntimeDebloat::build_static_reachability(void)
 {
     errs() << "Building static reachability\n";
     int i = 0;
@@ -1492,7 +1492,7 @@ void WholeProgramDebloat::build_static_reachability(void)
         i++;
     }
 }
-void WholeProgramDebloat::build_func_to_parents(void)
+void AdvancedRuntimeDebloat::build_func_to_parents(void)
 {
     for(auto F : all_funcs){
         queue<Function *> q;
@@ -1520,7 +1520,7 @@ void WholeProgramDebloat::build_func_to_parents(void)
 // valid instruction, then we add to our map: the key is the instruction's
 // function (i.e. the function where we take another function's address); the
 // value is the function whose address we take.
-void WholeProgramDebloat::build_func_to_fps(Module &M)
+void AdvancedRuntimeDebloat::build_func_to_fps(Module &M)
 {
     int s;
     int f;
@@ -1550,7 +1550,7 @@ void WholeProgramDebloat::build_func_to_fps(Module &M)
     //errs() << "f: " << f << "\n";
 }
 
-void WholeProgramDebloat::build_toplevel_funcs(void)
+void AdvancedRuntimeDebloat::build_toplevel_funcs(void)
 {
     errs() << "Building toplevel funcs\n";
     // toplevel_funcs = all_funcs \ encompassed_funcs
@@ -1561,7 +1561,7 @@ void WholeProgramDebloat::build_toplevel_funcs(void)
                    inserter(toplevel_funcs, toplevel_funcs.end()));
 }
 
-void WholeProgramDebloat::wpd_init(Module &M)
+void AdvancedRuntimeDebloat::wpd_init(Module &M)
 {
     // Init loop count (for handing out IDs)
     loop_id_counter = 0;
@@ -1687,7 +1687,7 @@ void WholeProgramDebloat::wpd_init(Module &M)
 
 
 
-bool WholeProgramDebloat::runOnModule_real(Module &M)
+bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
 {
     // Initialization
     wpd_init(M);
@@ -1742,7 +1742,7 @@ bool WholeProgramDebloat::runOnModule_real(Module &M)
     finalize_disjoint_sets();
 }
 
-bool WholeProgramDebloat::runOnModule(Module &M)
+bool AdvancedRuntimeDebloat::runOnModule(Module &M)
 {
     runOnModule_real(M);
     return true;
@@ -1812,7 +1812,7 @@ void check_postdominance(BasicBlock *B1, BasicBlock *B2)
     return false;
 }*/
 
-void WholeProgramDebloat::dump_static_reachability(void)
+void AdvancedRuntimeDebloat::dump_static_reachability(void)
 {
     FILE *fp_reachability = fopen("wpd_static_reachability.txt", "w");
     //errs() << "Dumping static reachability\n";
@@ -1832,7 +1832,7 @@ void WholeProgramDebloat::dump_static_reachability(void)
     }
     fclose(fp_reachability);
 }
-void WholeProgramDebloat::dump_loop_static_reachability(void)
+void AdvancedRuntimeDebloat::dump_loop_static_reachability(void)
 {
     FILE *fp_loop_reachability;
     if(ENABLE_INSTRUMENTATION_SINKING){
@@ -1851,7 +1851,7 @@ void WholeProgramDebloat::dump_loop_static_reachability(void)
     }
     fclose(fp_loop_reachability);
 }
-void WholeProgramDebloat::dump_encompassed_funcs(void)
+void AdvancedRuntimeDebloat::dump_encompassed_funcs(void)
 {
     FILE *fp_encompassed = fopen("wpd_encompassed_funcs.txt", "w");
     for(auto ef : encompassed_funcs){
@@ -1860,7 +1860,7 @@ void WholeProgramDebloat::dump_encompassed_funcs(void)
     }
     fclose(fp_encompassed);
 }
-void WholeProgramDebloat::dump_loop_id_to_func_id(void)
+void AdvancedRuntimeDebloat::dump_loop_id_to_func_id(void)
 {
     FILE *fp_loop_to_func = fopen("wpd_loop_to_func.txt", "w");
     for(auto p : loop_id_to_func_id){
@@ -1872,7 +1872,7 @@ void WholeProgramDebloat::dump_loop_id_to_func_id(void)
     }
     fclose(fp_loop_to_func);
 }
-void WholeProgramDebloat::dump_sink_id_to_func_id(void)
+void AdvancedRuntimeDebloat::dump_sink_id_to_func_id(void)
 {
     FILE *fp_sink_to_func = fopen("wpd_sink_to_func.txt", "w");
     for(auto p : sink_id_to_func_id){
@@ -1884,7 +1884,7 @@ void WholeProgramDebloat::dump_sink_id_to_func_id(void)
     }
     fclose(fp_sink_to_func);
 }
-void WholeProgramDebloat::dump_sinks(void)
+void AdvancedRuntimeDebloat::dump_sinks(void)
 {
     FILE *fp_sinks = fopen("wpd_sinks.txt", "w");
     for(auto p : sinks){
@@ -1898,7 +1898,7 @@ void WholeProgramDebloat::dump_sinks(void)
     }
     fclose(fp_sinks);
 }
-void WholeProgramDebloat::dump_func_ptrs(void)
+void AdvancedRuntimeDebloat::dump_func_ptrs(void)
 {
     FILE *fp_funcptrs = fopen("wpd_func_name_has_addr_taken.txt", "w");
     for(auto func_name : func_name_has_addr_taken){
@@ -1906,7 +1906,7 @@ void WholeProgramDebloat::dump_func_ptrs(void)
     }
     fclose(fp_funcptrs);
 }
-void WholeProgramDebloat::dump_func_name_to_id(void)
+void AdvancedRuntimeDebloat::dump_func_name_to_id(void)
 {
     FILE *fp = fopen("wpd_func_name_to_id.txt", "w");
     for(auto fn2id : func_name_to_id){
@@ -1914,7 +1914,7 @@ void WholeProgramDebloat::dump_func_name_to_id(void)
     }
     fclose(fp);
 }
-void WholeProgramDebloat::print_disjoint_sets(void)
+void AdvancedRuntimeDebloat::print_disjoint_sets(void)
 {
     for(auto set : disjoint_sets){
         if(set.second->size() > 0)
@@ -1928,7 +1928,7 @@ void WholeProgramDebloat::print_disjoint_sets(void)
         }
     }
 }
-void WholeProgramDebloat::dump_disjoint_sets(void)
+void AdvancedRuntimeDebloat::dump_disjoint_sets(void)
 {
     FILE *fp = fopen("wpd_disjoint_sets.txt", "w");
     for(auto set : disjoint_sets){
@@ -1944,7 +1944,7 @@ void WholeProgramDebloat::dump_disjoint_sets(void)
     }
     fclose(fp);
 }
-void WholeProgramDebloat::dump_stats(void)
+void AdvancedRuntimeDebloat::dump_stats(void)
 {
     FILE *fp = fopen("wpd_stats.txt", "w");
     fprintf(fp, "Number of toplevel loops: %d\n", stats.num_toplevel_loops);
@@ -1964,7 +1964,7 @@ void WholeProgramDebloat::dump_stats(void)
                   stats.sink_fail_thresh_check);
     fclose(fp);
 }
-string WholeProgramDebloat::get_demangled_name(const Function &F)
+string AdvancedRuntimeDebloat::get_demangled_name(const Function &F)
 {
     ItaniumPartialDemangler IPD;
     string name = F.getName().str();
@@ -1995,7 +1995,7 @@ vector<string> split_nonempty(const string &s, char delim)
     split_nonempty(s, delim, back_inserter(elems));
     return elems;
 }
-void WholeProgramDebloat::read_readelf_sections(void)
+void AdvancedRuntimeDebloat::read_readelf_sections(void)
 {
     // FIXME This is a hack to get instrumentation-sinking off the ground.
     // The problem with this function and approach is that it ties this entire
@@ -2043,7 +2043,7 @@ void WholeProgramDebloat::read_readelf_sections(void)
         exit(1);
     }
 }
-void WholeProgramDebloat::read_readelf(void)
+void AdvancedRuntimeDebloat::read_readelf(void)
 {
     string line;
     ifstream ifs;
@@ -2114,7 +2114,7 @@ void WholeProgramDebloat::read_readelf(void)
     ifs.close();
 }
 
-bool WholeProgramDebloat::doFinalization(Module &M)
+bool AdvancedRuntimeDebloat::doFinalization(Module &M)
 {
     dump_encompassed_funcs();
     dump_static_reachability();
@@ -2128,11 +2128,11 @@ bool WholeProgramDebloat::doFinalization(Module &M)
     dump_stats();
     return false;
 }
-bool WholeProgramDebloat::doInitialization(Module &M)
+bool AdvancedRuntimeDebloat::doInitialization(Module &M)
 {
     // XXX don't use this to initialize shit unless you want it to wig out
     return false;
 }
 
-char WholeProgramDebloat::ID = 0;
-static RegisterPass<WholeProgramDebloat> Y("WholeProgramDebloat", "Whole program debloat pass");
+char AdvancedRuntimeDebloat::ID = 0;
+static RegisterPass<AdvancedRuntimeDebloat> Y("AdvancedRuntimeDebloat", "Advanced runtime debloat pass");
