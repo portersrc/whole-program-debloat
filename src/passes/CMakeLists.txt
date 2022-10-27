@@ -1,5 +1,5 @@
 add_subdirectory(profiling)
 add_subdirectory(runtime)
 add_subdirectory(cg_predict)
-add_subdirectory(wpd)
+add_subdirectory(artd)
 add_subdirectory(LS)
