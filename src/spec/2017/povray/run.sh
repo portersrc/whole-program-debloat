@@ -13,52 +13,17 @@ if [ $# != 2 ]; then
     usage_exit
 fi
 
-if [ "$1" == "base" ]; then
-    BIN=511.povray_r_baseline
-    WHICH=base
-elif [ "$1" == "base_ls" ]; then
-    BIN=511.povray_r_baseline_ls
-    WHICH=base_ls
-elif [ "$1" == "wpd" ]; then
-    BIN=511.povray_r_wpd_base
-    WHICH=wpd
-elif [ "$1" == "wpd_sink" ]; then
-    BIN=511.povray_r_wpd_sink
-    WHICH=wpd_sink
-elif [ "$1" == "wpd_ics" ]; then
-    BIN=511.povray_r_wpd_ics
-    WHICH=wpd_ics
-elif [ "$1" == "wpd_bicsa" ]; then
-    BIN=511.povray_r_wpd_bicsa
-    WHICH=wpd_bicsa
-elif [ "$1" == "wpd_cl" ]; then
-    BIN=511.povray_r_wpd_custlink
-    WHICH=wpd_cl
-elif [ "$1" == "wpd_cl_sink" ]; then
-    BIN=511.povray_r_wpd_custlink_sink
-    WHICH=wpd_cl_sink
-elif [ "$1" == "wpd_cl_ics" ]; then
-    BIN=511.povray_r_wpd_custlink_ics
-    WHICH=wpd_cl_ics
-elif [ "$1" == "wpd_cl_bicsa" ]; then
-    BIN=511.povray_r_wpd_custlink_bicsa
-    WHICH=wpd_cl_bicsa
-elif [ "$1" == "wpd_ls" ]; then
-    BIN=511.povray_r_wpd_ls
-    WHICH=wpd_ls
+WHICH=$1
+INPUT=$2
+
+BIN=511.povray_r_${WHICH}
+
+if [ "${INPUT}" == "small" ]; then
+    { time ./${BIN} SPEC-benchmark-test.ini +L/root/decker/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> small-${WHICH}.out
+elif [ "${INPUT}" == "medium" ]; then
+    { time ./${BIN} SPEC-benchmark-train.ini +L/root/decker/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> medium-${WHICH}.out
+elif [ "${INPUT}" == "large" ]; then
+    { time ./${BIN} SPEC-benchmark-ref.ini +L/root/decker/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> large-${WHICH}.out
 else
     usage_exit
 fi
-
-if [ "$2" == "small" ]; then
-    { time ./${BIN} SPEC-benchmark-test.ini +L/home/rudy/wo/spec/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> small-${WHICH}.out
-elif [ "$2" == "medium" ]; then
-    { time ./${BIN} SPEC-benchmark-train.ini +L/home/rudy/wo/spec/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> medium-${WHICH}.out
-elif [ "$2" == "large" ]; then
-    { time ./${BIN} SPEC-benchmark-ref.ini +L/home/rudy/wo/spec/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> large-${WHICH}.out
-else
-    usage_exit
-fi
-
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_$1.out
-cp debrt.out debrt_$1.out

@@ -13,52 +13,18 @@ if [ $# != 2 ]; then
     usage_exit
 fi
 
-if [ "$1" == "base" ]; then
-    BIN=520.omnetpp_r_baseline
-    WHICH=base
-elif [ "$1" == "base_ls" ]; then
-    BIN=520.omnetpp_r_baseline_ls
-    WHICH=base_ls
-elif [ "$1" == "wpd" ]; then
-    BIN=520.omnetpp_r_wpd_base
-    WHICH=wpd
-elif [ "$1" == "wpd_sink" ]; then
-    BIN=520.omnetpp_r_wpd_sink
-    WHICH=wpd_sink
-elif [ "$1" == "wpd_ics" ]; then
-    BIN=520.omnetpp_r_wpd_ics
-    WHICH=wpd_ics
-elif [ "$1" == "wpd_bicsa" ]; then
-    BIN=520.omnetpp_r_wpd_bicsa
-    WHICH=wpd_bicsa
-elif [ "$1" == "wpd_cl" ]; then
-    BIN=520.omnetpp_r_wpd_custlink
-    WHICH=wpd_cl
-elif [ "$1" == "wpd_cl_sink" ]; then
-    BIN=520.omnetpp_r_wpd_custlink_sink
-    WHICH=wpd_cl_sink
-elif [ "$1" == "wpd_cl_ics" ]; then
-    BIN=520.omnetpp_r_wpd_custlink_ics
-    WHICH=wpd_cl_ics
-elif [ "$1" == "wpd_cl_bicsa" ]; then
-    BIN=520.omnetpp_r_wpd_custlink_bicsa
-    WHICH=wpd_cl_bicsa
-elif [ "$1" == "wpd_ls" ]; then
-    BIN=520.omnetpp_r_wpd_ls
-    WHICH=wpd_ls
-else
-    usage_exit
-fi
+WHICH=$1
+INPUT=$2
 
-if [ "$2" == "small" ]; then
+BIN=520.omnetpp_r_${WHICH}
+
+
+if [ "${INPUT}" == "small" ]; then
     { time ./${BIN} -f small.ini -c General -r 0; } &> small-${WHICH}.out
-elif [ "$2" == "medium" ]; then
+elif [ "${INPUT}" == "medium" ]; then
     { time ./${BIN} -f medium.ini -c General -r 0; } &> medium-${WHICH}.out
-elif [ "$2" == "large" ]; then
+elif [ "${INPUT}" == "large" ]; then
     { time ./${BIN} -f large.ini -c General -r 0; } &> large-${WHICH}.out
 else
     usage_exit
 fi
-
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_$1.out
-cp debrt.out debrt_$1.out
