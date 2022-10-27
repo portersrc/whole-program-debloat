@@ -18,6 +18,8 @@ INPUT=$2
 
 BIN=544.nab_r_${WHICH}
 
+source ${PROJ_DIR}/src/spec/2017/run_aux_preprocess.sh
+
 
 if [ "${INPUT}" == "small" ]; then
     { time ./${BIN} hkrdenq 1930344093 1000; } &> small-${WHICH}.out
@@ -30,3 +32,5 @@ elif [ "${INPUT}" == "large" ]; then
 else
     usage_exit
 fi
+
+source ${PROJ_DIR}/src/spec/2017/run_aux_postprocess.sh

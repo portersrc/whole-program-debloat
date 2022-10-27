@@ -18,6 +18,9 @@ INPUT=$2
 
 BIN=511.povray_r_${WHICH}
 
+source ${PROJ_DIR}/src/spec/2017/run_aux_preprocess.sh
+
+
 if [ "${INPUT}" == "small" ]; then
     { time ./${BIN} SPEC-benchmark-test.ini +L/root/decker/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> small-${WHICH}.out
 elif [ "${INPUT}" == "medium" ]; then
@@ -27,3 +30,5 @@ elif [ "${INPUT}" == "large" ]; then
 else
     usage_exit
 fi
+
+source ${PROJ_DIR}/src/spec/2017/run_aux_postprocess.sh

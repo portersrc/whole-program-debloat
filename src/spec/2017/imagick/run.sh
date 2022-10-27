@@ -18,6 +18,8 @@ INPUT=$2
 
 BIN=538.imagick_r_${WHICH}
 
+source ${PROJ_DIR}/src/spec/2017/run_aux_preprocess.sh
+
 
 if [ "${INPUT}" == "small" ]; then
     { time ./${BIN} -limit disk 0 test_input.tga -shear 25 -resize 640x480 -negate -alpha Off test_output.tga; } &> small-${WHICH}.out
@@ -28,3 +30,5 @@ elif [ "${INPUT}" == "large" ]; then
 else
     usage_exit
 fi
+
+source ${PROJ_DIR}/src/spec/2017/run_aux_postprocess.sh

@@ -18,6 +18,8 @@ INPUT=$2
 
 BIN=523.xalancbmk_${WHICH}
 
+source ${PROJ_DIR}/src/spec/2017/run_aux_preprocess.sh
+
 
 if [ "${INPUT}" == "small" ]; then
     { time ./${BIN} -v test.xml small.xsl; } &> small-${WHICH}.out
@@ -28,3 +30,5 @@ elif [ "${INPUT}" == "large" ]; then
 else
     usage_exit
 fi
+
+source ${PROJ_DIR}/src/spec/2017/run_aux_postprocess.sh

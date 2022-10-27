@@ -18,6 +18,8 @@ INPUT=$2
 
 BIN=502.gcc_r_${WHICH}
 
+source ${PROJ_DIR}/src/spec/2017/run_aux_preprocess.sh
+
 
 if [ "${INPUT}" == "small" ]; then
     { time ./${BIN} t1.c -O3 -finline-limit=50000; } &> small-${WHICH}.out
@@ -34,3 +36,5 @@ elif [ "${INPUT}" == "large" ]; then
 else
     usage_exit
 fi
+
+source ${PROJ_DIR}/src/spec/2017/run_aux_postprocess.sh

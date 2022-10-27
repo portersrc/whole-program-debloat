@@ -18,6 +18,8 @@ INPUT=$2
 
 BIN=520.omnetpp_r_${WHICH}
 
+source ${PROJ_DIR}/src/spec/2017/run_aux_preprocess.sh
+
 
 if [ "${INPUT}" == "small" ]; then
     { time ./${BIN} -f small.ini -c General -r 0; } &> small-${WHICH}.out
@@ -28,3 +30,5 @@ elif [ "${INPUT}" == "large" ]; then
 else
     usage_exit
 fi
+
+source ${PROJ_DIR}/src/spec/2017/run_aux_postprocess.sh

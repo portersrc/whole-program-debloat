@@ -18,6 +18,8 @@ INPUT=$2
 
 BIN=519.lbm_r_${WHICH}
 
+source ${PROJ_DIR}/src/spec/2017/run_aux_preprocess.sh
+
 
 if [ "$2" == "small" ]; then
     { time ./${BIN} 20 reference.dat 0 1 100_100_130_cf_a.of; } &> small-${WHICH}.out
@@ -28,3 +30,5 @@ elif [ "$2" == "large" ]; then
 else
     usage_exit
 fi
+
+source ${PROJ_DIR}/src/spec/2017/run_aux_postprocess.sh

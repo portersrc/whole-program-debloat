@@ -18,6 +18,8 @@ INPUT=$2
 
 BIN=500.perlbench_r_${WHICH}
 
+source ${PROJ_DIR}/src/spec/2017/run_aux_preprocess.sh
+
 
 if [ "${INPUT}" == "small" ]; then
     { time ./${BIN} -I. -I./lib makerand.pl; } &> small-${WHICH}.out
@@ -38,3 +40,5 @@ elif [ "${INPUT}" == "large" ]; then
 else
     usage_exit
 fi
+
+source ${PROJ_DIR}/src/spec/2017/run_aux_postprocess.sh
