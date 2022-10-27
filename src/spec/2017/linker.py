@@ -12,7 +12,7 @@ if(folder[-1] != "/"):
 
 # Read file that contains id mapping to function names
 id_to_func = {}
-with open(folder+"wpd_func_name_to_id.txt", "r") as f:
+with open(folder+"artd_func_name_to_id.txt", "r") as f:
     line = f.readline()
     while(line):
         line_list = line.strip().split()
@@ -22,7 +22,7 @@ with open(folder+"wpd_func_name_to_id.txt", "r") as f:
 
 # Read file containing the disjoint sets
 sets = {}
-with open(folder+"wpd_disjoint_sets.txt", "r") as f:
+with open(folder+"artd_disjoint_sets.txt", "r") as f:
     line = f.readline()
     index = 0
     while(line):
@@ -32,7 +32,7 @@ with open(folder+"wpd_disjoint_sets.txt", "r") as f:
         index += 1
 
 write = False
-with open(folder+"wpd-linker-script.lds", "w") as w:
+with open(folder+"artd-linker-script.lds", "w") as w:
     with open(folder+"linker.lds", "r") as r:
         line = r.readline()
         while(line):
