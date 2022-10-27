@@ -41,7 +41,7 @@ int ENV_DEBRT_ENABLE_STACK_CLEANING = 0;
 // to enable, set env var DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS=1
 int ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = 0;
 // to enable, set env var DEBRT_ENABLE_TRACING=1
-//   Will attempt to trace all function calls (with the help of wpd pass)
+//   Will attempt to trace all function calls (with the help of artd pass)
 int ENV_DEBRT_ENABLE_TRACING = 0;
 
 #define DEBRT_INDIRECT_CALL_SINKING 1
@@ -252,7 +252,7 @@ void _write_func_id_to_pages(void)
     int i;
     int func_id;
     long long page;
-    fp_fitp = fopen("wpd_func_id_to_pages.txt", "w");
+    fp_fitp = fopen("artd_func_id_to_pages.txt", "w");
     for(map<int, vector<long long> >::iterator it = func_id_to_pages.begin(); it != func_id_to_pages.end(); it++){
         func_id = it->first;
         auto pages = it->second;
@@ -1399,9 +1399,9 @@ void _read_func_name_to_id(void)
     ifstream ifs;
     vector<string> elems;
 
-    ifs.open("wpd_func_name_to_id.txt");
+    ifs.open("artd_func_name_to_id.txt");
     if(!ifs.is_open()){
-        perror("Error openening wpd-func-name-to-id file");
+        perror("Error openening artd-func-name-to-id file");
         exit(EXIT_FAILURE);
     }
 
@@ -1420,9 +1420,9 @@ void _read_func_ptrs(void)
     ifstream ifs;
     vector<string> elems;
 
-    ifs.open("wpd_func_name_has_addr_taken.txt");
+    ifs.open("artd_func_name_has_addr_taken.txt");
     if(!ifs.is_open()){
-        perror("Error openening wpd-func-name-has-addr-taken file");
+        perror("Error openening artd-func-name-has-addr-taken file");
         exit(EXIT_FAILURE);
     }
 
@@ -1450,9 +1450,9 @@ void _read_static_reachability(void)
     int reachable_func_id;
     long long addr;
 
-    ifs.open("wpd_static_reachability.txt");
+    ifs.open("artd_static_reachability.txt");
     if(!ifs.is_open()){
-        perror("Error opening wpd_static_reachability.txt file");
+        perror("Error opening artd_static_reachability.txt file");
         exit(EXIT_FAILURE);
     }
 
@@ -1492,9 +1492,9 @@ void _read_encompassed_funcs(void)
     int reachable_func_id;
     long long addr;
 
-    ifs.open("wpd_encompassed_funcs.txt");
+    ifs.open("artd_encompassed_funcs.txt");
     if(!ifs.is_open()){
-        perror("Error opening wpd_encompassed_funcs.txt file");
+        perror("Error opening artd_encompassed_funcs.txt file");
         exit(EXIT_FAILURE);
     }
     while(getline(ifs, line)){
@@ -1519,15 +1519,15 @@ void _read_loop_static_reachability(int sink_is_enabled)
     int reachable_func_id;
 
     if(sink_is_enabled){
-        ifs.open("wpd_loop_static_reachability_sinkenabled.txt");
+        ifs.open("artd_loop_static_reachability_sinkenabled.txt");
     }else{
-        ifs.open("wpd_loop_static_reachability.txt");
+        ifs.open("artd_loop_static_reachability.txt");
     }
     if(!ifs.is_open()){
         if(sink_is_enabled){
-            perror("Error opening wpd_loop_static_reachability_sinkenabled.txt file");
+            perror("Error opening artd_loop_static_reachability_sinkenabled.txt file");
         }else{
-            perror("Error opening wpd_loop_static_reachability.txt file");
+            perror("Error opening artd_loop_static_reachability.txt file");
         }
         exit(EXIT_FAILURE);
     }
@@ -1565,9 +1565,9 @@ void _read_sinks(void)
     int sink_id;
     int func_id;
 
-    ifs.open("wpd_sinks.txt");
+    ifs.open("artd_sinks.txt");
     if(!ifs.is_open()){
-        perror("Error opening wpd_sinks.txt file");
+        perror("Error opening artd_sinks.txt file");
         exit(EXIT_FAILURE);
     }
 
