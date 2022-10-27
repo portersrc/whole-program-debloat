@@ -369,19 +369,29 @@ base:
       $(NUMBER).$(NAME)_base_opt.s \
       -o $(NUMBER).$(NAME)_base \
       -lm -lrt
-artd:
+artd_opt:
 	opt \
       --function-sections \
       -O3 \
       -loop-simplify \
       < $(NUMBER).$(NAME)_ics.bc \
       > $(NUMBER).$(NAME)_ics_opt.bc
+artd_pass:
 	opt \
-	  --function-sections \
+      --function-sections \
       -load libAdvancedRuntimeDebloat.so \
       -AdvancedRuntimeDebloat \
       < $(NUMBER).$(NAME)_ics_opt.bc \
       > $(NUMBER).$(NAME)_artd.bc
+artd_pass_trace:
+	opt \
+      --function-sections \
+      -load libAdvancedRuntimeDebloat.so \
+      -AdvancedRuntimeDebloat \
+      --enable-tracing=true \
+      < $(NUMBER).$(NAME)_ics_opt.bc \
+      > $(NUMBER).$(NAME)_artd.bc
+artd_assemble:
 	# disassemble so we can do a hacky fix to the ics symbols
 	llvm-dis $(NUMBER).$(NAME)_artd.bc
 	sed -i \
@@ -404,37 +414,46 @@ artd:
       $(NUMBER).$(NAME)_artd.ll
 	# now ingest the modified .ll file and run always-inline on it.
 	opt \
-	  --function-sections \
+      --function-sections \
       -always-inline \
       < $(NUMBER).$(NAME)_artd.ll \
       > $(NUMBER).$(NAME)_artd.bc
 	llc  \
-	  --function-sections \
+      --function-sections \
       $(NUMBER).$(NAME)_artd.bc \
       -relocation-model=pic \
       -o $(NUMBER).$(NAME)_artd.s
 	# Produce a default linker script.
 	# FIXME Is there an easier way to do this than building the entire binary here?
 	g++ \
-	  -ffunction-sections \
-	  -Wl,--verbose \
+      -ffunction-sections \
+      -Wl,--verbose \
       $(NUMBER).$(NAME)_artd.s \
-      -o $(NUMBER).$(NAME)_artd \
+      -o $(NUMBER).$(NAME)_artd_tmp \
       -ldebloat_rt -lm -lrt > linker.lds
+	rm $(NUMBER).$(NAME)_artd_tmp
 	# Create a custom linker script
 	python3 linker.py .
 	g++ \
       -ffunction-sections \
       -c $(NUMBER).$(NAME)_artd.s \
       -o $(NUMBER).$(NAME)_artd.o
+artd_bin:
 	g++ \
-	  -ffunction-sections \
+      -ffunction-sections \
       -T artd-linker-script.lds \
       $(NUMBER).$(NAME)_artd.o \
       -o $(NUMBER).$(NAME)_artd \
       -ldebloat_rt -lm -lrt
-	readelf -s --wide $(NUMBER).$(NAME)_artd > readelf.out
-	readelf --sections $(NUMBER).$(NAME)_artd > readelf-sections.out
+artd_bin_trace:
+	g++ \
+      -ffunction-sections \
+      -T artd-linker-script.lds \
+      $(NUMBER).$(NAME)_artd.o \
+      -o $(NUMBER).$(NAME)_artd_trace \
+      -ldebloat_rt -lm -lrt
+artd:       artd_opt artd_pass       artd_assemble artd_bin
+artd_trace: artd_opt artd_pass_trace artd_assemble artd_bin_trace
 else
 	$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) @$(OBJNAMES) $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
 endif
