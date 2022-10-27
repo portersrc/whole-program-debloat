@@ -125,7 +125,7 @@ namespace {
         bool doInitialization(Module &) override;
         bool doFinalization(Module &) override;
 
-        void wpd_init(Module &M);
+        void artd_init(Module &M);
         void build_basic_structs(Module &M);
         void extend_adj_list(void);
         void build_static_reachability(void);
@@ -194,7 +194,7 @@ namespace {
     };
 }
 
-struct wpd_stats{
+struct artd_stats{
     int num_toplevel_loops;
     int num_instrumented_basic_loops;
     int num_instrumented_sunk_loops;
@@ -812,7 +812,7 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                 // INDIRECT_CALL_SINKING ensures that 
                 // we instrument indirect calls now. This is
                 // probably as it should have been from the start, because old
-                // wpd approaches just turned on the transitive closure of all
+                // artd approaches just turned on the transitive closure of all
                 // func pointers.
                 if(cf == NULL && INDIRECT_CALL_SINKING){
                     errs() << "seeing indirect function call\n";
@@ -1561,7 +1561,7 @@ void AdvancedRuntimeDebloat::build_toplevel_funcs(void)
                    inserter(toplevel_funcs, toplevel_funcs.end()));
 }
 
-void AdvancedRuntimeDebloat::wpd_init(Module &M)
+void AdvancedRuntimeDebloat::artd_init(Module &M)
 {
     // Init loop count (for handing out IDs)
     loop_id_counter = 0;
@@ -1690,7 +1690,7 @@ void AdvancedRuntimeDebloat::wpd_init(Module &M)
 bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
 {
     // Initialization
-    wpd_init(M);
+    artd_init(M);
 
     // Build all_funcs, adj_list, func_to_loop_info
     // Paritlally build encompassed_funcs
@@ -1814,7 +1814,7 @@ void check_postdominance(BasicBlock *B1, BasicBlock *B2)
 
 void AdvancedRuntimeDebloat::dump_static_reachability(void)
 {
-    FILE *fp_reachability = fopen("wpd_static_reachability.txt", "w");
+    FILE *fp_reachability = fopen("artd_static_reachability.txt", "w");
     //errs() << "Dumping static reachability\n";
     for(auto p : static_reachability){
         Function *f = p.first;
@@ -1836,9 +1836,9 @@ void AdvancedRuntimeDebloat::dump_loop_static_reachability(void)
 {
     FILE *fp_loop_reachability;
     if(ENABLE_INSTRUMENTATION_SINKING){
-        fp_loop_reachability = fopen("wpd_loop_static_reachability_sinkenabled.txt", "w");
+        fp_loop_reachability = fopen("artd_loop_static_reachability_sinkenabled.txt", "w");
     }else{
-        fp_loop_reachability = fopen("wpd_loop_static_reachability.txt", "w");
+        fp_loop_reachability = fopen("artd_loop_static_reachability.txt", "w");
     }
     for(auto p : loop_static_reachability){
         int loop_id = p.first;
@@ -1853,7 +1853,7 @@ void AdvancedRuntimeDebloat::dump_loop_static_reachability(void)
 }
 void AdvancedRuntimeDebloat::dump_encompassed_funcs(void)
 {
-    FILE *fp_encompassed = fopen("wpd_encompassed_funcs.txt", "w");
+    FILE *fp_encompassed = fopen("artd_encompassed_funcs.txt", "w");
     for(auto ef : encompassed_funcs){
         int func_id = func_to_id[ef];
         fprintf(fp_encompassed, "%d (%s)\n", func_id, func_id_to_name[func_id].c_str());
@@ -1862,7 +1862,7 @@ void AdvancedRuntimeDebloat::dump_encompassed_funcs(void)
 }
 void AdvancedRuntimeDebloat::dump_loop_id_to_func_id(void)
 {
-    FILE *fp_loop_to_func = fopen("wpd_loop_to_func.txt", "w");
+    FILE *fp_loop_to_func = fopen("artd_loop_to_func.txt", "w");
     for(auto p : loop_id_to_func_id){
         int loop_id = p.first;
         int func_id = p.second;
@@ -1874,7 +1874,7 @@ void AdvancedRuntimeDebloat::dump_loop_id_to_func_id(void)
 }
 void AdvancedRuntimeDebloat::dump_sink_id_to_func_id(void)
 {
-    FILE *fp_sink_to_func = fopen("wpd_sink_to_func.txt", "w");
+    FILE *fp_sink_to_func = fopen("artd_sink_to_func.txt", "w");
     for(auto p : sink_id_to_func_id){
         int sink_id = p.first;
         int func_id = p.second;
@@ -1886,7 +1886,7 @@ void AdvancedRuntimeDebloat::dump_sink_id_to_func_id(void)
 }
 void AdvancedRuntimeDebloat::dump_sinks(void)
 {
-    FILE *fp_sinks = fopen("wpd_sinks.txt", "w");
+    FILE *fp_sinks = fopen("artd_sinks.txt", "w");
     for(auto p : sinks){
         int sink_id = p.first;
         set<int> &funcs = p.second;
@@ -1900,7 +1900,7 @@ void AdvancedRuntimeDebloat::dump_sinks(void)
 }
 void AdvancedRuntimeDebloat::dump_func_ptrs(void)
 {
-    FILE *fp_funcptrs = fopen("wpd_func_name_has_addr_taken.txt", "w");
+    FILE *fp_funcptrs = fopen("artd_func_name_has_addr_taken.txt", "w");
     for(auto func_name : func_name_has_addr_taken){
         fprintf(fp_funcptrs, "%s\n", func_name.c_str());
     }
@@ -1908,7 +1908,7 @@ void AdvancedRuntimeDebloat::dump_func_ptrs(void)
 }
 void AdvancedRuntimeDebloat::dump_func_name_to_id(void)
 {
-    FILE *fp = fopen("wpd_func_name_to_id.txt", "w");
+    FILE *fp = fopen("artd_func_name_to_id.txt", "w");
     for(auto fn2id : func_name_to_id){
         fprintf(fp, "%s %u\n", fn2id.first.c_str(), fn2id.second);
     }
@@ -1930,7 +1930,7 @@ void AdvancedRuntimeDebloat::print_disjoint_sets(void)
 }
 void AdvancedRuntimeDebloat::dump_disjoint_sets(void)
 {
-    FILE *fp = fopen("wpd_disjoint_sets.txt", "w");
+    FILE *fp = fopen("artd_disjoint_sets.txt", "w");
     for(auto set : disjoint_sets){
         if(set.second->size() > 0)
         {
@@ -1946,7 +1946,7 @@ void AdvancedRuntimeDebloat::dump_disjoint_sets(void)
 }
 void AdvancedRuntimeDebloat::dump_stats(void)
 {
-    FILE *fp = fopen("wpd_stats.txt", "w");
+    FILE *fp = fopen("artd_stats.txt", "w");
     fprintf(fp, "Number of toplevel loops: %d\n", stats.num_toplevel_loops);
     fprintf(fp, "Number of instrumented toplevel loops: %d\n",
                 stats.num_instrumented_basic_loops + stats.num_instrumented_sunk_loops);
