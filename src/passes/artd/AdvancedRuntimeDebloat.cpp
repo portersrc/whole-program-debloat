@@ -31,6 +31,22 @@
 using namespace llvm;
 using namespace std;
 
+
+#define INDIRECT_CALL_SINKING true
+
+
+typedef struct{
+    long id;
+    set<Function *> *s;
+}disjoint_set_t;
+
+typedef enum{
+    ARTD_BUILD_STATIC_E = 0,
+    ARTD_BUILD_PROFILE_E,
+    ARTD_BUILD_EMBED_E,
+}artd_build_e;
+
+
 bool ENABLE_INSTRUMENTATION_SINKING = false; // can set via command line option below
 cl::opt<bool> EnableInstrumentationSinking(
     "enable-instrumentation-sinking", cl::init(false), cl::Hidden,
@@ -43,18 +59,12 @@ bool ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = false; // can set via command 
 cl::opt<bool> EnableBasicIndirectCallStaticAnalysis(
     "enable-basic-indirect-call-static-analysis", cl::init(false), cl::Hidden,
     cl::desc("Attempts to apply basic static analysis to indirect calls for mapping them at loop headers."));
-bool ENABLE_TRACING = false; // can set via command line option below
-cl::opt<bool> EnableTracing(
-    "enable-tracing", cl::init(false), cl::Hidden,
-    cl::desc("Uses the pass to instrument for tracing every function call. Does not do any deblolating."));
-
-#define INDIRECT_CALL_SINKING true
+artd_build_e ARTD_BUILD = ARTD_BUILD_STATIC_E; // can set via command line option below
+cl::opt<string> ARTDBuild(
+    "artd-build", cl::init("static"), cl::Hidden,
+    cl::desc("Selects the kind of build for this artd compilation (static, profile, or embed"));
 
 
-typedef struct{
-    long id;
-    set<Function *> *s;
-}disjoint_set_t;
 
 
 namespace {
@@ -126,6 +136,7 @@ namespace {
         bool doFinalization(Module &) override;
 
         void artd_init(Module &M);
+        artd_build_e parseARTDBuildOpt(void);
         void build_basic_structs(Module &M);
         void extend_adj_list(void);
         void build_static_reachability(void);
@@ -1132,9 +1143,6 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
 bool AdvancedRuntimeDebloat::instrument_main_start(Module &M)
 {
     errs() << "Instrumenting main start\n";
-    if(ENABLE_TRACING){
-        errs() << "ENABLE_TRACING is set\n";
-    }
     int found_main = 0;
     for(auto &F : M){
         string func_name = get_demangled_name(F);
@@ -1150,11 +1158,11 @@ bool AdvancedRuntimeDebloat::instrument_main_start(Module &M)
             builder.CreateCall(debrt_init_func, ArgsV);
 
             found_main = 1;
-            if(ENABLE_TRACING == false){
+            if(ARTD_BUILD != ARTD_BUILD_PROFILE_E){
                 break;
             }
         }else{
-            if(ENABLE_TRACING){
+            if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
                 if(F.hasName() && !F.isDeclaration()){
                     // instrument start of function with debrt-trace
                     vector<Value *> ArgsV;
@@ -1573,9 +1581,7 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
     //errs() << "ENABLE_INDIRECT_CALL_SINKING: " << ENABLE_INDIRECT_CALL_SINKING << "\n";
     ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = EnableBasicIndirectCallStaticAnalysis;
     errs() << "ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS: " << ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS << "\n";
-    ENABLE_TRACING = EnableTracing;
-    errs() << "ENABLE_TRACING: " << ENABLE_TRACING << "\n";
-
+    ARTD_BUILD = parseARTDBuildOpt();
 
     memset(&stats, 0, sizeof(stats));
 
@@ -1725,7 +1731,7 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
     build_toplevel_funcs();
 
     // Instrument main with a debrt-init call
-    // XXX Will instrument the top of other functions if ENABLE_TRACING is true
+    // XXX Will instrument the top of other functions if ARTD_BUILD is ARTD_BUILD_PROFILE_E
     instrument_main_start(M);
 
     // Instrument all other functions
@@ -2132,6 +2138,22 @@ bool AdvancedRuntimeDebloat::doInitialization(Module &M)
 {
     // XXX don't use this to initialize shit unless you want it to wig out
     return false;
+}
+
+
+
+artd_build_e AdvancedRuntimeDebloat::parseARTDBuildOpt(void)
+{
+    errs() << "ARTDBuild: " << ARTDBuild << "\n";
+    if(ARTDBuild == "static"){
+        return ARTD_BUILD_STATIC_E;
+    }else if(ARTDBuild == "profile"){
+        return ARTD_BUILD_PROFILE_E;
+    }else if(ARTDBuild == "embed"){
+        return ARTD_BUILD_EMBED_E;
+    }else{
+        assert(0 && "ERROR: invalid artd-build option");
+    }
 }
 
 char AdvancedRuntimeDebloat::ID = 0;
