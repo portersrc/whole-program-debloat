@@ -1003,7 +1003,10 @@ void AdvancedRuntimeDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
                             vector<Value *> ArgsV;
                             ArgsV.push_back(ConstantInt::get(int32Ty, func_to_id[callee], false));
                             IRBuilder<> builder(CB);
-                            builder.CreateCall(debrt_protect_reachable_func, ArgsV);
+                            CallInst *ci = builder.CreateCall(debrt_protect_reachable_func, ArgsV);
+                            if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
+                                instrument_feature_print(CB, ci);
+                            }
 
                             // instrument after callee
                             if(CI){
@@ -1024,10 +1027,7 @@ void AdvancedRuntimeDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
                             vector<Value *> ArgsV;
                             ArgsV.push_back(ConstantInt::get(int32Ty, func_to_id[callee], false));
                             IRBuilder<> builder(CB);
-                            CallInst *ci = builder.CreateCall(debrt_protect_single_func, ArgsV);
-                            if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
-                                instrument_feature_print(CB, ci);
-                            }
+                            builder.CreateCall(debrt_protect_single_func, ArgsV);
 
                             // instrument after callee
                             if(CI){
