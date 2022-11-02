@@ -40,9 +40,10 @@ int ENV_DEBRT_ENABLE_STACK_CLEANING = 0;
 //int ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING = 0;
 // to enable, set env var DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS=1
 int ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = 0;
-// to enable, set env var DEBRT_ENABLE_TRACING=1
-//   Will attempt to trace all function calls (with the help of artd pass)
-int ENV_DEBRT_ENABLE_TRACING = 0;
+
+// to enable, set env var DEBRT_ENABLE_PROFILING=1
+// Will dump features and trace function calls
+int ENV_DEBRT_ENABLE_PROFILING = 0;
 
 #define DEBRT_INDIRECT_CALL_SINKING 1
 
@@ -98,6 +99,15 @@ long long max_protected_text_pages;
 int stats_total_mapped_pages = 0;
 int start_had_to_align = 0;
 int end_had_to_align = 0;
+
+const char *PROFILE_CSV_COLUMNS = "deck_id," \
+                                  "arg1," \
+                                  "arg2," \
+                                  "arg3," \
+                                  "...";
+//const char *PROFILE_OUTPUT_FILENAME = "debrt-profile.out";
+//FILE *fp_profile_out;
+
 
 vector<set<int> > func_sets;
 set<int> *pred_set_p;
@@ -440,7 +450,7 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated)
     int count;
     if(ENV_DEBRT_ENABLE_STATS){
         if(yes_stats_got_updated){
-            if(ENV_DEBRT_ENABLE_TRACING){
+            if(ENV_DEBRT_ENABLE_PROFILING){
                 fprintf(fp_mapped_pages, "T ");
                 for(int func_id : trace_seen_funcs){
                     fprintf(fp_mapped_pages, "%d ", func_id);
@@ -1797,6 +1807,17 @@ int _debrt_protect_init(int please_read_func_sets)
 }
 
 
+void _profile_destroy(void)
+{
+    //int e;
+    //int rc;
+    //rc = fclose(fp_profile_out);
+    //if(rc == EOF){
+    //    e = errno;
+    //    fprintf(stderr, "debprof_destroy failed to close output file " \
+    //                    "(errno: %d)\n", e);
+    //}
+}
 void _debrt_protect_destroy(void)
 {
     int e;
@@ -1847,7 +1868,11 @@ void _debrt_protect_destroy(void)
         fprintf(stderr, "_debrt_protect_destroy failed to close mapped pages " \
                         "output file (errno: %d)\n", e);
     }
+    if(ENV_DEBRT_ENABLE_PROFILING){
+        _profile_destroy();
+    }
 }
+
 
 
 
@@ -1919,6 +1944,30 @@ int debrt_protect_end(int argc, ...)
 }
 
 
+
+int _profile_init(void)
+{
+    //int e;
+    //const char *output_filename;
+
+    //output_filename = getenv("DEBRT_PROFILE_OUT");
+    //if(!output_filename){
+    //    output_filename = PROFILE_OUTPUT_FILENAME;
+    //}
+    //fp_profile_out = fopen(output_filename, "w");
+    //if(!fp_profile_out){
+    //    e = errno;
+    //    fprintf(stderr, "_profile_init failed to open %s (errno: %d)\n",
+    //                    output_filename, e);
+    //    return e;
+    //}
+    //fprintf(fp_profile_out, "%s\n", PROFILE_CSV_COLUMNS);
+
+    //fprintf(fp_mapped_pages, "%s\n", PROFILE_CSV_COLUMNS);
+
+    return 0;
+}
+
 extern "C" {
 int debrt_init(int main_func_id, int sink_is_enabled)
 {
@@ -1943,8 +1992,8 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     if(getenv("DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS")){
         ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = 1;
     }
-    if(getenv("DEBRT_ENABLE_TRACING")){
-        ENV_DEBRT_ENABLE_TRACING = 1;
+    if(getenv("DEBRT_ENABLE_PROFILING")){
+        ENV_DEBRT_ENABLE_PROFILING = 1;
     }
     DEBRT_PRINTF("ENV_DEBRT_ENABLE_STATS: %d\n", ENV_DEBRT_ENABLE_STATS);
     DEBRT_PRINTF("ENV_DEBRT_ENABLE_STACK_CLEANING: %d\n", ENV_DEBRT_ENABLE_STACK_CLEANING);
@@ -2019,15 +2068,20 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     int rv;
     rv = update_page_counts(main_func_id, 1);
     _write_mapped_pages_to_file(rv);
-    if(ENV_DEBRT_ENABLE_TRACING){
+    if(ENV_DEBRT_ENABLE_PROFILING){
         // minor point: For this init case, we do this after
         // write-mapped-pages-to-file b/c we want the fact that we executed main to
         // be in the next write-mapped-pages-to-file output.
-        int debrt_trace(int);
-        debrt_trace(main_func_id);
+        int debrt_profile_trace(int);
+        debrt_profile_trace(main_func_id);
+    }
+
+    if(ENV_DEBRT_ENABLE_PROFILING){
+        _profile_init();
     }
 
     lib_initialized = 1;
+
 
     return 0;
 }
@@ -2037,7 +2091,7 @@ extern "C" {
 int debrt_destroy(int notused)
 {
     _debrt_protect_destroy();
-    if(ENV_DEBRT_ENABLE_TRACING){
+    if(ENV_DEBRT_ENABLE_PROFILING){
         _write_func_id_to_pages();
     }
     return 0;
@@ -2272,7 +2326,6 @@ int debrt_protect_indirect_end(long long callee_addr)
 }
 
 
-
 static inline
 int _protect_sink(int sink_id, int addend)
 {
@@ -2302,8 +2355,50 @@ int debrt_protect_sink_end(int sink_id)
 }
 }
 
+
+//
+// Receives a variable number of arguments:
+// argc: Number of args to follow.
+// Callsite ID
+// called func arg1 (optional)
+// called func arg2 (optional)
+// ...
+// called func argn (optional)
+// 
 extern "C" {
-int debrt_trace(int func_id)
+int debrt_profile_print_args(int argc, ...)
+{
+    int i;
+    va_list ap;
+
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+
+    va_start(ap, argc);
+
+    //fprintf(fp_profile_out, "%d", va_arg(ap, int));
+    //for(i = 1; i < argc; i++){
+    //    fprintf(fp_profile_out, ",%d", va_arg(ap, int));
+    //}
+    //fprintf(fp_profile_out, "\n");
+
+    //
+    // Format is P (for 'profile') then the deck ID,
+    // then a list of arguments that were passed at that
+    // deck.
+    //
+    fprintf(fp_mapped_pages, "P %d", va_arg(ap, int));
+    for(i = 1; i < argc; i++){
+        fprintf(fp_mapped_pages, " %d", va_arg(ap, int));
+    }
+    fprintf(fp_mapped_pages, "\n");
+
+    va_end(ap);
+    return 0;
+}
+}
+extern "C" {
+int debrt_profile_trace(int func_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();

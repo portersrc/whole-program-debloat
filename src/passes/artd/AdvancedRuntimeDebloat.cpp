@@ -51,10 +51,6 @@ bool ENABLE_INSTRUMENTATION_SINKING = false; // can set via command line option 
 cl::opt<bool> EnableInstrumentationSinking(
     "enable-instrumentation-sinking", cl::init(false), cl::Hidden,
     cl::desc("Attempts to sink instrumentation into loops."));
-//bool ENABLE_INDIRECT_CALL_SINKING = false; // can set via command line option below
-//cl::opt<bool> EnableIndirectCallSinking(
-//    "enable-indirect-call-sinking", cl::init(false), cl::Hidden,
-//    cl::desc("Attempts to sink indirect call instrumentation into loops."));
 bool ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = false; // can set via command line option below
 cl::opt<bool> EnableBasicIndirectCallStaticAnalysis(
     "enable-basic-indirect-call-static-analysis", cl::init(false), cl::Hidden,
@@ -85,7 +81,8 @@ namespace {
         Function *debrt_protect_indirect_end_func;
         Function *debrt_protect_sink_func;
         Function *debrt_protect_sink_end_func;
-        Function *debrt_trace_func;
+        Function *debrt_profile_trace_func;
+        Function *debrt_profile_print_args_func;
         Function *ics_map_indirect_call_func;
         Function *ics_wrapper_debrt_protect_loop_end_func;
         map<Function *, int> func_to_id;
@@ -118,6 +115,7 @@ namespace {
         map<int, set<int> > sinks; // sink id to its function IDs
         map<int, int> sink_id_to_func_id; // the function ID that holds the sink, for debugging
         map<string, long> readelf_func_name_to_size;
+        int deck_id_counter;
         int loop_id_counter;
         int sink_id_counter;
         long long text_size;
@@ -202,6 +200,11 @@ namespace {
         void dump_disjoint_sets(void);
         void print_disjoint_sets(void);
         void dump_stats(void);
+
+        void instrument_feature_print(CallBase *callsite,
+                                      CallInst *inst_to_follow);
+
+
     };
 }
 
@@ -898,6 +901,60 @@ void AdvancedRuntimeDebloat::instrument(void)
     }
 }
 
+void AdvancedRuntimeDebloat::instrument_feature_print(CallBase *callsite_p,
+                                                      CallInst *inst_to_follow)
+{
+    errs() << "inst to follow: " << inst_to_follow << "\n";
+    errs() << "callsite num args: " << callsite_p->arg_size() << "\n";
+    IRBuilder<> builder(inst_to_follow);
+    vector<Value *> ArgsV;
+    ArgsV.push_back(llvm::ConstantInt::get(int32Ty, 0, false));
+
+    ArgsV.push_back(llvm::ConstantInt::get(int32Ty, deck_id_counter, false));
+    deck_id_counter++;
+
+    CallBase &callsite = *callsite_p;
+    errs() << "Name of the called function: " << callsite.getCalledFunction()->getName() << "\n";
+    for(auto it_arg = callsite.arg_begin(); it_arg != callsite.arg_end(); it_arg++){
+
+        Value *argV = (Value *) *it_arg;
+        //errs() << "iterating\n";
+
+        if((argV->getType()->isIntegerTy()
+         || argV->getType()->isFloatTy()
+         || argV->getType()->isDoubleTy()
+         || argV->getType()->isPointerTy())){
+            //errs() << "valid type argument\n";
+            Value *funcArg = argV;
+
+            errs() << "checking funcArg\n";
+            Value *castedArg = nullptr;
+            if(funcArg != NULL){ // FIXME do we want this check???
+                if (funcArg->getType()->isFloatTy() || funcArg->getType()->isDoubleTy()){
+                    errs() << "float or double\n";
+                    castedArg = builder.CreateFPToSI(funcArg, int32Ty);
+                }else if(funcArg->getType()->isIntegerTy()){
+                    errs() << "integer\n";
+                    castedArg = builder.CreateIntCast(funcArg, int32Ty, true);
+                }else if(funcArg->getType()->isPointerTy()){
+                    errs() << "pointer\n";
+                    castedArg = builder.CreatePtrToInt(funcArg, int32Ty);
+                }
+
+                if(castedArg == nullptr){
+                    continue;
+                }
+                ArgsV.push_back(castedArg);
+                errs() << "pushing: " << *castedArg << "\n";
+            }
+        }
+    }
+
+    ArgsV[0] = llvm::ConstantInt::get(int32Ty, ArgsV.size() - 1, false);
+
+    builder.CreateCall(debrt_profile_print_args_func, ArgsV);
+}
+
 void AdvancedRuntimeDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
 {
     //for(auto f : toplevel_funcs){
@@ -967,7 +1024,10 @@ void AdvancedRuntimeDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
                             vector<Value *> ArgsV;
                             ArgsV.push_back(ConstantInt::get(int32Ty, func_to_id[callee], false));
                             IRBuilder<> builder(CB);
-                            builder.CreateCall(debrt_protect_single_func, ArgsV);
+                            CallInst *ci = builder.CreateCall(debrt_protect_single_func, ArgsV);
+                            if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
+                                instrument_feature_print(CB, ci);
+                            }
 
                             // instrument after callee
                             if(CI){
@@ -1164,13 +1224,13 @@ bool AdvancedRuntimeDebloat::instrument_main_start(Module &M)
         }else{
             if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
                 if(F.hasName() && !F.isDeclaration()){
-                    // instrument start of function with debrt-trace
+                    // instrument start of function with debrt-profile-trace
                     vector<Value *> ArgsV;
                     Instruction *I = F.getEntryBlock().getFirstNonPHI();
                     assert(I);
                     IRBuilder<> builder(I);
                     ArgsV.push_back(ConstantInt::get(int32Ty, func_to_id[&F], false));
-                    builder.CreateCall(debrt_trace_func, ArgsV);
+                    builder.CreateCall(debrt_profile_trace_func, ArgsV);
                 }
             }
         }
@@ -1572,13 +1632,12 @@ void AdvancedRuntimeDebloat::build_toplevel_funcs(void)
 void AdvancedRuntimeDebloat::artd_init(Module &M)
 {
     // Init loop count (for handing out IDs)
+    deck_id_counter = 0;
     loop_id_counter = 0;
     sink_id_counter = 0;
 
     ENABLE_INSTRUMENTATION_SINKING = EnableInstrumentationSinking;
     errs() << "ENABLE_INSTRUMENTATION_SINKING: " << ENABLE_INSTRUMENTATION_SINKING << "\n";
-    //ENABLE_INDIRECT_CALL_SINKING = EnableIndirectCallSinking;
-    //errs() << "ENABLE_INDIRECT_CALL_SINKING: " << ENABLE_INDIRECT_CALL_SINKING << "\n";
     ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = EnableBasicIndirectCallStaticAnalysis;
     errs() << "ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS: " << ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS << "\n";
     ARTD_BUILD = parseARTDBuildOpt();
@@ -1672,10 +1731,15 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
             Function::ExternalLinkage,
             "debrt_protect_sink_end",
             M);
-    debrt_trace_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+    debrt_profile_trace_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
             Function::ExternalLinkage,
-            "debrt_trace",
+            "debrt_profile_trace",
             M);
+    debrt_profile_print_args_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+            Function::ExternalLinkage,
+            "debrt_profile_print_args",
+            M);
+
 
     // FIXME ? not sure if external weak linkage is what i want here
     ics_map_indirect_call_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
