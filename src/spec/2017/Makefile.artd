@@ -388,7 +388,7 @@ artd_pass_profile:
       --function-sections \
       -load libAdvancedRuntimeDebloat.so \
       -AdvancedRuntimeDebloat \
-      --artd_build=profile \
+      --artd-build=profile \
       < $(NUMBER).$(NAME)_ics_opt.bc \
       > $(NUMBER).$(NAME)_artd.bc
 artd_assemble:
