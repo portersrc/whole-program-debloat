@@ -846,7 +846,10 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                         IRBuilder<> builder(CB);
                         ArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
                         if(f_is_not_encompassed && block_is_outside_loop){
-                            builder.CreateCall(debrt_protect_indirect_func, ArgsV);
+                            CallInst *ci = builder.CreateCall(debrt_protect_indirect_func, ArgsV);
+                            if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
+                                instrument_feature_print(CB, NULL, ci);
+                            }
 
                             // instrument after indirect func call
                             if(CI){
@@ -945,7 +948,11 @@ void AdvancedRuntimeDebloat::instrument_feature_print(CallBase *callsite,
     errs() << "inst to follow: " << inst_to_follow << "\n";
     if(callsite){
         errs() << "callsite num args: " << callsite->arg_size() << "\n";
-        errs() << "Name of the called function: " << callsite->getCalledFunction()->getName() << "\n";
+        if(callsite->getCalledFunction()){
+            errs() << "Name of the called function: " << callsite->getCalledFunction()->getName() << "\n";
+        }else{
+            errs() << "Called func unknown (func pointer)\n";
+        }
     }else{
         errs() << "parent_func num args: " << parent_func->arg_size() << "\n";
         errs() << "Name of the parent function: " << parent_func->getName() << "\n";
