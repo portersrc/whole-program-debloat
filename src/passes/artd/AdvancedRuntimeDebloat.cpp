@@ -202,7 +202,9 @@ namespace {
         void dump_stats(void);
 
         void instrument_feature_print(CallBase *callsite,
+                                      Function *parent_func,
                                       CallInst *inst_to_follow);
+        void push_arg(Value *argV, vector<Value *> &ArgsV, IRBuilder<> &builder);
 
 
     };
@@ -603,7 +605,10 @@ void AdvancedRuntimeDebloat::instrument_loop(int func_id, Loop *loop)
         assert(TI);
         assert(debrt_protect_loop_func);
         IRBuilder<> builder(TI);
-        builder.CreateCall(debrt_protect_loop_func, ArgsV);
+        CallInst *ci = builder.CreateCall(debrt_protect_loop_func, ArgsV);
+        if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
+            instrument_feature_print(NULL, func_id_to_func[func_id], ci);
+        }
 
         //Set of functions debloated within loop (Sharjeel)
         // cporter update: added check in case 0-element case matters
@@ -901,11 +906,50 @@ void AdvancedRuntimeDebloat::instrument(void)
     }
 }
 
-void AdvancedRuntimeDebloat::instrument_feature_print(CallBase *callsite_p,
+void AdvancedRuntimeDebloat::push_arg(Value *argV, vector<Value *> &ArgsV, IRBuilder<> &builder)
+{
+    if((argV->getType()->isIntegerTy()
+     || argV->getType()->isFloatTy()
+     || argV->getType()->isDoubleTy()
+     || argV->getType()->isPointerTy())){
+        //errs() << "valid type argument\n";
+        Value *funcArg = argV;
+
+        errs() << "checking funcArg\n";
+        Value *castedArg = nullptr;
+        if(funcArg != NULL){ // FIXME do we want this check???
+            if (funcArg->getType()->isFloatTy() || funcArg->getType()->isDoubleTy()){
+                errs() << "float or double\n";
+                castedArg = builder.CreateFPToSI(funcArg, int32Ty);
+            }else if(funcArg->getType()->isIntegerTy()){
+                errs() << "integer\n";
+                castedArg = builder.CreateIntCast(funcArg, int32Ty, true);
+            }else if(funcArg->getType()->isPointerTy()){
+                errs() << "pointer\n";
+                castedArg = builder.CreatePtrToInt(funcArg, int32Ty);
+            }
+
+            if(castedArg == nullptr){
+                return;
+            }
+            ArgsV.push_back(castedArg);
+            errs() << "pushing: " << *castedArg << "\n";
+        }
+    }
+}
+
+void AdvancedRuntimeDebloat::instrument_feature_print(CallBase *callsite,
+                                                      Function *parent_func,
                                                       CallInst *inst_to_follow)
 {
     errs() << "inst to follow: " << inst_to_follow << "\n";
-    errs() << "callsite num args: " << callsite_p->arg_size() << "\n";
+    if(callsite){
+        errs() << "callsite num args: " << callsite->arg_size() << "\n";
+        errs() << "Name of the called function: " << callsite->getCalledFunction()->getName() << "\n";
+    }else{
+        errs() << "parent_func num args: " << parent_func->arg_size() << "\n";
+        errs() << "Name of the parent function: " << parent_func->getName() << "\n";
+    }
     IRBuilder<> builder(inst_to_follow);
     vector<Value *> ArgsV;
     ArgsV.push_back(llvm::ConstantInt::get(int32Ty, 0, false));
@@ -913,40 +957,18 @@ void AdvancedRuntimeDebloat::instrument_feature_print(CallBase *callsite_p,
     ArgsV.push_back(llvm::ConstantInt::get(int32Ty, deck_id_counter, false));
     deck_id_counter++;
 
-    CallBase &callsite = *callsite_p;
-    errs() << "Name of the called function: " << callsite.getCalledFunction()->getName() << "\n";
-    for(auto it_arg = callsite.arg_begin(); it_arg != callsite.arg_end(); it_arg++){
-
-        Value *argV = (Value *) *it_arg;
-        //errs() << "iterating\n";
-
-        if((argV->getType()->isIntegerTy()
-         || argV->getType()->isFloatTy()
-         || argV->getType()->isDoubleTy()
-         || argV->getType()->isPointerTy())){
-            //errs() << "valid type argument\n";
-            Value *funcArg = argV;
-
-            errs() << "checking funcArg\n";
-            Value *castedArg = nullptr;
-            if(funcArg != NULL){ // FIXME do we want this check???
-                if (funcArg->getType()->isFloatTy() || funcArg->getType()->isDoubleTy()){
-                    errs() << "float or double\n";
-                    castedArg = builder.CreateFPToSI(funcArg, int32Ty);
-                }else if(funcArg->getType()->isIntegerTy()){
-                    errs() << "integer\n";
-                    castedArg = builder.CreateIntCast(funcArg, int32Ty, true);
-                }else if(funcArg->getType()->isPointerTy()){
-                    errs() << "pointer\n";
-                    castedArg = builder.CreatePtrToInt(funcArg, int32Ty);
-                }
-
-                if(castedArg == nullptr){
-                    continue;
-                }
-                ArgsV.push_back(castedArg);
-                errs() << "pushing: " << *castedArg << "\n";
-            }
+    // FIXME no better way to do this? function and callbase live in different
+    // parts of the inheritance tree i think.
+    if(callsite){
+        for(auto it_arg = callsite->arg_begin(); it_arg != callsite->arg_end(); it_arg++){
+            push_arg((Value *) *it_arg, ArgsV, builder);
+        }
+    }else{
+        for(Function::arg_iterator it_arg = parent_func->arg_begin(); it_arg != parent_func->arg_end(); it_arg++){
+            // XXX I've tested this cast and it works. Reason, I think, is that
+            // it_arg iterates over Argument types (no pointer). And Argument
+            // is derived from Value. Hence, it_arg is a Value *.
+            push_arg((Value *) it_arg, ArgsV, builder);
         }
     }
 
@@ -1005,10 +1027,9 @@ void AdvancedRuntimeDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
                             IRBuilder<> builder(CB);
                             CallInst *ci = builder.CreateCall(debrt_protect_reachable_func, ArgsV);
                             if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
-                                instrument_feature_print(CB, ci);
+                                instrument_feature_print(CB, NULL, ci);
                             }
 
-                            // instrument after callee
                             if(CI){
                                 IRBuilder<> builder_end(CI);
                                 builder_end.SetInsertPoint(CI->getNextNode());

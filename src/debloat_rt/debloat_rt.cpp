@@ -443,7 +443,7 @@ mapped_func_node_t *deq(void)
 }
 
 static inline
-void _write_mapped_pages_to_file(int yes_stats_got_updated)
+void _write_mapped_pages_to_file(int yes_stats_got_updated, bool is_grow)
 {
 
     long long page;
@@ -451,7 +451,7 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated)
     if(ENV_DEBRT_ENABLE_STATS){
         if(yes_stats_got_updated){
             if(ENV_DEBRT_ENABLE_PROFILING){
-                fprintf(fp_mapped_pages, "T ");
+                fprintf(fp_mapped_pages, "trace ");
                 for(int func_id : trace_seen_funcs){
                     fprintf(fp_mapped_pages, "%d ", func_id);
                 }
@@ -459,6 +459,11 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated)
                 trace_seen_funcs.clear();
             }
             _stats_update_hist();
+            if(is_grow){
+                fprintf(fp_mapped_pages, "page-grow ");
+            }else{
+                fprintf(fp_mapped_pages, "page-shrink ");
+            }
             for(auto p2c : page_to_count){
                 page  = p2c.first;
                 count = p2c.second;
@@ -2067,7 +2072,7 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     assert(main_func_id == func_name_to_id["main"]);
     int rv;
     rv = update_page_counts(main_func_id, 1);
-    _write_mapped_pages_to_file(rv);
+    _write_mapped_pages_to_file(rv, true);
     if(ENV_DEBRT_ENABLE_PROFILING){
         // minor point: For this init case, we do this after
         // write-mapped-pages-to-file b/c we want the fact that we executed main to
@@ -2115,7 +2120,7 @@ int _protect_single(int callee_func_id)
             rv += update_page_counts(boomer, -1);
         }
     }
-    _write_mapped_pages_to_file(rv);
+    _write_mapped_pages_to_file(rv, true);
     return 0;
 }
 
@@ -2135,7 +2140,7 @@ int _protect_single_end(int callee_func_id)
             rv += update_page_counts(boomer, 1);
         }
     }
-    _write_mapped_pages_to_file(rv);
+    _write_mapped_pages_to_file(rv, false);
     return 0;
 }
 
@@ -2167,7 +2172,7 @@ int _protect_reachable(int callee_func_id, int addend)
     for(int reachable_func : func_id_to_reachable_funcs[callee_func_id]){
         rv += update_page_counts(reachable_func, addend);
     }
-    _write_mapped_pages_to_file(rv);
+    _write_mapped_pages_to_file(rv, addend == 1);
     DEBRT_PRINTF("leaving _protect_reachable\n");
     return 0;
 }
@@ -2197,7 +2202,7 @@ int _protect_loop_reachable(int loop_id, int addend)
     for(int reachable_func : loop_id_to_reachable_funcs[loop_id]){
         rv += update_page_counts(reachable_func, addend);
     }
-    _write_mapped_pages_to_file(rv);
+    _write_mapped_pages_to_file(rv, addend == 1);
     return 0;
 }
 extern "C" {
@@ -2334,7 +2339,7 @@ int _protect_sink(int sink_id, int addend)
     for(int func : sink_id_to_funcs[sink_id]){
         rv += update_page_counts(func, addend);
     }
-    _write_mapped_pages_to_file(rv);
+    _write_mapped_pages_to_file(rv, addend == 1);
     return 0;
 }
 extern "C" {
@@ -2387,7 +2392,7 @@ int debrt_profile_print_args(int argc, ...)
     // then a list of arguments that were passed at that
     // deck.
     //
-    fprintf(fp_mapped_pages, "P %d", va_arg(ap, int));
+    fprintf(fp_mapped_pages, "profile %d", va_arg(ap, int));
     for(i = 1; i < argc; i++){
         fprintf(fp_mapped_pages, " %d", va_arg(ap, int));
     }
