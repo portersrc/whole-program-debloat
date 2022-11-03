@@ -23,3 +23,5 @@ src/nginx/performance/time-variation/blankit-stuff
 src/size-increase/worst-case-growth/readelf-*
 src/size-increase/worst-case-growth/nm-*
 src/size-increase/*-sizes.out
+test/04_test/ics.ll
+test/04_test/linker.py
