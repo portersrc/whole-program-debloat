@@ -3,6 +3,11 @@
 void B(char *s, int two, int three);
 
 
+//void (*Z)(char *, int, int) = B;
+typedef void (*some_func_ptr_t)(char *, int, int);
+some_func_ptr_t Z = B;
+
+
 void C(char *s, int four, int five, int six)
 {
     printf("Args to C are:\n");
@@ -36,6 +41,7 @@ void A(char *s, int one, int two, int three, four)
 
 int main(void)
 {
-    A("str arg to A", 11, 101, 102, 105);
+    //A("str arg to A", 11, 101, 102, 105);
+    Z("some func ptr invocation", 4, 2);
     return 0;
 }
