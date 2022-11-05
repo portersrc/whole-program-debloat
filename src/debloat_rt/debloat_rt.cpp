@@ -2364,12 +2364,23 @@ int debrt_protect_sink_end(int sink_id)
 //
 // Receives a variable number of arguments:
 // argc: Number of args to follow.
-// Callsite ID
-// called func arg1 (optional)
-// called func arg2 (optional)
+// Deck ID
+// deck arg1 (optional)
+// deck arg2 (optional)
 // ...
-// called func argn (optional)
+// deck argn (optional)
 // 
+//
+// The output of this function starts with:
+//   profile <deck_id>
+// These are always guaranteed to be there. Then:
+//   [deck argument 1] [deck argument 2] ...
+// These arguments are optional. Note that argc holds the number of
+// arguments for the variadic function call itself. It will always hold at
+// least the deck ID. That is, it will always be >= 1; if there are 0
+// arguments to the deck, then argc=1; if there is 1 argument to the
+// deck, then argc=2; and so on.
+//
 extern "C" {
 int debrt_profile_print_args(int argc, ...)
 {
@@ -2381,17 +2392,6 @@ int debrt_profile_print_args(int argc, ...)
 
     va_start(ap, argc);
 
-    //fprintf(fp_profile_out, "%d", va_arg(ap, int));
-    //for(i = 1; i < argc; i++){
-    //    fprintf(fp_profile_out, ",%d", va_arg(ap, int));
-    //}
-    //fprintf(fp_profile_out, "\n");
-
-    //
-    // Format is P (for 'profile') then the deck ID,
-    // then a list of arguments that were passed at that
-    // deck.
-    //
     fprintf(fp_mapped_pages, "profile %d", va_arg(ap, int));
     for(i = 1; i < argc; i++){
         fprintf(fp_mapped_pages, " %d", va_arg(ap, int));
@@ -2409,5 +2409,30 @@ int debrt_profile_trace(int func_id)
     _WARN_RETURN_IF_NOT_INITIALIZED();
     trace_seen_funcs.insert(func_id);
     return 0;
+}
+}
+//
+// Very similar to debrt_profile_print_args. The main difference is that
+// we call this from the ics-indirect code, which prepares a buffer that
+// we receive here that we call varargs.
+// element 0: the number of args to follow
+// element 1: the deck ID
+// element 2: argument 1 to the indirect call, if any
+// element 3: argument 2 to the indirect call, if any
+// element m: argument n to the indirect call, if any
+//
+extern "C" {
+void debrt_profile_indirect_print_args(long long *varargs)
+{
+    int i;
+    int num_args;
+    if(ENV_DEBRT_ENABLE_PROFILING){
+        num_args = varargs[0];
+        fprintf(fp_mapped_pages, "profile");
+        for(i = 0; i < num_args; i++){
+            fprintf(fp_mapped_pages, " %lld", varargs[i+1]);
+        }
+        fprintf(fp_mapped_pages, "\n");
+    }
 }
 }
