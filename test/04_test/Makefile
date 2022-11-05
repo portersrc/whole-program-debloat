@@ -67,8 +67,9 @@ artd_pass_profile:
 artd_assemble:
 	# disassemble so we can do a hacky fix to the ics symbols
 	llvm-dis $(PROGNAME)_artd.bc
+	# this sed changed due to ics-map-indirect-call prototype change.
 	sed -i \
-      's/declare extern_weak i32 @ics_map_indirect_call.2(i64)//w sed_changes_0.txt' \
+      's/declare extern_weak i32 @ics_map_indirect_call.2(i64, ...)//w sed_changes_0.txt' \
       $(PROGNAME)_artd.ll
 	sed -i \
       's/declare extern_weak i32 @ics_wrapper_debrt_protect_loop_end.3(i32)//w sed_changes_1.txt' \
@@ -131,7 +132,7 @@ artd_profile: obj bc_artd artd_opt_stub artd_pass_profile artd_assemble artd_bin
 
 
 clean:
-	rm -f *.bc *.s a.out *.lds readelf*.out artd*.txt artd*.out debrt.out debrt*.out sed_changes*.txt $(PROGNAME)_artd_profile
+	rm -f *.bc *.s a.out *.lds readelf*.out artd*.txt artd*.out debrt.out debrt*.out sed_changes*.txt $(PROGNAME)_artd_profile $(PROGNAME)_artd.o $(PROGNAME)_artd.ll
 .PHONY: clean
 
 
