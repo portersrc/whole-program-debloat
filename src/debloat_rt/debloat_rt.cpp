@@ -443,7 +443,9 @@ mapped_func_node_t *deq(void)
 }
 
 static inline
-void _write_mapped_pages_to_file(int yes_stats_got_updated, bool is_grow)
+void _write_mapped_pages_to_file(int yes_stats_got_updated,
+                                 bool is_grow,
+                                 const string deck_type)
 {
 
     long long page;
@@ -452,9 +454,9 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated, bool is_grow)
         if(yes_stats_got_updated){
             _stats_update_hist();
             if(is_grow){
-                fprintf(fp_mapped_pages, "page-grow ");
+                fprintf(fp_mapped_pages, "page-grow-%s ", deck_type.c_str());
             }else{
-                fprintf(fp_mapped_pages, "page-shrink ");
+                fprintf(fp_mapped_pages, "page-shrink-%s ", deck_type.c_str());
             }
             for(auto p2c : page_to_count){
                 page  = p2c.first;
@@ -2072,7 +2074,7 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     assert(main_func_id == func_name_to_id["main"]);
     int rv;
     rv = update_page_counts(main_func_id, 1);
-    _write_mapped_pages_to_file(rv, true);
+    _write_mapped_pages_to_file(rv, true, "init");
     if(ENV_DEBRT_ENABLE_PROFILING){
         // minor point: For this init case, we do this after
         // write-mapped-pages-to-file b/c we want the fact that we executed main to
@@ -2104,7 +2106,7 @@ int debrt_destroy(int notused)
 }
 
 static inline
-int _protect_single(int callee_func_id)
+int _protect_single(int callee_func_id, const string deck_type)
 {
     int rv = 0;
     int boomer;
@@ -2120,12 +2122,12 @@ int _protect_single(int callee_func_id)
             rv += update_page_counts(boomer, -1);
         }
     }
-    _write_mapped_pages_to_file(rv, true);
+    _write_mapped_pages_to_file(rv, true, deck_type);
     return 0;
 }
 
 static inline
-int _protect_single_end(int callee_func_id)
+int _protect_single_end(int callee_func_id, const string deck_type)
 {
     int rv = 0;
     int boomer;
@@ -2140,7 +2142,7 @@ int _protect_single_end(int callee_func_id)
             rv += update_page_counts(boomer, 1);
         }
     }
-    _write_mapped_pages_to_file(rv, false);
+    _write_mapped_pages_to_file(rv, false, deck_type);
     return 0;
 }
 
@@ -2149,7 +2151,7 @@ int debrt_protect_single(int callee_func_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
-    return _protect_single(callee_func_id);
+    return _protect_single(callee_func_id, "single");
 }
 }
 
@@ -2159,12 +2161,12 @@ int debrt_protect_single_end(int callee_func_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
-    return _protect_single_end(callee_func_id);
+    return _protect_single_end(callee_func_id, "single");
 }
 }
 
 static inline
-int _protect_reachable(int callee_func_id, int addend)
+int _protect_reachable(int callee_func_id, int addend, const string deck_type)
 {
     int rv = 0;
     DEBRT_PRINTF("callee_func_id: %d\n", callee_func_id);
@@ -2172,7 +2174,7 @@ int _protect_reachable(int callee_func_id, int addend)
     for(int reachable_func : func_id_to_reachable_funcs[callee_func_id]){
         rv += update_page_counts(reachable_func, addend);
     }
-    _write_mapped_pages_to_file(rv, addend == 1);
+    _write_mapped_pages_to_file(rv, addend == 1, deck_type);
     DEBRT_PRINTF("leaving _protect_reachable\n");
     return 0;
 }
@@ -2181,7 +2183,7 @@ int debrt_protect_reachable(int callee_func_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
-    return _protect_reachable(callee_func_id, 1);
+    return _protect_reachable(callee_func_id, 1, "reachable");
 }
 }
 extern "C" {
@@ -2189,7 +2191,7 @@ int debrt_protect_reachable_end(int callee_func_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
-    return _protect_reachable(callee_func_id, -1);
+    return _protect_reachable(callee_func_id, -1, "reachable");
 }
 }
 
@@ -2202,7 +2204,7 @@ int _protect_loop_reachable(int loop_id, int addend)
     for(int reachable_func : loop_id_to_reachable_funcs[loop_id]){
         rv += update_page_counts(reachable_func, addend);
     }
-    _write_mapped_pages_to_file(rv, addend == 1);
+    _write_mapped_pages_to_file(rv, addend == 1, "loop");
     return 0;
 }
 extern "C" {
@@ -2226,9 +2228,9 @@ int debrt_protect_loop_end(int loop_id)
     // matter here.
     for(int func_id : ics_set){
         if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
-            _protect_reachable(func_id, -1); // ignoring return value
+            _protect_reachable(func_id, -1, "reachable-loop"); // ignoring return value
         }else{
-            _protect_single_end(func_id); // ignoring return value
+            _protect_single_end(func_id, "single-loop"); // ignoring return value
         }
     }
     ics_set.clear();
@@ -2293,10 +2295,10 @@ int debrt_protect_indirect(long long callee_addr)
 
     if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
         // encompassed function
-        return _protect_reachable(func_id, 1);
+        return _protect_reachable(func_id, 1, "reachable-indirect");
     }
     // top-level function
-    return _protect_single(func_id);
+    return _protect_single(func_id, "single-indirect");
 }
 }
 
@@ -2314,10 +2316,10 @@ int _protect_indirect_end(long long callee_addr)
     ics_set.clear();
     if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
         // encompassed function
-        return _protect_reachable(func_id, -1);
+        return _protect_reachable(func_id, -1, "reachable-indirect");
     }
     // top-level function
-    return _protect_single_end(func_id);
+    return _protect_single_end(func_id, "single-indirect");
 }
 
 extern "C" {
@@ -2339,7 +2341,7 @@ int _protect_sink(int sink_id, int addend)
     for(int func : sink_id_to_funcs[sink_id]){
         rv += update_page_counts(func, addend);
     }
-    _write_mapped_pages_to_file(rv, addend == 1);
+    _write_mapped_pages_to_file(rv, addend == 1, "sink-DEPRECATED");
     return 0;
 }
 extern "C" {
