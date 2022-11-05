@@ -376,6 +376,14 @@ artd_opt:
       -loop-simplify \
       < $(NUMBER).$(NAME)_ics.bc \
       > $(NUMBER).$(NAME)_ics_opt.bc
+hack:
+	opt \
+      --function-sections \
+      -load libAdvancedRuntimeDebloat.so \
+      -AdvancedRuntimeDebloat \
+      --artd-build=profile \
+      < $(NUMBER).$(NAME)_ics_opt.bc \
+      > $(NUMBER).$(NAME)_artd.bc
 artd_pass:
 	opt \
       --function-sections \
@@ -394,8 +402,9 @@ artd_pass_profile:
 artd_assemble:
 	# disassemble so we can do a hacky fix to the ics symbols
 	llvm-dis $(NUMBER).$(NAME)_artd.bc
+	# this sed changed due to ics-map-indirect-call prototype change.
 	sed -i \
-      's/declare extern_weak i32 @ics_map_indirect_call.2(i64)//w sed_changes_0.txt' \
+      's/declare extern_weak i32 @ics_map_indirect_call.2(i64, ...)//w sed_changes_0.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
       's/declare extern_weak i32 @ics_wrapper_debrt_protect_loop_end.3(i32)//w sed_changes_1.txt' \
