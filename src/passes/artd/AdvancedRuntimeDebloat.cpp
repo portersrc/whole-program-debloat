@@ -204,7 +204,10 @@ namespace {
         void instrument_feature_print(CallBase *callsite,
                                       Function *parent_func,
                                       CallInst *inst_to_follow);
-        void push_arg(Value *argV, vector<Value *> &ArgsV, IRBuilder<> &builder);
+        void push_arg(Value *argV, vector<Value *> &ArgsV, IRBuilder<> &builder, bool is_64);
+        void fix_up_argsv_for_indirect(CallBase *CB,
+                                       vector<Value *> &ArgsV,
+                                       IRBuilder<> &builder);
 
 
     };
@@ -812,6 +815,43 @@ void AdvancedRuntimeDebloat::instrument_after_invoke(InvokeInst *II,
 }
 
 
+void AdvancedRuntimeDebloat::fix_up_argsv_for_indirect(CallBase *CB,
+                                                       vector<Value *> &ArgsV,
+                                                       IRBuilder<> &builder)
+{
+    // ArgsV currently just has the target address of the function pointer,
+    // which resides at element 0.
+    assert(ArgsV.size() == 1);
+
+    // We want ArgsV to have:
+    // element 0: argc
+    // element 1: fp-addr
+    // element 2: deck-id
+    // element 3: deck arg0 (optional)
+    // element 4: deck arg1 (optional)
+    // element m: deck argn (optional)
+    //
+    // In this case the deck args are arguments to the function pointer.
+
+    // element 1 gets the fp-addr (which is at element 0 for now).
+    ArgsV.push_back(ArgsV[0]);
+
+    // element 2 gets the deck ID
+    ArgsV.push_back(llvm::ConstantInt::get(int64Ty, deck_id_counter, false));
+    deck_id_counter++;
+
+    // remaining elements are arguments to the function pointer call
+    for(auto it_arg = CB->arg_begin(); it_arg != CB->arg_end(); it_arg++){
+        push_arg((Value *) *it_arg, ArgsV, builder, true);
+    }
+
+    // element 0 is number of elements that follow
+    // Notice that it should always be >=2 (b/c of fp-addr and deck id).
+    assert((ArgsV.size() - 1) >= 2);
+    ArgsV[0] = llvm::ConstantInt::get(int64Ty, ArgsV.size() - 1, false);
+}
+
+
 void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopInfo *LI)
 {
     errs() << "Instrumenting indirect and external for " << f->getName().str() << "\n";
@@ -863,6 +903,10 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                                 assert(0);
                             }
                         }else{
+                            // XXX all ics_map_indirect_call invocations
+                            //if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
+                                fix_up_argsv_for_indirect(CB, ArgsV, builder);
+                            //}
                             builder.CreateCall(ics_map_indirect_call_func, ArgsV);
                             // Note: we only instrument after the
                             // indirect call if we are not inside an
@@ -909,7 +953,7 @@ void AdvancedRuntimeDebloat::instrument(void)
     }
 }
 
-void AdvancedRuntimeDebloat::push_arg(Value *argV, vector<Value *> &ArgsV, IRBuilder<> &builder)
+void AdvancedRuntimeDebloat::push_arg(Value *argV, vector<Value *> &ArgsV, IRBuilder<> &builder, bool is_64)
 {
     if((argV->getType()->isIntegerTy()
      || argV->getType()->isFloatTy()
@@ -923,13 +967,25 @@ void AdvancedRuntimeDebloat::push_arg(Value *argV, vector<Value *> &ArgsV, IRBui
         if(funcArg != NULL){ // FIXME do we want this check???
             if (funcArg->getType()->isFloatTy() || funcArg->getType()->isDoubleTy()){
                 errs() << "float or double\n";
-                castedArg = builder.CreateFPToSI(funcArg, int32Ty);
+                if(is_64){
+                    castedArg = builder.CreateFPToSI(funcArg, int64Ty);
+                }else{
+                    castedArg = builder.CreateFPToSI(funcArg, int32Ty);
+                }
             }else if(funcArg->getType()->isIntegerTy()){
                 errs() << "integer\n";
-                castedArg = builder.CreateIntCast(funcArg, int32Ty, true);
+                if(is_64){
+                    castedArg = builder.CreateIntCast(funcArg, int64Ty, true);
+                }else{
+                    castedArg = builder.CreateIntCast(funcArg, int32Ty, true);
+                }
             }else if(funcArg->getType()->isPointerTy()){
                 errs() << "pointer\n";
-                castedArg = builder.CreatePtrToInt(funcArg, int32Ty);
+                if(is_64){
+                    castedArg = builder.CreatePtrToInt(funcArg, int64Ty);
+                }else{
+                    castedArg = builder.CreatePtrToInt(funcArg, int32Ty);
+                }
             }
 
             if(castedArg == nullptr){
@@ -968,14 +1024,14 @@ void AdvancedRuntimeDebloat::instrument_feature_print(CallBase *callsite,
     // parts of the inheritance tree i think.
     if(callsite){
         for(auto it_arg = callsite->arg_begin(); it_arg != callsite->arg_end(); it_arg++){
-            push_arg((Value *) *it_arg, ArgsV, builder);
+            push_arg((Value *) *it_arg, ArgsV, builder, false);
         }
     }else{
         for(Function::arg_iterator it_arg = parent_func->arg_begin(); it_arg != parent_func->arg_end(); it_arg++){
             // XXX I've tested this cast and it works. Reason, I think, is that
             // it_arg iterates over Argument types (no pointer). And Argument
             // is derived from Value. Hence, it_arg is a Value *.
-            push_arg((Value *) it_arg, ArgsV, builder);
+            push_arg((Value *) it_arg, ArgsV, builder, false);
         }
     }
 
@@ -1213,7 +1269,19 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
         // on-the-fly. See also note in build_basic_structs.
         vector<Value *> ArgsV;
         IRBuilder<> builder(CB_external_call);
+
+        // Use the new vararg approach to ics-map-indirect-call.
+        // First argument is number of args to follow -- 2 in this case.
+        // Second is the function pointer target address.
+        // Third is a decker ID counter.
+        // TODO We could pass arguments -- perhaps to the external call itself,
+        // but we'll ignore that for now. It could potentially help
+        // predict which functions to enable after the callback hits.
+        ArgsV.push_back(llvm::ConstantInt::get(int64Ty, 2, false));
         ArgsV.push_back(builder.CreatePtrToInt(callback, int64Ty));
+        ArgsV.push_back(llvm::ConstantInt::get(int64Ty, deck_id_counter, false));
+        deck_id_counter++;
+
         builder.CreateCall(ics_map_indirect_call_func, ArgsV);
         // Note: As with other inlined indirect call instrumentation that
         // is inside some interprocedural loop, we do not instrument after
@@ -1770,7 +1838,7 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
 
 
     // FIXME ? not sure if external weak linkage is what i want here
-    ics_map_indirect_call_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
+    ics_map_indirect_call_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
             Function::ExternalWeakLinkage,
             "ics_map_indirect_call",
             M);
