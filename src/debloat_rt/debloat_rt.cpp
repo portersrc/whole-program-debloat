@@ -450,14 +450,6 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated, bool is_grow)
     int count;
     if(ENV_DEBRT_ENABLE_STATS){
         if(yes_stats_got_updated){
-            if(ENV_DEBRT_ENABLE_PROFILING){
-                fprintf(fp_mapped_pages, "trace ");
-                for(int func_id : trace_seen_funcs){
-                    fprintf(fp_mapped_pages, "%d ", func_id);
-                }
-                fprintf(fp_mapped_pages, "\n");
-                trace_seen_funcs.clear();
-            }
             _stats_update_hist();
             if(is_grow){
                 fprintf(fp_mapped_pages, "page-grow ");
@@ -472,6 +464,14 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated, bool is_grow)
                 }
             }
             fprintf(fp_mapped_pages, "\n");
+            if(ENV_DEBRT_ENABLE_PROFILING){
+                fprintf(fp_mapped_pages, "trace ");
+                for(int func_id : trace_seen_funcs){
+                    fprintf(fp_mapped_pages, "%d ", func_id);
+                }
+                fprintf(fp_mapped_pages, "\n");
+                trace_seen_funcs.clear();
+            }
         }
     }
 }
@@ -2386,19 +2386,20 @@ int debrt_profile_print_args(int argc, ...)
 {
     int i;
     va_list ap;
+    if(ENV_DEBRT_ENABLE_PROFILING){
+        DEBRT_PRINTF("%s\n", __FUNCTION__);
+        _WARN_RETURN_IF_NOT_INITIALIZED();
 
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
-    _WARN_RETURN_IF_NOT_INITIALIZED();
+        va_start(ap, argc);
 
-    va_start(ap, argc);
+        fprintf(fp_mapped_pages, "profile %d", va_arg(ap, int));
+        for(i = 1; i < argc; i++){
+            fprintf(fp_mapped_pages, " %d", va_arg(ap, int));
+        }
+        fprintf(fp_mapped_pages, "\n");
 
-    fprintf(fp_mapped_pages, "profile %d", va_arg(ap, int));
-    for(i = 1; i < argc; i++){
-        fprintf(fp_mapped_pages, " %d", va_arg(ap, int));
+        va_end(ap);
     }
-    fprintf(fp_mapped_pages, "\n");
-
-    va_end(ap);
     return 0;
 }
 }
