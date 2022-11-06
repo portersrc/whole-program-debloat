@@ -11,7 +11,7 @@ target triple = "x86_64-unknown-linux-gnu"
 @.str = private unnamed_addr constant [10 x i8] c"argc >= 2\00", align 1
 @.str.1 = private unnamed_addr constant [8 x i8] c"ics.cpp\00", align 1
 @__PRETTY_FUNCTION__.ics_map_indirect_call = private unnamed_addr constant [42 x i8] c"int ics_map_indirect_call(long long, ...)\00", align 1
-@.str.2 = private unnamed_addr constant [50 x i8] c"(argc-1) <= INDIRECT_CALL_STATIC_VARARG_STATIC_SZ\00", align 1
+@.str.2 = private unnamed_addr constant [46 x i8] c"argc <= INDIRECT_CALL_STATIC_VARARG_STATIC_SZ\00", align 1
 
 ; Function Attrs: alwaysinline uwtable
 define i32 @ics_map_indirect_call(i64 %argc, ...) #0 {
@@ -104,15 +104,14 @@ cond.false:                                       ; preds = %if.end
 
 cond.end:                                         ; preds = %17, %cond.true
   %18 = load i64, i64* %argc.addr, align 8
-  %sub = sub nsw i64 %18, 1
-  %cmp11 = icmp sle i64 %sub, 512
+  %cmp11 = icmp sle i64 %18, 512
   br i1 %cmp11, label %cond.true12, label %cond.false13
 
 cond.true12:                                      ; preds = %cond.end
   br label %cond.end14
 
 cond.false13:                                     ; preds = %cond.end
-  call void @__assert_fail(i8* getelementptr inbounds ([50 x i8], [50 x i8]* @.str.2, i64 0, i64 0), i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str.1, i64 0, i64 0), i32 66, i8* getelementptr inbounds ([42 x i8], [42 x i8]* @__PRETTY_FUNCTION__.ics_map_indirect_call, i64 0, i64 0)) #5
+  call void @__assert_fail(i8* getelementptr inbounds ([46 x i8], [46 x i8]* @.str.2, i64 0, i64 0), i8* getelementptr inbounds ([8 x i8], [8 x i8]* @.str.1, i64 0, i64 0), i32 65, i8* getelementptr inbounds ([42 x i8], [42 x i8]* @__PRETTY_FUNCTION__.ics_map_indirect_call, i64 0, i64 0)) #5
   unreachable
 
 19:                                               ; No predecessors!
@@ -120,81 +119,83 @@ cond.false13:                                     ; preds = %cond.end
 
 cond.end14:                                       ; preds = %19, %cond.true12
   %20 = load i64, i64* %argc.addr, align 8
-  %sub15 = sub nsw i64 %20, 1
-  store i64 %sub15, i64* getelementptr inbounds ([512 x i64], [512 x i64]* @indirect_call_static_vararg_stack, i64 0, i64 0), align 16
+  store i64 %20, i64* getelementptr inbounds ([512 x i64], [512 x i64]* @indirect_call_static_vararg_stack, i64 0, i64 0), align 16
+  %21 = load i64, i64* %fp_addr, align 8
+  store i64 %21, i64* getelementptr inbounds ([512 x i64], [512 x i64]* @indirect_call_static_vararg_stack, i64 0, i64 1), align 8
   store i32 1, i32* %i, align 4
   br label %for.cond
 
 for.cond:                                         ; preds = %for.inc, %cond.end14
-  %21 = load i32, i32* %i, align 4
-  %conv = sext i32 %21 to i64
-  %22 = load i64, i64* %argc.addr, align 8
-  %cmp16 = icmp slt i64 %conv, %22
-  br i1 %cmp16, label %for.body, label %for.end
+  %22 = load i32, i32* %i, align 4
+  %conv = sext i32 %22 to i64
+  %23 = load i64, i64* %argc.addr, align 8
+  %cmp15 = icmp slt i64 %conv, %23
+  br i1 %cmp15, label %for.body, label %for.end
 
 for.body:                                         ; preds = %for.cond
-  %arraydecay17 = getelementptr inbounds [1 x %struct.__va_list_tag], [1 x %struct.__va_list_tag]* %ap, i64 0, i64 0
-  %gp_offset_p18 = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %arraydecay17, i32 0, i32 0
-  %gp_offset19 = load i32, i32* %gp_offset_p18, align 16
-  %fits_in_gp20 = icmp ule i32 %gp_offset19, 40
-  br i1 %fits_in_gp20, label %vaarg.in_reg21, label %vaarg.in_mem23
+  %arraydecay16 = getelementptr inbounds [1 x %struct.__va_list_tag], [1 x %struct.__va_list_tag]* %ap, i64 0, i64 0
+  %gp_offset_p17 = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %arraydecay16, i32 0, i32 0
+  %gp_offset18 = load i32, i32* %gp_offset_p17, align 16
+  %fits_in_gp19 = icmp ule i32 %gp_offset18, 40
+  br i1 %fits_in_gp19, label %vaarg.in_reg20, label %vaarg.in_mem22
 
-vaarg.in_reg21:                                   ; preds = %for.body
-  %23 = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %arraydecay17, i32 0, i32 3
-  %reg_save_area22 = load i8*, i8** %23, align 16
-  %24 = getelementptr i8, i8* %reg_save_area22, i32 %gp_offset19
-  %25 = bitcast i8* %24 to i64*
-  %26 = add i32 %gp_offset19, 8
-  store i32 %26, i32* %gp_offset_p18, align 16
-  br label %vaarg.end27
+vaarg.in_reg20:                                   ; preds = %for.body
+  %24 = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %arraydecay16, i32 0, i32 3
+  %reg_save_area21 = load i8*, i8** %24, align 16
+  %25 = getelementptr i8, i8* %reg_save_area21, i32 %gp_offset18
+  %26 = bitcast i8* %25 to i64*
+  %27 = add i32 %gp_offset18, 8
+  store i32 %27, i32* %gp_offset_p17, align 16
+  br label %vaarg.end26
 
-vaarg.in_mem23:                                   ; preds = %for.body
-  %overflow_arg_area_p24 = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %arraydecay17, i32 0, i32 2
-  %overflow_arg_area25 = load i8*, i8** %overflow_arg_area_p24, align 8
-  %27 = bitcast i8* %overflow_arg_area25 to i64*
-  %overflow_arg_area.next26 = getelementptr i8, i8* %overflow_arg_area25, i32 8
-  store i8* %overflow_arg_area.next26, i8** %overflow_arg_area_p24, align 8
-  br label %vaarg.end27
+vaarg.in_mem22:                                   ; preds = %for.body
+  %overflow_arg_area_p23 = getelementptr inbounds %struct.__va_list_tag, %struct.__va_list_tag* %arraydecay16, i32 0, i32 2
+  %overflow_arg_area24 = load i8*, i8** %overflow_arg_area_p23, align 8
+  %28 = bitcast i8* %overflow_arg_area24 to i64*
+  %overflow_arg_area.next25 = getelementptr i8, i8* %overflow_arg_area24, i32 8
+  store i8* %overflow_arg_area.next25, i8** %overflow_arg_area_p23, align 8
+  br label %vaarg.end26
 
-vaarg.end27:                                      ; preds = %vaarg.in_mem23, %vaarg.in_reg21
-  %vaarg.addr28 = phi i64* [ %25, %vaarg.in_reg21 ], [ %27, %vaarg.in_mem23 ]
-  %28 = load i64, i64* %vaarg.addr28, align 8
-  %29 = load i32, i32* %i, align 4
-  %idxprom = sext i32 %29 to i64
-  %arrayidx29 = getelementptr inbounds [512 x i64], [512 x i64]* @indirect_call_static_vararg_stack, i64 0, i64 %idxprom
-  store i64 %28, i64* %arrayidx29, align 8
+vaarg.end26:                                      ; preds = %vaarg.in_mem22, %vaarg.in_reg20
+  %vaarg.addr27 = phi i64* [ %26, %vaarg.in_reg20 ], [ %28, %vaarg.in_mem22 ]
+  %29 = load i64, i64* %vaarg.addr27, align 8
+  %30 = load i32, i32* %i, align 4
+  %add = add nsw i32 %30, 1
+  %idxprom = sext i32 %add to i64
+  %arrayidx28 = getelementptr inbounds [512 x i64], [512 x i64]* @indirect_call_static_vararg_stack, i64 0, i64 %idxprom
+  store i64 %29, i64* %arrayidx28, align 8
   br label %for.inc
 
-for.inc:                                          ; preds = %vaarg.end27
-  %30 = load i32, i32* %i, align 4
-  %inc = add nsw i32 %30, 1
+for.inc:                                          ; preds = %vaarg.end26
+  %31 = load i32, i32* %i, align 4
+  %inc = add nsw i32 %31, 1
   store i32 %inc, i32* %i, align 4
   br label %for.cond
 
 for.end:                                          ; preds = %for.cond
-  %arraydecay30 = getelementptr inbounds [1 x %struct.__va_list_tag], [1 x %struct.__va_list_tag]* %ap, i64 0, i64 0
-  %arraydecay3031 = bitcast %struct.__va_list_tag* %arraydecay30 to i8*
-  call void @llvm.va_end(i8* %arraydecay3031)
+  %arraydecay29 = getelementptr inbounds [1 x %struct.__va_list_tag], [1 x %struct.__va_list_tag]* %ap, i64 0, i64 0
+  %arraydecay2930 = bitcast %struct.__va_list_tag* %arraydecay29 to i8*
+  call void @llvm.va_end(i8* %arraydecay2930)
   %call = call i32 @debrt_profile_indirect_print_args(i64* getelementptr inbounds ([512 x i64], [512 x i64]* @indirect_call_static_vararg_stack, i64 0, i64 0))
-  %31 = load i64, i64* %fp_addr, align 8
-  %call32 = call i32 @debrt_protect_indirect(i64 %31)
-  %cmp33 = icmp eq i32 %call32, 0
-  br i1 %cmp33, label %if.then34, label %if.end36
-
-if.then34:                                        ; preds = %for.end
   %32 = load i64, i64* %fp_addr, align 8
-  %33 = load i64, i64* %x, align 8
-  %arrayidx35 = getelementptr inbounds [1048576 x i64], [1048576 x i64]* @cached_fp_addrs, i64 0, i64 %33
-  store i64 %32, i64* %arrayidx35, align 8
-  br label %if.end36
+  %call31 = call i32 @debrt_protect_indirect(i64 %32)
+  %cmp32 = icmp eq i32 %call31, 0
+  br i1 %cmp32, label %if.then33, label %if.end35
 
-if.end36:                                         ; preds = %if.then34, %for.end
+if.then33:                                        ; preds = %for.end
+  %33 = load i64, i64* %fp_addr, align 8
+  %34 = load i64, i64* %x, align 8
+  %arrayidx34 = getelementptr inbounds [1048576 x i64], [1048576 x i64]* @cached_fp_addrs, i64 0, i64 %34
+  store i64 %33, i64* %arrayidx34, align 8
+  br label %if.end35
+
+if.end35:                                         ; preds = %if.then33, %for.end
   store i32 0, i32* %retval, align 4
   br label %return
 
-return:                                           ; preds = %if.end36, %if.then
-  %34 = load i32, i32* %retval, align 4
-  ret i32 %34
+return:                                           ; preds = %if.end35, %if.then
+  %35 = load i32, i32* %retval, align 4
+  ret i32 %35
 }
 
 ; Function Attrs: nounwind

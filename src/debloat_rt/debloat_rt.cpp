@@ -2428,11 +2428,12 @@ extern "C" {
 void debrt_profile_indirect_print_args(long long *varargs)
 {
     int i;
-    int num_args;
+    long long num_args;
     if(ENV_DEBRT_ENABLE_PROFILING){
         num_args = varargs[0];
+        long long fp_addr  = varargs[1];
         fprintf(fp_mapped_pages, "profile");
-        for(i = 0; i < num_args; i++){
+        for(i = 1; i < num_args; i++){
             fprintf(fp_mapped_pages, " %lld", varargs[i+1]);
         }
         fprintf(fp_mapped_pages, "\n");

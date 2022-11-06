@@ -60,21 +60,21 @@ int ics_map_indirect_call(long long argc, ...)
     // Make sure we have enough buffer space.
     // We need enough space to hold all the arguments,
     // which would be:
-    //   argc-1 <= INDIRECT_CALL_STATIC_VARARG_STATIC_SZ
-    // because we don't put the functoin pointer address in there.
+    //   argc <= INDIRECT_CALL_STATIC_VARARG_STATIC_SZ
     // FIXME... yeah dont assert here in a real version of this.
-    assert((argc-1) <= INDIRECT_CALL_STATIC_VARARG_STATIC_SZ);
+    assert(argc <= INDIRECT_CALL_STATIC_VARARG_STATIC_SZ);
 
     // Element 0 of this vararg_stack will hold the number of elements to
-    // follow. It's equivalent to argc minus 1, b/c we're not putting
-    // the function pointer target address in here.
-    indirect_call_static_vararg_stack[0] = argc-1;
+    // follow. It's equivalent to argc.
+    indirect_call_static_vararg_stack[0] = argc;
+    // push the fp-addr in first.
+    indirect_call_static_vararg_stack[1] = fp_addr;
 
     // Start at i = 1, because we've already "popped" fp_addr from the valist.
     // Note that on this first iteration, va_arg is going to return to us
-    // the deck ID, and it will go into i=1 for our vararg_stack (as desired).
+    // the deck ID, and it will go into idx 2 for our vararg_stack (as desired).
     for(i = 1; i < argc; i++){
-        indirect_call_static_vararg_stack[i] = va_arg(ap, long long);
+        indirect_call_static_vararg_stack[i+1] = va_arg(ap, long long);
     }
     va_end(ap);
 
