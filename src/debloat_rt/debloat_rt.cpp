@@ -453,6 +453,22 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated,
     if(ENV_DEBRT_ENABLE_STATS){
         if(yes_stats_got_updated){
             _stats_update_hist();
+            // XXX Note, trace output is a func-id. page-grow/shrink is a
+            // page offset.
+            //
+            // Also, "trace" is history, basically. So we dump it before giving
+            // info about a page-grow/shrink step. This makes the logs a little
+            // more intuitive. It means that the trace output that you see
+            // between page-grow and page-shrink is the list of func IDs that
+            // got executed within that deck.
+            if(ENV_DEBRT_ENABLE_PROFILING){
+                fprintf(fp_mapped_pages, "trace ");
+                for(int func_id : trace_seen_funcs){
+                    fprintf(fp_mapped_pages, "%d ", func_id);
+                }
+                fprintf(fp_mapped_pages, "\n");
+                trace_seen_funcs.clear();
+            }
             if(is_grow){
                 fprintf(fp_mapped_pages, "page-grow-%s ", deck_type.c_str());
             }else{
@@ -466,14 +482,6 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated,
                 }
             }
             fprintf(fp_mapped_pages, "\n");
-            if(ENV_DEBRT_ENABLE_PROFILING){
-                fprintf(fp_mapped_pages, "trace ");
-                for(int func_id : trace_seen_funcs){
-                    fprintf(fp_mapped_pages, "%d ", func_id);
-                }
-                fprintf(fp_mapped_pages, "\n");
-                trace_seen_funcs.clear();
-            }
         }
     }
 }
@@ -2432,7 +2440,7 @@ void debrt_profile_indirect_print_args(long long *varargs)
     if(ENV_DEBRT_ENABLE_PROFILING){
         num_args = varargs[0];
         long long fp_addr  = varargs[1];
-        fprintf(fp_mapped_pages, "profile");
+        fprintf(fp_mapped_pages, "profile-indirect");
         for(i = 1; i < num_args; i++){
             fprintf(fp_mapped_pages, " %lld", varargs[i+1]);
         }
