@@ -37,6 +37,7 @@ int debrt_protect_sink_end(int sink_id);
 int debrt_profile_trace(int func_id);
 int debrt_profile_print_args(int argc, ...);
 int debrt_profile_indirect_print_args(long long *varargs);
+int debrt_profile_update_recorded_funcs(int and_dump);
 
 }
 

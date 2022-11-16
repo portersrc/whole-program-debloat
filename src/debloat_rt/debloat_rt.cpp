@@ -24,7 +24,6 @@ int debrt_decision_tree(const int *feature_vector) { return 0; }
 
 
 
-
 using namespace std;
 
 //#define DEBRT_DEBUG
@@ -63,7 +62,7 @@ int ENV_DEBRT_ENABLE_PROFILING = 0;
 
 #define _WARN_RETURN_IF_NOT_INITIALIZED() \
     if(!lib_initialized){ \
-        fprintf(stderr, "WARNING: debrt-protect called before lib was initialized." \
+        fprintf(stderr, "WARNING: debrt-protect called before lib was initialized. " \
                         "Ignoring debrt-protect call. (This may be OK if this " \
                         "happens at start-up due to an instrumented C++ " \
                         "constructor before main.)\n"); \
@@ -176,7 +175,7 @@ set<int>    ptd_to_func_ids;
 
 map<long long, int> page_to_count;
 
-set<int> trace_seen_funcs;
+vector<set<int> *> recorded_funcs_stack;
 
 
 int *stats_hist;
@@ -453,22 +452,6 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated,
     if(ENV_DEBRT_ENABLE_STATS){
         if(yes_stats_got_updated){
             _stats_update_hist();
-            // XXX Note, trace output is a func-id. page-grow/shrink is a
-            // page offset.
-            //
-            // Also, "trace" is history, basically. So we dump it before giving
-            // info about a page-grow/shrink step. This makes the logs a little
-            // more intuitive. It means that the trace output that you see
-            // between page-grow and page-shrink is the list of func IDs that
-            // got executed within that deck.
-            if(ENV_DEBRT_ENABLE_PROFILING){
-                fprintf(fp_mapped_pages, "trace ");
-                for(int func_id : trace_seen_funcs){
-                    fprintf(fp_mapped_pages, "%d ", func_id);
-                }
-                fprintf(fp_mapped_pages, "\n");
-                trace_seen_funcs.clear();
-            }
             if(is_grow){
                 fprintf(fp_mapped_pages, "page-grow-%s ", deck_type.c_str());
             }else{
@@ -2083,13 +2066,13 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     int rv;
     rv = update_page_counts(main_func_id, 1);
     _write_mapped_pages_to_file(rv, true, "init");
-    if(ENV_DEBRT_ENABLE_PROFILING){
-        // minor point: For this init case, we do this after
-        // write-mapped-pages-to-file b/c we want the fact that we executed main to
-        // be in the next write-mapped-pages-to-file output.
-        int debrt_profile_trace(int);
-        debrt_profile_trace(main_func_id);
-    }
+    //if(ENV_DEBRT_ENABLE_PROFILING){
+    //    // minor point: For this init case, we do this after
+    //    // write-mapped-pages-to-file b/c we want the fact that we executed main to
+    //    // be in the next write-mapped-pages-to-file output.
+    //    int debrt_profile_trace(int);
+    //    debrt_profile_trace(main_func_id);
+    //}
 
     if(ENV_DEBRT_ENABLE_PROFILING){
         _profile_init();
@@ -2109,6 +2092,48 @@ int debrt_destroy(int notused)
     if(ENV_DEBRT_ENABLE_PROFILING){
         _write_func_id_to_pages();
     }
+    return 0;
+}
+}
+
+extern "C" {
+int debrt_profile_update_recorded_funcs(int new_pop_popanddump)
+{
+
+
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+    set<int> *recorded_funcs;
+
+    if(!ENV_DEBRT_ENABLE_PROFILING){
+        assert(0 && "Dump-and-pop recorded funcs should only be instrumented " \
+                    "and invoked when DEBRT_ENABLE_PROFILING is set.");
+    }
+
+    if(new_pop_popanddump == 0){
+        DEBRT_PRINTF("recorded_funcs_stack is adding new set\n");
+        recorded_funcs_stack.push_back(new set<int>());
+    }else{
+        DEBRT_PRINTF("recorded_funcs_stack is peeking at back\n");
+        recorded_funcs = recorded_funcs_stack.back();
+
+        if(new_pop_popanddump == 2){
+            DEBRT_PRINTF("recorded_funcs_stack back element is being written to file\n");
+            fprintf(fp_mapped_pages, "recorded-func-ids ");
+            for(int func_id : (*recorded_funcs)){
+                fprintf(fp_mapped_pages, "%d ", func_id);
+            }
+            fprintf(fp_mapped_pages, "\n");
+        }else{
+            assert(new_pop_popanddump == 1 && "ERROR: unexpected value for new_pop_popanddump (should be 0, 1, or 2)");
+        }
+
+        DEBRT_PRINTF("recorded_funcs_stack is popping and deleting back\n");
+        recorded_funcs_stack.pop_back();
+        delete recorded_funcs;
+
+    }
+
     return 0;
 }
 }
@@ -2174,13 +2199,32 @@ int debrt_protect_single_end(int callee_func_id)
 }
 
 static inline
-int _protect_reachable(int callee_func_id, int addend, const string deck_type)
+int _protect_reachable(int callee_func_id,
+                       int addend,
+                       const string deck_type,
+                       int ics_hack)
 {
     int rv = 0;
     DEBRT_PRINTF("callee_func_id: %d\n", callee_func_id);
     rv += update_page_counts(callee_func_id, addend);
     for(int reachable_func : func_id_to_reachable_funcs[callee_func_id]){
         rv += update_page_counts(reachable_func, addend);
+    }
+    // Regarding ics_hack: We don't want to pop/dump if _protect_reachable is
+    // getting used to fix up ics-related pages.
+    // This is currently being done by debrt_protect_loop_end().
+    // In other words, when debrt-protect-loop-end tries to fix up the page
+    // mappings that occurred due to ICS (and which it relies on _protect_reachable
+    // to do), we don't want to inadvertently modify or dump anything from the
+    // recorded_funcs_stack()
+    if(ENV_DEBRT_ENABLE_PROFILING && !ics_hack){
+        if(addend == 1){
+            DEBRT_PRINTF("recorded_funcs_stack (_protect_reachable) is pushing new set\n");
+            debrt_profile_update_recorded_funcs(0/*new set*/);
+        }else{
+            DEBRT_PRINTF("recorded_funcs_stack (_protect_reachable) will pop and dump\n");
+            debrt_profile_update_recorded_funcs(2/*pop and_dump*/);
+        }
     }
     _write_mapped_pages_to_file(rv, addend == 1, deck_type);
     DEBRT_PRINTF("leaving _protect_reachable\n");
@@ -2191,7 +2235,7 @@ int debrt_protect_reachable(int callee_func_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
-    return _protect_reachable(callee_func_id, 1, "reachable");
+    return _protect_reachable(callee_func_id, 1, "reachable", 0);
 }
 }
 extern "C" {
@@ -2199,7 +2243,7 @@ int debrt_protect_reachable_end(int callee_func_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
-    return _protect_reachable(callee_func_id, -1, "reachable");
+    return _protect_reachable(callee_func_id, -1, "reachable", 0);
 }
 }
 
@@ -2211,6 +2255,15 @@ int _protect_loop_reachable(int loop_id, int addend)
     DEBRT_PRINTF("loop id: %d\n", loop_id);
     for(int reachable_func : loop_id_to_reachable_funcs[loop_id]){
         rv += update_page_counts(reachable_func, addend);
+    }
+    if(ENV_DEBRT_ENABLE_PROFILING){
+        if(addend == 1){
+            DEBRT_PRINTF("recorded_funcs_stack (_protect_loop_reachable) is pushing new set\n");
+            debrt_profile_update_recorded_funcs(0/*new set*/);
+        }else{
+            DEBRT_PRINTF("recorded_funcs_stack (_protect_loop_reachable) will pop and dump\n");
+            debrt_profile_update_recorded_funcs(2/*pop and_dump*/);
+        }
     }
     _write_mapped_pages_to_file(rv, addend == 1, "loop");
     return 0;
@@ -2236,7 +2289,7 @@ int debrt_protect_loop_end(int loop_id)
     // matter here.
     for(int func_id : ics_set){
         if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
-            _protect_reachable(func_id, -1, "reachable-loop"); // ignoring return value
+            _protect_reachable(func_id, -1, "reachable-loop", 1); // ignoring return value
         }else{
             _protect_single_end(func_id, "single-loop"); // ignoring return value
         }
@@ -2303,7 +2356,7 @@ int debrt_protect_indirect(long long callee_addr)
 
     if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
         // encompassed function
-        return _protect_reachable(func_id, 1, "reachable-indirect");
+        return _protect_reachable(func_id, 1, "reachable-indirect", 0);
     }
     // top-level function
     return _protect_single(func_id, "single-indirect");
@@ -2324,7 +2377,7 @@ int _protect_indirect_end(long long callee_addr)
     ics_set.clear();
     if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
         // encompassed function
-        return _protect_reachable(func_id, -1, "reachable-indirect");
+        return _protect_reachable(func_id, -1, "reachable-indirect", 0);
     }
     // top-level function
     return _protect_single_end(func_id, "single-indirect");
@@ -2394,11 +2447,11 @@ int debrt_protect_sink_end(int sink_id)
 extern "C" {
 int debrt_profile_print_args(int argc, ...)
 {
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
     int i;
     va_list ap;
     if(ENV_DEBRT_ENABLE_PROFILING){
-        DEBRT_PRINTF("%s\n", __FUNCTION__);
-        _WARN_RETURN_IF_NOT_INITIALIZED();
 
         va_start(ap, argc);
 
@@ -2416,9 +2469,17 @@ int debrt_profile_print_args(int argc, ...)
 extern "C" {
 int debrt_profile_trace(int func_id)
 {
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("%s for func_id: %d\n", __FUNCTION__, func_id);
     _WARN_RETURN_IF_NOT_INITIALIZED();
-    trace_seen_funcs.insert(func_id);
+    if(recorded_funcs_stack.size() > 0){
+        DEBRT_PRINTF("recorded_funcs_stack (debrt_profile_trace) is inserting func id %d in the back set\n", func_id);
+        recorded_funcs_stack.back()->insert(func_id);
+    }else{
+        // XXX This is perfectly fine if we're not inside of any encompassed
+        // function. The log is here just to be verbose. We only need to trace
+        // inside of encompased functions that need profiling for training.
+        DEBRT_PRINTF("recorded_funcs_stack (debrt_profile_trace) is size 0. Not tracing func ID %d.\n", func_id);
+    }
     return 0;
 }
 }
@@ -2433,8 +2494,10 @@ int debrt_profile_trace(int func_id)
 // element m: argument n to the indirect call, if any
 //
 extern "C" {
-void debrt_profile_indirect_print_args(long long *varargs)
+int debrt_profile_indirect_print_args(long long *varargs)
 {
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
     int i;
     long long num_args;
     if(ENV_DEBRT_ENABLE_PROFILING){
@@ -2446,5 +2509,6 @@ void debrt_profile_indirect_print_args(long long *varargs)
         }
         fprintf(fp_mapped_pages, "\n");
     }
+    return 0;
 }
 }

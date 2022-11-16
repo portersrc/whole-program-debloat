@@ -85,6 +85,8 @@ namespace {
         Function *debrt_profile_print_args_func;
         Function *ics_map_indirect_call_func;
         Function *ics_wrapper_debrt_protect_loop_end_func;
+        Function *debrt_profile_update_recorded_funcs_func;
+        Function *ics_end_indirect_call_func;
         map<Function *, int> func_to_id;
         map<int, Function *> func_id_to_func;
         map<int, string> func_id_to_name;
@@ -903,16 +905,35 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                                 assert(0);
                             }
                         }else{
-                            // XXX all ics_map_indirect_call invocations
-                            //if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
-                                fix_up_argsv_for_indirect(CB, ArgsV, builder);
-                            //}
-                            builder.CreateCall(ics_map_indirect_call_func, ArgsV);
-                            // Note: we only instrument after the
-                            // indirect call if we are not inside an
-                            // encompassed func or a loop block. The
-                            // runtime will handle this ICS optimization to
-                            // clear the pages at the end of the loop.
+                            // all ics_map_indirect_call invocations will now
+                            // use this vararg approach (and need to
+                            // fix-up-argsv)
+                            vector<Value *> VarArgsV;
+                            VarArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
+                            fix_up_argsv_for_indirect(CB, VarArgsV, builder);
+                            builder.CreateCall(ics_map_indirect_call_func, VarArgsV);
+                            // Note: We instrument after the indirect call if
+                            // we are not inside an encompassed func or a loop
+                            // block. If we are (as in this case), the runtime
+                            // will handle this ICS optimization to clear the
+                            // pages at the end of the loop, but for profiling,
+                            // we still need a proper record of which functions
+                            // were hit by this indirect call. For that, we'll
+                            // need to invoke ics_end_indirect_call on
+                            // profiling runs.
+                            if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
+                                // instrument after ics call
+                                if(CI){
+                                    IRBuilder<> builder_end(CI);
+                                    builder_end.SetInsertPoint(CI->getNextNode());
+                                    builder_end.CreateCall(ics_end_indirect_call_func, ArgsV);
+                                }else if(II){
+                                    errs() << "indirect func invoke case\n";
+                                    instrument_after_invoke(II, ArgsV, ics_end_indirect_call_func);
+                                }else{
+                                    assert(0);
+                                }
+                            }
                         }
 
                     }else{
@@ -1283,14 +1304,35 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
         deck_id_counter++;
 
         builder.CreateCall(ics_map_indirect_call_func, ArgsV);
-        // Note: As with other inlined indirect call instrumentation that
-        // is inside some interprocedural loop, we do not instrument after
-        // the external call. The runtime will handle the ICS optimization to
+
+        // Note: As with other inlined indirect call instrumentation that is
+        // inside some interprocedural loop, we now instrument after the
+        // external call when profiling.  This gives us a proper record of
+        // which functions were hit by this external call (which invoked our
+        // callback).  For this, we need to invoke ics_end_indirect_call on
+        // profiling runs. The runtime still handles the ICS optimization to
         // clear the pages at the end of the loop.
+        if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
+            // instrument after external call
+            // crude but works: fix the args so argsV just holds the fp-addr
+            ArgsV.pop_back();
+            ArgsV[0] = ArgsV[1];
+            ArgsV.pop_back();
+            if(CI_external_call){
+                errs() << "call the external function\n";
+                IRBuilder<> builder_end(CI_external_call);
+                builder_end.SetInsertPoint(CI_external_call->getNextNode());
+                builder_end.CreateCall(ics_end_indirect_call_func, ArgsV);
+            }else if(II_external_call){
+                errs() << "invoke the external function\n";
+                instrument_after_invoke(II_external_call, ArgsV, ics_end_indirect_call_func);
+            }else{
+                assert(0);
+            }
+        }
     }
 
     return true;
-
 }
 
 
@@ -1320,6 +1362,9 @@ bool AdvancedRuntimeDebloat::instrument_main_start(Module &M)
         }else{
             if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
                 if(F.hasName() && !F.isDeclaration()){
+                    if(ics_func_names.find(F.getName().str()) != ics_func_names.end()){
+                        continue;
+                    }
                     // instrument start of function with debrt-profile-trace
                     vector<Value *> ArgsV;
                     Instruction *I = F.getEntryBlock().getFirstNonPHI();
@@ -1746,8 +1791,6 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
         read_readelf();
     }
 
-    ics_func_names.insert("ics_map_indirect_call");
-    ics_func_names.insert("ics_unmap_indirect_calls");
 
     libc_nonstatic_func_names.insert("atexit");
 
@@ -1835,6 +1878,11 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
             Function::ExternalLinkage,
             "debrt_profile_print_args",
             M);
+    debrt_profile_update_recorded_funcs_func
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+            Function::ExternalWeakLinkage,
+            "debrt_profile_update_recorded_funcs",
+            M);
 
 
     // FIXME ? not sure if external weak linkage is what i want here
@@ -1842,11 +1890,18 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
             Function::ExternalWeakLinkage,
             "ics_map_indirect_call",
             M);
+    ics_end_indirect_call_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
+            Function::ExternalWeakLinkage,
+            "ics_end_indirect_call",
+            M);
     ics_wrapper_debrt_protect_loop_end_func
       = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
             Function::ExternalWeakLinkage,
             "ics_wrapper_debrt_protect_loop_end",
             M);
+    ics_func_names.insert("ics_map_indirect_call");
+    ics_func_names.insert("ics_end_indirect_call");
+    ics_func_names.insert("ics_wrapper_debrt_protect_loop_end");
 
 
 }

@@ -402,24 +402,36 @@ artd_pass_profile:
 artd_assemble:
 	# disassemble so we can do a hacky fix to the ics symbols
 	llvm-dis $(NUMBER).$(NAME)_artd.bc
-	# this sed changed due to ics-map-indirect-call prototype change.
+	# these sed commands have to change if prototypes change, we add more, etc.
 	sed -i \
-      's/declare extern_weak i32 @ics_map_indirect_call.2(i64, ...)//w sed_changes_0.txt' \
+      's/declare extern_weak i32 @ics_map_indirect_call.3(i64, ...)//w sed_changes_0.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/declare extern_weak i32 @ics_wrapper_debrt_protect_loop_end.3(i32)//w sed_changes_1.txt' \
+      's/declare extern_weak i32 @ics_wrapper_debrt_protect_loop_end.5(i32)//w sed_changes_1.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/ics_map_indirect_call.2/ics_map_indirect_call/w sed_changes_2.txt' \
+      's/ics_map_indirect_call.3/ics_map_indirect_call/w sed_changes_2.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/ics_wrapper_debrt_protect_loop_end.3/ics_wrapper_debrt_protect_loop_end/w sed_changes_3.txt' \
+      's/ics_wrapper_debrt_protect_loop_end.5/ics_wrapper_debrt_protect_loop_end/w sed_changes_3.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
       's/debrt_protect_indirect.1/debrt_protect_indirect/w sed_changes_5.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
       's/declare i32 @debrt_protect_indirect(i64)$$//w sed_changes_4.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/declare extern_weak i32 @ics_end_indirect_call.4(i64)//w sed_changes_6.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/ics_end_indirect_call.4/ics_end_indirect_call/w sed_changes_7.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/declare extern_weak i32 @debrt_profile_update_recorded_funcs.2(i32)//w sed_changes_8.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/debrt_profile_update_recorded_funcs.2/debrt_profile_update_recorded_funcs/w sed_changes_9.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	# now ingest the modified .ll file and run always-inline on it.
 	opt \
