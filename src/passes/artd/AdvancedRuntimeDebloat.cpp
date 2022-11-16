@@ -632,7 +632,13 @@ void AdvancedRuntimeDebloat::instrument_loop(int func_id, Loop *loop)
         //assert(exit_blocks.size() > 0);
 
         for(auto exit_block : exit_blocks){
-            Instruction *ebt = exit_block->getTerminator();
+            // cporter 2022.11.16 change: Seems we want firstnonphi here, no?
+            // Previously:
+            //   Instruction *ebt = exit_block->getTerminator();
+            // LLVM can put more function calls (which need decking) inside
+            // an exit block, and we want to close out the loop stuff before
+            // that happens.
+            Instruction *ebt = exit_block->getFirstNonPHI();
             assert(ebt);
             IRBuilder<> builder_exit(ebt);
             //builder_exit.CreateCall(debrt_protect_loop_end_func, ArgsV);
