@@ -450,13 +450,13 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated,
     long long page;
     int count;
     if(ENV_DEBRT_ENABLE_STATS){
+        if(is_grow){
+            fprintf(fp_mapped_pages, "page-grow-%s ", deck_type.c_str());
+        }else{
+            fprintf(fp_mapped_pages, "page-shrink-%s ", deck_type.c_str());
+        }
         if(yes_stats_got_updated){
             _stats_update_hist();
-            if(is_grow){
-                fprintf(fp_mapped_pages, "page-grow-%s ", deck_type.c_str());
-            }else{
-                fprintf(fp_mapped_pages, "page-shrink-%s ", deck_type.c_str());
-            }
             for(auto p2c : page_to_count){
                 page  = p2c.first;
                 count = p2c.second;
@@ -465,6 +465,8 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated,
                 }
             }
             fprintf(fp_mapped_pages, "\n");
+        }else{
+            fprintf(fp_mapped_pages, "X\n");
         }
     }
 }
