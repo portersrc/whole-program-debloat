@@ -632,13 +632,17 @@ void AdvancedRuntimeDebloat::instrument_loop(int func_id, Loop *loop)
         //assert(exit_blocks.size() > 0);
 
         for(auto exit_block : exit_blocks){
-            // cporter 2022.11.16 change: Seems we want firstnonphi here, no?
-            // Previously:
+            // cporter 2022.11.16 change: Seems we want firstinsertionpt here,
+            // no? Previously:
             //   Instruction *ebt = exit_block->getTerminator();
             // LLVM can put more function calls (which need decking) inside
             // an exit block, and we want to close out the loop stuff before
-            // that happens.
-            Instruction *ebt = exit_block->getFirstNonPHI();
+            // that happens. Also, getFirstNonPhi() doesn't seem to work
+            // because if a landing pad is required in that exit block,
+            // the landing pad apparently needs to be the first non-phi instr
+            // (otherwise compilation breaks).
+            auto ebt_it = exit_block->getFirstInsertionPt();
+            Instruction *ebt = &(*ebt_it);
             assert(ebt);
             IRBuilder<> builder_exit(ebt);
             //builder_exit.CreateCall(debrt_protect_loop_end_func, ArgsV);
