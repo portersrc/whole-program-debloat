@@ -2203,8 +2203,7 @@ int debrt_protect_single_end(int callee_func_id)
 static inline
 int _protect_reachable(int callee_func_id,
                        int addend,
-                       const string deck_type,
-                       int ics_hack)
+                       const string deck_type)
 {
     int rv = 0;
     DEBRT_PRINTF("callee_func_id: %d\n", callee_func_id);
@@ -2212,14 +2211,7 @@ int _protect_reachable(int callee_func_id,
     for(int reachable_func : func_id_to_reachable_funcs[callee_func_id]){
         rv += update_page_counts(reachable_func, addend);
     }
-    // Regarding ics_hack: We don't want to pop/dump if _protect_reachable is
-    // getting used to fix up ics-related pages.
-    // This is currently being done by debrt_protect_loop_end().
-    // In other words, when debrt-protect-loop-end tries to fix up the page
-    // mappings that occurred due to ICS (and which it relies on _protect_reachable
-    // to do), we don't want to inadvertently modify or dump anything from the
-    // recorded_funcs_stack()
-    if(ENV_DEBRT_ENABLE_PROFILING && !ics_hack){
+    if(ENV_DEBRT_ENABLE_PROFILING){
         if(addend == 1){
             DEBRT_PRINTF("recorded_funcs_stack (_protect_reachable) is pushing new set\n");
             debrt_profile_update_recorded_funcs(0/*new set*/);
@@ -2237,7 +2229,7 @@ int debrt_protect_reachable(int callee_func_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
-    return _protect_reachable(callee_func_id, 1, "reachable", 0);
+    return _protect_reachable(callee_func_id, 1, "reachable");
 }
 }
 extern "C" {
@@ -2245,7 +2237,7 @@ int debrt_protect_reachable_end(int callee_func_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
-    return _protect_reachable(callee_func_id, -1, "reachable", 0);
+    return _protect_reachable(callee_func_id, -1, "reachable");
 }
 }
 
@@ -2291,7 +2283,18 @@ int debrt_protect_loop_end(int loop_id)
     // matter here.
     for(int func_id : ics_set){
         if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
-            _protect_reachable(func_id, -1, "reachable-loop", 1); // ignoring return value
+            // Don't use _protect_reachable. We don't want its logging.
+            // Just call update_page_counts as needed here.
+            // _protect_reachable now does this pop/dump stuff, which we don't
+            // want when fixing up ics-related pages. It also writes the
+            // updated pages to the log. But all of this will be done (as
+            // desired) at the end of this function when it calls
+            // _protect_loop_reachable().
+            DEBRT_PRINTF("ics_set func_id: %d\n", func_id);
+            update_page_counts(func_id, -1); // dropping return value
+            for(int reachable_func : func_id_to_reachable_funcs[func_id]){
+                update_page_counts(reachable_func, -1); // dropping return value
+            }
         }else{
             _protect_single_end(func_id, "single-loop"); // ignoring return value
         }
@@ -2358,7 +2361,7 @@ int debrt_protect_indirect(long long callee_addr)
 
     if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
         // encompassed function
-        return _protect_reachable(func_id, 1, "reachable-indirect", 0);
+        return _protect_reachable(func_id, 1, "reachable-indirect");
     }
     // top-level function
     return _protect_single(func_id, "single-indirect");
@@ -2379,7 +2382,7 @@ int _protect_indirect_end(long long callee_addr)
     ics_set.clear();
     if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
         // encompassed function
-        return _protect_reachable(func_id, -1, "reachable-indirect", 0);
+        return _protect_reachable(func_id, -1, "reachable-indirect");
     }
     // top-level function
     return _protect_single_end(func_id, "single-indirect");
