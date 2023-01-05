@@ -446,7 +446,6 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated,
                                  bool is_grow,
                                  const string deck_type)
 {
-
     long long page;
     int count;
     if(ENV_DEBRT_ENABLE_STATS){
