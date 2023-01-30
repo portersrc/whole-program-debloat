@@ -2100,8 +2100,6 @@ int debrt_destroy(int notused)
 extern "C" {
 int debrt_profile_update_recorded_funcs(int new_pop_popanddump)
 {
-
-
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
     set<int> *recorded_funcs;
