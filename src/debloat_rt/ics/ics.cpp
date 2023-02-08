@@ -54,19 +54,19 @@ int ics_map_indirect_call(long long argc, ...)
     int i;
     va_list ap;
     long long fp_addr;
-    printf("ics_map_indirect_call\n");
+    //printf("ics_map_indirect_call\n");
 
     va_start(ap, argc);
     fp_addr = va_arg(ap, long long);
 
-    printf("ics_map_indirect_call: fp_addr is 0x%llx\n", fp_addr);
+    //printf("ics_map_indirect_call: fp_addr is 0x%llx\n", fp_addr);
 
     x = fp_addr;
     HASH_ADDR(x);
 
-    printf("ics_map_indirect_call: hashed value is %lld\n", x);
+    //printf("ics_map_indirect_call: hashed value is %lld\n", x);
 
-    printf("ics_map_indirect_call: checking for cache hit or free spot\n");
+    //printf("ics_map_indirect_call: checking for cache hit or free spot\n");
     // Linear scan
     // Not expected to ever iterate more than once or twice
     // Stop if we've hit an uninitialized spot (i.e. fp_addr == 0),
@@ -74,9 +74,9 @@ int ics_map_indirect_call(long long argc, ...)
     while(cached_fp_addrs[x].fp_addr != 0){
         if(cached_fp_addrs[x].fp_addr == fp_addr){
             // found the cached address
-            printf("ics_map_indirect_call: found cached address\n");
+            //printf("ics_map_indirect_call: found cached address\n");
             va_end(ap);
-            printf("ics_map_indirect_call: adding a new recorded_funcs set\n");
+            //printf("ics_map_indirect_call: adding a new recorded_funcs set\n");
             debrt_profile_update_recorded_funcs(0 /*new set*/);
             return 0;
         }
@@ -88,7 +88,7 @@ int ics_map_indirect_call(long long argc, ...)
             // FIXME... dont assert in a real version of this.
             assert(0 && "TODO implement dynamic hashmap support");
         }
-        printf("ics_map_indirect_call: iterating\n");
+        //printf("ics_map_indirect_call: iterating\n");
     }
 
     // ...if execution reaches here, then linear scan found a free spot.
@@ -123,7 +123,7 @@ int ics_map_indirect_call(long long argc, ...)
     // This indirect call was unseen. So we're going to print the features.
     // TODO maybe we don't even invoke this in release version (check
     //   env variable for this info).
-    printf("ics_map_indirect_call: invoking indirect-print-args\n");
+    //printf("ics_map_indirect_call: invoking indirect-print-args\n");
     debrt_profile_indirect_print_args(indirect_call_static_vararg_stack);
     // XXX no need to "reset" or do anything with vararg_stack between calls.
     // Whenever we invoke ics_map_indirect_call() again with a non-cached
@@ -134,9 +134,9 @@ int ics_map_indirect_call(long long argc, ...)
     // cached-fp-addrs to the debrt library and make it responsibe for all
     // writes. debrt-protect-indirect only returns non-zero during that
     // start-up edge case where we throw a WARNING.
-    printf("ics_map_indirect_call: invoking protect-indirect\n");
+    //printf("ics_map_indirect_call: invoking protect-indirect\n");
     if(debrt_protect_indirect(fp_addr) == 0){
-        printf("ics_map_indirect_call: setting the cache\n");
+        //printf("ics_map_indirect_call: setting the cache\n");
         cached_fp_addrs[x].fp_addr = fp_addr;
         cached_fp_addrs[x].recorded = 0;
     }
@@ -163,28 +163,28 @@ __attribute__((always_inline))
 int ics_end_indirect_call(long long fp_addr)
 {
     long long x;
-    printf("ics_end_indirect_call for fp_addr: 0x%llx\n", fp_addr);
+    //printf("ics_end_indirect_call for fp_addr: 0x%llx\n", fp_addr);
 
     x = fp_addr;
     HASH_ADDR(x);
-    printf("ics_map_indirect_call: hashed value is %lld\n", x);
+    //printf("ics_map_indirect_call: hashed value is %lld\n", x);
 
-    printf("ics_end_indirect_call: checking for cached hit\n");
+    //printf("ics_end_indirect_call: checking for cached hit\n");
     // Linear scan
     // Not expected to ever iterate more than once or twice
     // Stop if we've hit an uninitialized spot (i.e. fp_addr == 0),
     long long x_start = x;
     while(cached_fp_addrs[x].fp_addr != 0){
         if(cached_fp_addrs[x].fp_addr == fp_addr){
-            printf("ics_end_indirect_call: found cached fp-addr\n");
+            //printf("ics_end_indirect_call: found cached fp-addr\n");
             // found the cached address
             if(cached_fp_addrs[x].recorded == 0){
-                printf("ics_end_indirect_call: found the cached address. need to pop and dump\n");
+                //printf("ics_end_indirect_call: found the cached address. need to pop and dump\n");
                 debrt_profile_update_recorded_funcs(2 /*pop and dump*/);
                 // Update recorded to 1. We don't need to dump again.
                 cached_fp_addrs[x].recorded = 1;
             }else{
-                printf("ics_end_indirect_call: found the cached address. just need to pop\n");
+                //printf("ics_end_indirect_call: found the cached address. just need to pop\n");
                 // We have already recorded this ics value within the loop.
                 // We still need to pop any recorded functions in the debloat
                 // runtime.
