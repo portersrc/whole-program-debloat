@@ -473,8 +473,9 @@ artd_bin_profile:
       $(NUMBER).$(NAME)_artd.o \
       -o $(NUMBER).$(NAME)_artd_profile \
       -ldebloat_rt -lm -lrt
-artd:         artd_opt artd_pass         artd_assemble artd_bin
-artd_profile: artd_opt artd_pass_profile artd_assemble artd_bin_profile
+baseline:     bc_base base
+artd_profile: bc_artd artd_opt artd_pass_profile artd_assemble artd_bin_profile
+artd:         bc_artd artd_opt artd_pass         artd_assemble artd_bin
 else
 	$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) @$(OBJNAMES) $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
 endif
