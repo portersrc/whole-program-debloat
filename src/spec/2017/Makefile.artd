@@ -348,12 +348,16 @@ ifndef NEEDATFILE
 	#$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) $^           $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
 	#$(LD) $^ $(LDOUT)
 	#$(LD) $^ ics.ll -o $(NUMBER).$(NAME)_linked_ics.bc
+gcc_base: $(OBJS)
+	python3 gcc_symbol_duplicate.py
+	$(LD) $^ -o $(NUMBER).$(NAME)_base.bc
+gcc_artd: $(OBJS)
+	python3 gcc_symbol_duplicate.py
+	$(LD) $^ ics.ll -o $(NUMBER).$(NAME)_ics.bc
 bc_base: $(OBJS)
 	$(LD) $^ -o $(NUMBER).$(NAME)_base.bc
 bc_artd: $(OBJS)
 	$(LD) $^ ics.ll -o $(NUMBER).$(NAME)_ics.bc
-# cporter
-#FIXME python3 gcc_symbol_duplicate.py
 base:
 	opt \
       --function-sections \
