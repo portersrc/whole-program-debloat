@@ -123,6 +123,7 @@ namespace {
         long long text_size;
         set<string> ics_func_names;
         set<string> libc_nonstatic_func_names;
+        map<int, pair<Function *, Function *> > deck_id_to_caller_callee;
 
 
         void getAnalysisUsage(AnalysisUsage &AU) const
@@ -202,6 +203,7 @@ namespace {
         void dump_disjoint_sets(void);
         void print_disjoint_sets(void);
         void dump_stats(void);
+        void dump_deck_id_to_caller_callee(void);
 
         void instrument_feature_print(CallBase *callsite,
                                       Function *parent_func,
@@ -210,6 +212,7 @@ namespace {
         void fix_up_argsv_for_indirect(CallBase *CB,
                                        vector<Value *> &ArgsV,
                                        IRBuilder<> &builder);
+        void update_deck_id_to_caller_callee(int deck_id, CallBase *CB, Function *parent);
 
 
     };
@@ -224,6 +227,25 @@ struct artd_stats{
     int sink_fail_due_to_visited;
     int sink_fail_thresh_check;
 }stats;
+
+
+void AdvancedRuntimeDebloat::update_deck_id_to_caller_callee(int deck_id,
+                                                             CallBase *CB,
+                                                             Function *parent)
+{
+    // If CB is non-NULL, then ignore parent.
+    // (And if CB is NULL, then parent is a valid arg.)
+    Function *caller;
+    Function *callee;
+    if(CB){
+        caller = CB->getCaller();
+        callee = CB->getCalledFunction();
+    }else{
+        caller = parent;
+        callee = NULL;
+    }
+    deck_id_to_caller_callee[deck_id] = make_pair(caller, callee);
+}
 
 
 void AdvancedRuntimeDebloat::get_callees_aux(vector<pair<Function *, CallBase *> > &callees,
@@ -850,6 +872,7 @@ void AdvancedRuntimeDebloat::fix_up_argsv_for_indirect(CallBase *CB,
 
     // element 2 gets the deck ID
     ArgsV.push_back(llvm::ConstantInt::get(int64Ty, deck_id_counter, false));
+    update_deck_id_to_caller_callee(deck_id_counter, CB, NULL);
     deck_id_counter++;
 
     // remaining elements are arguments to the function pointer call
@@ -1049,6 +1072,7 @@ void AdvancedRuntimeDebloat::instrument_feature_print(CallBase *callsite,
     ArgsV.push_back(llvm::ConstantInt::get(int32Ty, 0, false));
 
     ArgsV.push_back(llvm::ConstantInt::get(int32Ty, deck_id_counter, false));
+    update_deck_id_to_caller_callee(deck_id_counter, callsite, parent_func);
     deck_id_counter++;
 
     // FIXME no better way to do this? function and callbase live in different
@@ -1311,6 +1335,7 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
         ArgsV.push_back(llvm::ConstantInt::get(int64Ty, 2, false));
         ArgsV.push_back(builder.CreatePtrToInt(callback, int64Ty));
         ArgsV.push_back(llvm::ConstantInt::get(int64Ty, deck_id_counter, false));
+        update_deck_id_to_caller_callee(deck_id_counter, CB_external_call, NULL);
         deck_id_counter++;
 
         builder.CreateCall(ics_map_indirect_call_func, ArgsV);
@@ -2195,6 +2220,29 @@ void AdvancedRuntimeDebloat::dump_stats(void)
                   stats.sink_fail_thresh_check);
     fclose(fp);
 }
+void AdvancedRuntimeDebloat::dump_deck_id_to_caller_callee(void)
+{
+    FILE *fp = fopen("artd_deck_id_to_caller_callee.txt", "w");
+    fprintf(fp, "deck_id,caller,callee\n");
+    for(auto it = deck_id_to_caller_callee.begin(); it != deck_id_to_caller_callee.end(); it++){
+        int deck_id = it->first;
+        if(it->second.second == NULL){
+            assert(it->second.first != NULL);
+            // XXX The callee can be set to NULL when the callsite
+            // is an indirect call. In that case, we still capture the parent
+            // (i.e. the caller) but cannot get the callee.
+            fprintf(fp, "%d,%s,NULL-indirect\n",
+              it->first,
+              it->second.first->getName().str().c_str());
+        }else{
+            fprintf(fp, "%d,%s,%s\n",
+              it->first,
+              it->second.first->getName().str().c_str(),
+              it->second.second->getName().str().c_str());
+        }
+    }
+    fclose(fp);
+}
 string AdvancedRuntimeDebloat::get_demangled_name(const Function &F)
 {
     ItaniumPartialDemangler IPD;
@@ -2357,6 +2405,7 @@ bool AdvancedRuntimeDebloat::doFinalization(Module &M)
     dump_sinks();
     dump_disjoint_sets();
     dump_stats();
+    dump_deck_id_to_caller_callee();
     return false;
 }
 bool AdvancedRuntimeDebloat::doInitialization(Module &M)
