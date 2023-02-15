@@ -2490,9 +2490,10 @@ int debrt_profile_trace(int func_id)
 // we call this from the ics-indirect code, which prepares a buffer that
 // we receive here that we call varargs.
 // element 0: the number of args to follow
-// element 1: the deck ID
-// element 2: argument 1 to the indirect call, if any
-// element 3: argument 2 to the indirect call, if any
+// element 1: fp-addr
+// element 2: the deck ID
+// element 3: argument 1 to the indirect call, if any
+// element 4: argument 2 to the indirect call, if any
 // element m: argument n to the indirect call, if any
 //
 extern "C" {
