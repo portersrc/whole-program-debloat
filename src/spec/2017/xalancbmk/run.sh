@@ -16,7 +16,7 @@ fi
 WHICH=$1
 INPUT=$2
 
-BIN=523.xalancbmk_${WHICH}
+BIN=523.xalancbmk_r_${WHICH}
 
 source ${PROJ_DIR}/src/spec/2017/run_aux_preprocess.sh
 
