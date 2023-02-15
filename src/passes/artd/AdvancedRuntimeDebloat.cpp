@@ -1294,7 +1294,10 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
         Function *end_call;
         if(callback_is_encompassed){
             // reachable
-            builder.CreateCall(debrt_protect_reachable_func, ArgsV);
+            CallInst *ci = builder.CreateCall(debrt_protect_reachable_func, ArgsV);
+            if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
+                instrument_feature_print(CB_external_call, NULL, ci);
+            }
             end_call = debrt_protect_reachable_end_func;
         }else{
             // single
