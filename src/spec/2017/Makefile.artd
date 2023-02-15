@@ -358,7 +358,7 @@ bc_base: $(OBJS)
 	$(LD) $^ -o $(NUMBER).$(NAME)_base.bc
 bc_artd: $(OBJS)
 	$(LD) $^ ics.ll -o $(NUMBER).$(NAME)_ics.bc
-base:
+basebin:
 	opt \
       --function-sections \
       -O3 \
@@ -477,7 +477,7 @@ artd_bin_profile:
       $(NUMBER).$(NAME)_artd.o \
       -o $(NUMBER).$(NAME)_artd_profile \
       -ldebloat_rt -lm -lrt
-baseline:     bc_base base
+baseline:     bc_base basebin
 artd_profile: bc_artd artd_opt artd_pass_profile artd_assemble artd_bin_profile
 artd:         bc_artd artd_opt artd_pass         artd_assemble artd_bin
 else
