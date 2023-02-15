@@ -22,11 +22,11 @@ source ${PROJ_DIR}/src/spec/2017/run_aux_preprocess.sh
 
 
 if [ "${INPUT}" == "small" ]; then
-    { time ./${BIN} SPEC-benchmark-test.ini +L/root/decker/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> small-${WHICH}.out
+    { time ./${BIN} SPEC-benchmark-test.ini +L/home/rudy/wo/spec/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> small-${WHICH}.out
 elif [ "${INPUT}" == "medium" ]; then
-    { time ./${BIN} SPEC-benchmark-train.ini +L/root/decker/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> medium-${WHICH}.out
+    { time ./${BIN} SPEC-benchmark-train.ini +L/home/rudy/wo/spec/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> medium-${WHICH}.out
 elif [ "${INPUT}" == "large" ]; then
-    { time ./${BIN} SPEC-benchmark-ref.ini +L/root/decker/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> large-${WHICH}.out
+    { time ./${BIN} SPEC-benchmark-ref.ini +L/home/rudy/wo/spec/spec2017/benchspec/CPU/511.povray_r/data/all/input; } &> large-${WHICH}.out
 else
     usage_exit
 fi
