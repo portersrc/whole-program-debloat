@@ -27,6 +27,8 @@ int debrt_decision_tree(const int *feature_vector) { return 0; }
 using namespace std;
 
 //#define DEBRT_DEBUG
+// Adding DEBUG2 as a quick debug hack that doens't flood stdout
+//#define DEBRT_DEBUG2
 //#define DEBRT_ABSOLUTE_ELF_ADDRS
 
 
@@ -57,6 +59,15 @@ int ENV_DEBRT_ENABLE_PROFILING = 0;
     }while(0)
 #else
 #define DEBRT_PRINTF(...)
+#endif
+
+#ifdef DEBRT_DEBUG2
+#define DEBRT_PRINTF2(...) \
+    do{ \
+        printf(__VA_ARGS__); \
+    }while(0)
+#else
+#define DEBRT_PRINTF2(...)
 #endif
 
 
@@ -2109,28 +2120,35 @@ int debrt_profile_update_recorded_funcs(int new_pop_popanddump)
                     "and invoked when DEBRT_ENABLE_PROFILING is set.");
     }
 
+    if( (new_pop_popanddump < 0) || (new_pop_popanddump > 2) ){
+        assert(0 && "ERROR: unexpected value for new_pop_popanddump (should be 0, 1, or 2)");
+    }
+
     if(new_pop_popanddump == 0){
         DEBRT_PRINTF("recorded_funcs_stack is adding new set\n");
         recorded_funcs_stack.push_back(new set<int>());
     }else{
-        DEBRT_PRINTF("recorded_funcs_stack is peeking at back\n");
-        recorded_funcs = recorded_funcs_stack.back();
+        if(recorded_funcs_stack.size() > 0){
+            DEBRT_PRINTF("recorded_funcs_stack is peeking at back\n");
+            recorded_funcs = recorded_funcs_stack.back();
 
-        if(new_pop_popanddump == 2){
-            DEBRT_PRINTF("recorded_funcs_stack back element is being written to file\n");
-            fprintf(fp_mapped_pages, "recorded-func-ids ");
-            for(int func_id : (*recorded_funcs)){
-                fprintf(fp_mapped_pages, "%d ", func_id);
+            if(new_pop_popanddump == 2){
+                DEBRT_PRINTF("recorded_funcs_stack back element is being written to file\n");
+                DEBRT_PRINTF2("recorded-funcs-stack size: %lu\n", recorded_funcs_stack.size());
+                fprintf(fp_mapped_pages, "recorded-func-ids ");
+                for(int func_id : (*recorded_funcs)){
+                    fprintf(fp_mapped_pages, "%d ", func_id);
+                }
+                fprintf(fp_mapped_pages, "\n");
             }
-            fprintf(fp_mapped_pages, "\n");
+
+            DEBRT_PRINTF("recorded_funcs_stack is popping and deleting back\n");
+            recorded_funcs_stack.pop_back();
+            delete recorded_funcs;
         }else{
-            assert(new_pop_popanddump == 1 && "ERROR: unexpected value for new_pop_popanddump (should be 0, 1, or 2)");
+            fprintf(stderr, "WARNING: tried to pop (or pop-and-dump), but " \
+                            "recorded_funcs_stack is empty\n");
         }
-
-        DEBRT_PRINTF("recorded_funcs_stack is popping and deleting back\n");
-        recorded_funcs_stack.pop_back();
-        delete recorded_funcs;
-
     }
 
     return 0;
