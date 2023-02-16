@@ -624,7 +624,7 @@ void AdvancedRuntimeDebloat::instrument_loop(int func_id, Loop *loop)
         // Create arguments for the library function
         // errs() << "Make arguments\n";
         vector<Value *> ArgsV;
-        errs() << "instrumenting loop id " << loop_id << "\n";
+        //errs() << "instrumenting loop id " << loop_id << "\n";
         ArgsV.push_back(ConstantInt::get(int32Ty, loop_id, false));
 
         // instrument the preheader of the loop
@@ -700,10 +700,10 @@ void AdvancedRuntimeDebloat::instrument_after_invoke(InvokeInst *II,
                                                   Function *debrt_func)
 {
     if(II->getCalledFunction()){
-        errs() << "function called: " << II->getCalledFunction()->getName() << "\n";
+        //errs() << "function called: " << II->getCalledFunction()->getName() << "\n";
     }else{
-        errs() << "getCalledFunction() is returning null so perhaps "
-        << "indirect invocations complicate the number of successors.\n";
+        //errs() << "getCalledFunction() is returning null so perhaps "
+        //<< "indirect invocations complicate the number of successors.\n";
     }
     // sanity check num-successors. should have
     // two: normal dest and unwind dest
@@ -889,7 +889,7 @@ void AdvancedRuntimeDebloat::fix_up_argsv_for_indirect(CallBase *CB,
 
 void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopInfo *LI)
 {
-    errs() << "Instrumenting indirect and external for " << f->getName().str() << "\n";
+    //errs() << "Instrumenting indirect and external for " << f->getName().str() << "\n";
     for(auto &b : *f){
         bool f_is_not_encompassed
           = encompassed_funcs.find(f) == encompassed_funcs.end();
@@ -909,7 +909,7 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                 // artd approaches just turned on the transitive closure of all
                 // func pointers.
                 if(cf == NULL && INDIRECT_CALL_SINKING){
-                    errs() << "seeing indirect function call\n";
+                    //errs() << "seeing indirect function call\n";
                     Value *v = CB->getCalledOperand();
                     if(dyn_cast<InlineAsm>(v)){
                         // ignore inline assembly... don't instrument
@@ -932,7 +932,7 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                                 builder_end.SetInsertPoint(CI->getNextNode());
                                 builder_end.CreateCall(debrt_protect_indirect_end_func, ArgsV);
                             }else if(II){
-                                errs() << "indirect func invoke case\n";
+                                //errs() << "indirect func invoke case\n";
                                 instrument_after_invoke(II, ArgsV, debrt_protect_indirect_end_func);
                             }else{
                                 assert(0);
@@ -961,7 +961,7 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                                     builder_end.SetInsertPoint(CI->getNextNode());
                                     builder_end.CreateCall(ics_end_indirect_call_func, ArgsV);
                                 }else if(II){
-                                    errs() << "indirect func invoke case\n";
+                                    //errs() << "indirect func invoke case\n";
                                     instrument_after_invoke(II, ArgsV, ics_end_indirect_call_func);
                                 }else{
                                     assert(0);
@@ -1016,25 +1016,25 @@ void AdvancedRuntimeDebloat::push_arg(Value *argV, vector<Value *> &ArgsV, IRBui
         //errs() << "valid type argument\n";
         Value *funcArg = argV;
 
-        errs() << "checking funcArg\n";
+        //errs() << "checking funcArg\n";
         Value *castedArg = nullptr;
         if(funcArg != NULL){ // FIXME do we want this check???
             if (funcArg->getType()->isFloatTy() || funcArg->getType()->isDoubleTy()){
-                errs() << "float or double\n";
+                //errs() << "float or double\n";
                 if(is_64){
                     castedArg = builder.CreateFPToSI(funcArg, int64Ty);
                 }else{
                     castedArg = builder.CreateFPToSI(funcArg, int32Ty);
                 }
             }else if(funcArg->getType()->isIntegerTy()){
-                errs() << "integer\n";
+                //errs() << "integer\n";
                 if(is_64){
                     castedArg = builder.CreateIntCast(funcArg, int64Ty, true);
                 }else{
                     castedArg = builder.CreateIntCast(funcArg, int32Ty, true);
                 }
             }else if(funcArg->getType()->isPointerTy()){
-                errs() << "pointer\n";
+                //errs() << "pointer\n";
                 if(is_64){
                     castedArg = builder.CreatePtrToInt(funcArg, int64Ty);
                 }else{
@@ -1046,7 +1046,7 @@ void AdvancedRuntimeDebloat::push_arg(Value *argV, vector<Value *> &ArgsV, IRBui
                 return;
             }
             ArgsV.push_back(castedArg);
-            errs() << "pushing: " << *castedArg << "\n";
+            //errs() << "pushing: " << *castedArg << "\n";
         }
     }
 }
@@ -1055,17 +1055,17 @@ void AdvancedRuntimeDebloat::instrument_feature_print(CallBase *callsite,
                                                       Function *parent_func,
                                                       CallInst *inst_to_follow)
 {
-    errs() << "inst to follow: " << inst_to_follow << "\n";
+    //errs() << "inst to follow: " << inst_to_follow << "\n";
     if(callsite){
-        errs() << "callsite num args: " << callsite->arg_size() << "\n";
+        //errs() << "callsite num args: " << callsite->arg_size() << "\n";
         if(callsite->getCalledFunction()){
-            errs() << "Name of the called function: " << callsite->getCalledFunction()->getName() << "\n";
+            //errs() << "Name of the called function: " << callsite->getCalledFunction()->getName() << "\n";
         }else{
-            errs() << "Called func unknown (func pointer)\n";
+            //errs() << "Called func unknown (func pointer)\n";
         }
     }else{
-        errs() << "parent_func num args: " << parent_func->arg_size() << "\n";
-        errs() << "Name of the parent function: " << parent_func->getName() << "\n";
+        //errs() << "parent_func num args: " << parent_func->arg_size() << "\n";
+        //errs() << "Name of the parent function: " << parent_func->getName() << "\n";
     }
     IRBuilder<> builder(inst_to_follow);
     vector<Value *> ArgsV;
@@ -1153,7 +1153,7 @@ void AdvancedRuntimeDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
                                 builder_end.SetInsertPoint(CI->getNextNode());
                                 builder_end.CreateCall(debrt_protect_reachable_end_func, ArgsV);
                             }else if(II){
-                                errs() << "no-instrument invoke case\n";
+                                //errs() << "no-instrument invoke case\n";
                                 instrument_after_invoke(II, ArgsV, debrt_protect_reachable_end_func);
                             }else{
                                 assert(0);
@@ -1174,7 +1174,7 @@ void AdvancedRuntimeDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
                                 builder_end.SetInsertPoint(CI->getNextNode());
                                 builder_end.CreateCall(debrt_protect_single_end_func, ArgsV);
                             }else if(II){
-                                errs() << "yes-instrument invoke case\n";
+                                //errs() << "yes-instrument invoke case\n";
                                 instrument_after_invoke(II, ArgsV, debrt_protect_single_end_func);
                             }else{
                                 assert(0);
@@ -1233,8 +1233,8 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
     CallInst   *CI_external_call = dyn_cast<CallInst>(&I);
     InvokeInst *II_external_call = dyn_cast<InvokeInst>(&I);
 
-    errs() << "Seeing an external call: "
-      << CB_external_call->getCalledFunction()->getName() << "\n";
+    //errs() << "Seeing an external call: "
+    //  << CB_external_call->getCalledFunction()->getName() << "\n";
 
     Function *callback = NULL;
     int num_callbacks = 0;
@@ -1250,12 +1250,12 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
         Function *tmp = dyn_cast<Function>(s);
         if(tmp != NULL){
             if(func_to_id.find(tmp) != func_to_id.end()){
-                errs() << "callback arg found at param " << arg_idx << "\n";
+                //errs() << "callback arg found at param " << arg_idx << "\n";
                 callback = tmp;
                 num_callbacks++;
             }else{
-                errs() << "callback arg found at param " << arg_idx << ", "
-                  << "but it is not in func_to_id\n";
+                //errs() << "callback arg found at param " << arg_idx << ", "
+                //  << "but it is not in func_to_id\n";
             }
         }
         arg_idx++;
@@ -1273,8 +1273,8 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
     assert(num_callbacks == 1 && "Only 1 application function callback " \
                                  "is supported when calling an external library");
 
-    errs() << "callback name: " << callback->getName() << "\n";
-    errs() << "callback func id: " << func_to_id[callback] << "\n";
+    //errs() << "callback name: " << callback->getName() << "\n";
+    //errs() << "callback func id: " << func_to_id[callback] << "\n";
 
     // instrument around the external call()
     if(call_is_outside_loop){
@@ -1307,12 +1307,12 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
 
         // Instrument after the external call
         if(CI_external_call){
-            errs() << "call the external function\n";
+            //errs() << "call the external function\n";
             IRBuilder<> builder_end(CI_external_call);
             builder_end.SetInsertPoint(CI_external_call->getNextNode());
             builder_end.CreateCall(end_call, ArgsV);
         }else if(II_external_call){
-            errs() << "invoke the external function\n";
+            //errs() << "invoke the external function\n";
             instrument_after_invoke(II_external_call, ArgsV, end_call);
         }else{
             assert(0);
@@ -1357,12 +1357,12 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
             ArgsV[0] = ArgsV[1];
             ArgsV.pop_back();
             if(CI_external_call){
-                errs() << "call the external function\n";
+                //errs() << "call the external function\n";
                 IRBuilder<> builder_end(CI_external_call);
                 builder_end.SetInsertPoint(CI_external_call->getNextNode());
                 builder_end.CreateCall(ics_end_indirect_call_func, ArgsV);
             }else if(II_external_call){
-                errs() << "invoke the external function\n";
+                //errs() << "invoke the external function\n";
                 instrument_after_invoke(II_external_call, ArgsV, ics_end_indirect_call_func);
             }else{
                 assert(0);
