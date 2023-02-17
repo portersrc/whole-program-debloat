@@ -21,7 +21,12 @@ func_sets = []
 
 def read_csv_get_dataframe(csvFilename):
     print('Working with csv file: {}'.format(csvFilename))
-    csvData = pandas.read_csv(csvFilename, header=None, skiprows=1)
+    csvData = pandas.read_csv(csvFilename)
+    # pandas will use the header line, which I currently write out as having
+    # features0-9, to get a count for the number of headers.  Then in
+    # subsequent lines it pads the row with NaNs if it's missing columns Here I
+    # replace NaNs with 0s.
+    csvData = csvData.fillna(0)
     return csvData
 
 
