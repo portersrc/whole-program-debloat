@@ -2526,7 +2526,7 @@ int debrt_profile_indirect_print_args(long long *varargs)
         long long fp_addr  = varargs[1];
         fprintf(fp_mapped_pages, "profile-indirect");
         for(i = 1; i < num_args; i++){
-            fprintf(fp_mapped_pages, " %lld", varargs[i+1]);
+            fprintf(fp_mapped_pages, " %d", (int) varargs[i+1]);
         }
         fprintf(fp_mapped_pages, "\n");
     }
