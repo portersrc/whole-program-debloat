@@ -43,7 +43,8 @@ typedef struct{
 typedef enum{
     ARTD_BUILD_STATIC_E = 0,
     ARTD_BUILD_PROFILE_E,
-    ARTD_BUILD_EMBED_E,
+    ARTD_BUILD_TEST_PREDICT_E,
+    ARTD_BUILD_RELEASE_E,
 }artd_build_e;
 
 
@@ -58,7 +59,8 @@ cl::opt<bool> EnableBasicIndirectCallStaticAnalysis(
 artd_build_e ARTD_BUILD = ARTD_BUILD_STATIC_E; // can set via command line option below
 cl::opt<string> ARTDBuild(
     "artd-build", cl::init("static"), cl::Hidden,
-    cl::desc("Selects the kind of build for this artd compilation (static, profile, or embed"));
+    cl::desc("The kind of build for this artd compilation: " \
+             "static, profile, test_predict, or release"));
 
 
 
@@ -2426,8 +2428,10 @@ artd_build_e AdvancedRuntimeDebloat::parseARTDBuildOpt(void)
         return ARTD_BUILD_STATIC_E;
     }else if(ARTDBuild == "profile"){
         return ARTD_BUILD_PROFILE_E;
-    }else if(ARTDBuild == "embed"){
-        return ARTD_BUILD_EMBED_E;
+    }else if(ARTDBuild == "test_predict"){
+        return ARTD_BUILD_TEST_PREDICT_E;
+    }else if(ARTDBuild == "release"){
+        return ARTD_BUILD_RELEASE_E;
     }else{
         assert(0 && "ERROR: invalid artd-build option");
     }
