@@ -85,10 +85,12 @@ namespace {
         Function *debrt_protect_sink_end_func;
         Function *debrt_profile_trace_func;
         Function *debrt_profile_print_args_func;
-        Function *ics_map_indirect_call_func;
-        Function *ics_wrapper_debrt_protect_loop_end_func;
         Function *debrt_profile_update_recorded_funcs_func;
-        Function *ics_end_indirect_call_func;
+        Function *ics_static_map_indirect_call_func;
+        Function *ics_static_wrapper_debrt_protect_loop_end_func;
+        Function *ics_profile_map_indirect_call_func;
+        Function *ics_profile_wrapper_debrt_protect_loop_end_func;
+        Function *ics_profile_end_indirect_call_func;
         map<Function *, int> func_to_id;
         map<int, Function *> func_id_to_func;
         map<int, string> func_id_to_name;
@@ -670,7 +672,13 @@ void AdvancedRuntimeDebloat::instrument_loop(int func_id, Loop *loop)
             assert(ebt);
             IRBuilder<> builder_exit(ebt);
             //builder_exit.CreateCall(debrt_protect_loop_end_func, ArgsV);
-            builder_exit.CreateCall(ics_wrapper_debrt_protect_loop_end_func, ArgsV);
+            if(ARTD_BUILD == ARTD_BUILD_STATIC_E){
+                builder_exit.CreateCall(ics_static_wrapper_debrt_protect_loop_end_func, ArgsV);
+            }else if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
+                builder_exit.CreateCall(ics_profile_wrapper_debrt_protect_loop_end_func, ArgsV);
+            }else{
+                assert(0 && "TODO: Implement missing artd-build and remove this");
+            }
         }
 
         // Note which function this loop is associated with
@@ -940,13 +948,18 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                                 assert(0);
                             }
                         }else{
-                            // all ics_map_indirect_call invocations will now
-                            // use this vararg approach (and need to
-                            // fix-up-argsv)
-                            vector<Value *> VarArgsV;
-                            VarArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
-                            fix_up_argsv_for_indirect(CB, VarArgsV, builder);
-                            builder.CreateCall(ics_map_indirect_call_func, VarArgsV);
+                            if(ARTD_BUILD == ARTD_BUILD_STATIC_E){
+                                builder.CreateCall(ics_static_map_indirect_call_func, ArgsV);
+                            }else if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
+                                // use vararg approach (need to fix-up-argsv)
+                                vector<Value *> VarArgsV;
+                                VarArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
+                                fix_up_argsv_for_indirect(CB, VarArgsV, builder);
+                                builder.CreateCall(ics_profile_map_indirect_call_func, VarArgsV);
+                            }else{
+                                assert(0 && "TODO: Implement missing artd-build and remove this");
+                            }
+
                             // Note: We instrument after the indirect call if
                             // we are not inside an encompassed func or a loop
                             // block. If we are (as in this case), the runtime
@@ -961,10 +974,10 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                                 if(CI){
                                     IRBuilder<> builder_end(CI);
                                     builder_end.SetInsertPoint(CI->getNextNode());
-                                    builder_end.CreateCall(ics_end_indirect_call_func, ArgsV);
+                                    builder_end.CreateCall(ics_profile_end_indirect_call_func, ArgsV);
                                 }else if(II){
                                     //errs() << "indirect func invoke case\n";
-                                    instrument_after_invoke(II, ArgsV, ics_end_indirect_call_func);
+                                    instrument_after_invoke(II, ArgsV, ics_profile_end_indirect_call_func);
                                 }else{
                                     assert(0);
                                 }
@@ -1321,6 +1334,10 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
         }
 
     }else{
+
+
+
+
         // Case: The external function is called from an encompassed func or
         // from inside a block that's in a loop. Rather than handle the
         // protection at the loop header, we cheat and use the indirect-call
@@ -1330,20 +1347,28 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
         vector<Value *> ArgsV;
         IRBuilder<> builder(CB_external_call);
 
-        // Use the new vararg approach to ics-map-indirect-call.
-        // First argument is number of args to follow -- 2 in this case.
-        // Second is the function pointer target address.
-        // Third is a decker ID counter.
-        // TODO We could pass arguments -- perhaps to the external call itself,
-        // but we'll ignore that for now. It could potentially help
-        // predict which functions to enable after the callback hits.
-        ArgsV.push_back(llvm::ConstantInt::get(int64Ty, 2, false));
-        ArgsV.push_back(builder.CreatePtrToInt(callback, int64Ty));
-        ArgsV.push_back(llvm::ConstantInt::get(int64Ty, deck_id_counter, false));
-        update_deck_id_to_caller_callee(deck_id_counter, CB_external_call, NULL);
-        deck_id_counter++;
+        if(ARTD_BUILD == ARTD_BUILD_STATIC_E){
+            ArgsV.push_back(builder.CreatePtrToInt(callback, int64Ty));
+            builder.CreateCall(ics_static_map_indirect_call_func, ArgsV);
+        }else if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
+            // Use the new vararg approach to ics-map-indirect-call.
+            // First argument is number of args to follow -- 2 in this case.
+            // Second is the function pointer target address.
+            // Third is a decker ID counter.
+            // TODO We could pass arguments -- perhaps to the external call itself,
+            // but we'll ignore that for now. It could potentially help
+            // predict which functions to enable after the callback hits.
+            ArgsV.push_back(llvm::ConstantInt::get(int64Ty, 2, false));
+            ArgsV.push_back(builder.CreatePtrToInt(callback, int64Ty));
+            ArgsV.push_back(llvm::ConstantInt::get(int64Ty, deck_id_counter, false));
+            update_deck_id_to_caller_callee(deck_id_counter, CB_external_call, NULL);
+            deck_id_counter++;
 
-        builder.CreateCall(ics_map_indirect_call_func, ArgsV);
+            builder.CreateCall(ics_profile_map_indirect_call_func, ArgsV);
+        }else{
+            assert(0 && "TODO: Implement missing artd-build and remove this");
+        }
+
 
         // Note: As with other inlined indirect call instrumentation that is
         // inside some interprocedural loop, we now instrument after the
@@ -1362,10 +1387,10 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
                 //errs() << "call the external function\n";
                 IRBuilder<> builder_end(CI_external_call);
                 builder_end.SetInsertPoint(CI_external_call->getNextNode());
-                builder_end.CreateCall(ics_end_indirect_call_func, ArgsV);
+                builder_end.CreateCall(ics_profile_end_indirect_call_func, ArgsV);
             }else if(II_external_call){
                 //errs() << "invoke the external function\n";
-                instrument_after_invoke(II_external_call, ArgsV, ics_end_indirect_call_func);
+                instrument_after_invoke(II_external_call, ArgsV, ics_profile_end_indirect_call_func);
             }else{
                 assert(0);
             }
@@ -1926,22 +1951,36 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
 
 
     // FIXME ? not sure if external weak linkage is what i want here
-    ics_map_indirect_call_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
+    ics_static_map_indirect_call_func
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
             Function::ExternalWeakLinkage,
-            "ics_map_indirect_call",
+            "ics_static_map_indirect_call",
             M);
-    ics_end_indirect_call_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
-            Function::ExternalWeakLinkage,
-            "ics_end_indirect_call",
-            M);
-    ics_wrapper_debrt_protect_loop_end_func
+    ics_static_wrapper_debrt_protect_loop_end_func
       = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
             Function::ExternalWeakLinkage,
-            "ics_wrapper_debrt_protect_loop_end",
+            "ics_static_wrapper_debrt_protect_loop_end",
             M);
-    ics_func_names.insert("ics_map_indirect_call");
-    ics_func_names.insert("ics_end_indirect_call");
-    ics_func_names.insert("ics_wrapper_debrt_protect_loop_end");
+    ics_profile_map_indirect_call_func
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
+            Function::ExternalWeakLinkage,
+            "ics_profile_map_indirect_call",
+            M);
+    ics_profile_end_indirect_call_func
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
+            Function::ExternalWeakLinkage,
+            "ics_profile_end_indirect_call",
+            M);
+    ics_profile_wrapper_debrt_protect_loop_end_func
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+            Function::ExternalWeakLinkage,
+            "ics_profile_wrapper_debrt_protect_loop_end",
+            M);
+    ics_func_names.insert("ics_static_map_indirect_call");
+    ics_func_names.insert("ics_static_wrapper_debrt_protect_loop_end");
+    ics_func_names.insert("ics_profile_map_indirect_call");
+    ics_func_names.insert("ics_profile_end_indirect_call");
+    ics_func_names.insert("ics_profile_wrapper_debrt_protect_loop_end");
 
 
 }

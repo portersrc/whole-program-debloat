@@ -113,7 +113,7 @@ int ics_static_wrapper_debrt_protect_loop_end(int loop_id)
 // Element m: function pointer arg n (optional)
 extern "C" {
 __attribute__((always_inline))
-int ics_map_indirect_call(long long argc, ...)
+int ics_profile_map_indirect_call(long long argc, ...)
 {
     long long x;
     int i;
@@ -225,7 +225,7 @@ int ics_map_indirect_call(long long argc, ...)
 // later.
 extern "C" {
 __attribute__((always_inline))
-int ics_end_indirect_call(long long fp_addr)
+int ics_profile_end_indirect_call(long long fp_addr)
 {
     long long x;
     //printf("ics_end_indirect_call for fp_addr: 0x%llx\n", fp_addr);
@@ -283,7 +283,7 @@ int ics_end_indirect_call(long long fp_addr)
 
 extern "C" {
 __attribute__((always_inline))
-int ics_wrapper_debrt_protect_loop_end(int loop_id)
+int ics_profile_wrapper_debrt_protect_loop_end(int loop_id)
 {
     debrt_protect_loop_end(loop_id);
     memset(cached_fp_addrs, 0, sizeof(fp_addr_recorded_t) * MAX_CACHED_FP_ADDRS_SZ);

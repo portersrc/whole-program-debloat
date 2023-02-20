@@ -437,6 +437,24 @@ artd_assemble:
 	sed -i \
       's/debrt_profile_update_recorded_funcs.2/debrt_profile_update_recorded_funcs/w sed_changes_9.txt' \
       $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/declare extern_weak i32 @ics_profile_map_indirect_call.5(i64, ...)//w sed_changes_10.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/ics_profile_map_indirect_call.5/ics_profile_map_indirect_call/w sed_changes_11.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/declare extern_weak i32 @ics_profile_end_indirect_call.6(i64)//w sed_changes_12.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/ics_profile_end_indirect_call.6/ics_profile_end_indirect_call/w sed_changes_13.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/declare extern_weak i32 @ics_profile_wrapper_debrt_protect_loop_end.7(i32)//w sed_changes_14.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/ics_profile_wrapper_debrt_protect_loop_end.7/ics_profile_wrapper_debrt_protect_loop_end/w sed_changes_15.txt' \
+      $(NUMBER).$(NAME)_artd.ll
 	# now ingest the modified .ll file and run always-inline on it.
 	opt \
       --function-sections \
