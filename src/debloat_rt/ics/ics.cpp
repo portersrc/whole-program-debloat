@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <assert.h>
 
+
 // Set the buffer size here.
 // addresses are 8 bytes (long long)
 // the recorded flags are 8 bytes (long long)
@@ -20,6 +21,7 @@ typedef struct{
     long long recorded; // currently a flag.. could be a hash of profile-args in the future
 }fp_addr_recorded_t;
 
+
 fp_addr_recorded_t cached_fp_addrs[MAX_CACHED_FP_ADDRS_SZ] = {0};
 long long cached_fp_addrs_idx = 0;
 
@@ -35,6 +37,70 @@ long long cached_fp_addrs_idx = 0;
 // XXX Element 0 of the stack is the number of args to follow it.
 #define INDIRECT_CALL_STATIC_VARARG_STATIC_SZ 512
 long long indirect_call_static_vararg_stack[INDIRECT_CALL_STATIC_VARARG_STATIC_SZ] = {0L};
+
+
+
+
+
+
+//
+//
+//
+// ICS static support -- XXX worked for wpd but haven't retested for artd
+//
+//
+//
+
+extern "C" {
+__attribute__((always_inline))
+int ics_static_map_indirect_call(long long fp_addr)
+{
+    long long x;
+    x = fp_addr;
+    x = (x ^ (x >> 30)) * (0xbf58476d1ce4e5b9LL);
+    x = (x ^ (x >> 27)) * (0x94d049bb133111ebLL);
+    x = (x ^ (x >> 31)) % MAX_CACHED_FP_ADDRS_SZ;
+    if(cached_fp_addrs[x].fp_addr == fp_addr){
+        return 0;
+    }
+    // XXX This check could be optimized out. We could move the definition of
+    // cached-fp-addrs to the debrt library and make it responsibe for all
+    // writes. debrt-protect-indirect only returns non-zero during that
+    // start-up edge case where we throw a WARNING.
+    if(debrt_protect_indirect(fp_addr) == 0){
+        cached_fp_addrs[x].fp_addr = fp_addr;
+    }
+    return 0;
+}
+}
+
+extern "C" {
+__attribute__((always_inline))
+int ics_static_wrapper_debrt_protect_loop_end(int loop_id)
+{
+    debrt_protect_loop_end(loop_id);
+    memset(cached_fp_addrs, 0, sizeof(fp_addr_recorded_t) * MAX_CACHED_FP_ADDRS_SZ);
+    return 0;
+}
+}
+
+
+
+
+
+
+
+
+
+
+
+//
+//
+//
+// ICS profile support
+//
+//
+//
 
 
 
@@ -225,3 +291,5 @@ int ics_wrapper_debrt_protect_loop_end(int loop_id)
     return 0;
 }
 }
+
+
