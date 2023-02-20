@@ -113,7 +113,6 @@ int ics_static_wrapper_debrt_protect_loop_end(int loop_id)
 // Element m: function pointer arg n (optional)
 extern "C" {
 __attribute__((always_inline))
-//int ics_map_indirect_call(long long fp_addr)
 int ics_map_indirect_call(long long argc, ...)
 {
     long long x;
@@ -291,5 +290,6 @@ int ics_wrapper_debrt_protect_loop_end(int loop_id)
     return 0;
 }
 }
+
 
 
