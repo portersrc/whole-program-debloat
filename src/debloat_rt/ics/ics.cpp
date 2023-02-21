@@ -46,7 +46,7 @@ long long indirect_call_static_vararg_stack[INDIRECT_CALL_STATIC_VARARG_STATIC_S
 //
 //
 //
-// ICS static support -- XXX worked for wpd but haven't retested for artd
+// ICS static support
 //
 //
 //
