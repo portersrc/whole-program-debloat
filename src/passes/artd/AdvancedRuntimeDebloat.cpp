@@ -1952,7 +1952,7 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
 
     // FIXME ? not sure if external weak linkage is what i want here
     ics_static_map_indirect_call_func
-      = Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
             Function::ExternalWeakLinkage,
             "ics_static_map_indirect_call",
             M);
