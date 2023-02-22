@@ -2535,3 +2535,33 @@ int debrt_profile_indirect_print_args(long long *varargs)
     return 0;
 }
 }
+
+extern "C" {
+int debrt_test_predict_trace(int func_id)
+{
+    // Traces every function call.
+    //if(predicted_set.find(func_id) == func_id_to_pages.end()){
+    //    // miss
+    //}else{
+    //    // hit
+    //}
+    return 0;
+}
+}
+
+extern "C" {
+int debrt_test_predict_predict(int argc, ...)
+{
+    // Issues a prediction
+    return 0;
+}
+}
+extern "C" {
+int debrt_test_predict_indirect_predict(long long *varargs)
+{
+    // Issues a prediction from ics.
+    // XXX One critical point is that because it comes from ics, it needs
+    // to grow the predicted set (not shrink it).
+    return 0;
+}
+}

@@ -86,11 +86,15 @@ namespace {
         Function *debrt_profile_trace_func;
         Function *debrt_profile_print_args_func;
         Function *debrt_profile_update_recorded_funcs_func;
+        Function *debrt_test_predict_trace_func;
+        Function *debrt_test_predict_predict_func;
         Function *ics_static_map_indirect_call_func;
         Function *ics_static_wrapper_debrt_protect_loop_end_func;
         Function *ics_profile_map_indirect_call_func;
-        Function *ics_profile_wrapper_debrt_protect_loop_end_func;
         Function *ics_profile_end_indirect_call_func;
+        Function *ics_profile_wrapper_debrt_protect_loop_end_func;
+        Function *ics_test_predict_map_indirect_call_func;
+        Function *ics_test_predict_wrapper_debrt_protect_loop_end_func;
         map<Function *, int> func_to_id;
         map<int, Function *> func_id_to_func;
         map<int, string> func_id_to_name;
@@ -209,9 +213,10 @@ namespace {
         void dump_stats(void);
         void dump_deck_id_to_caller_callee(void);
 
-        void instrument_feature_print(CallBase *callsite,
-                                      Function *parent_func,
-                                      CallInst *inst_to_follow);
+        void instrument_feature_pass(CallBase *callsite,
+                                     Function *parent_func,
+                                     CallInst *inst_to_follow,
+                                     Function *func_to_instrument);
         void push_arg(Value *argV, vector<Value *> &ArgsV, IRBuilder<> &builder, bool is_64);
         void fix_up_argsv_for_indirect(CallBase *CB,
                                        vector<Value *> &ArgsV,
@@ -638,7 +643,9 @@ void AdvancedRuntimeDebloat::instrument_loop(int func_id, Loop *loop)
         IRBuilder<> builder(TI);
         CallInst *ci = builder.CreateCall(debrt_protect_loop_func, ArgsV);
         if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
-            instrument_feature_print(NULL, func_id_to_func[func_id], ci);
+            instrument_feature_pass(NULL, func_id_to_func[func_id], ci, debrt_profile_print_args_func);
+        }else if(ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E){
+            instrument_feature_pass(NULL, func_id_to_func[func_id], ci, debrt_test_predict_predict_func);
         }
 
         //Set of functions debloated within loop (Sharjeel)
@@ -676,6 +683,8 @@ void AdvancedRuntimeDebloat::instrument_loop(int func_id, Loop *loop)
                 builder_exit.CreateCall(ics_static_wrapper_debrt_protect_loop_end_func, ArgsV);
             }else if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
                 builder_exit.CreateCall(ics_profile_wrapper_debrt_protect_loop_end_func, ArgsV);
+            }else if(ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E){
+                builder_exit.CreateCall(ics_test_predict_wrapper_debrt_protect_loop_end_func, ArgsV);
             }else{
                 assert(0 && "TODO: Implement missing artd-build and remove this");
             }
@@ -933,7 +942,9 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                         if(f_is_not_encompassed && block_is_outside_loop){
                             CallInst *ci = builder.CreateCall(debrt_protect_indirect_func, ArgsV);
                             if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
-                                instrument_feature_print(CB, NULL, ci);
+                                instrument_feature_pass(CB, NULL, ci, debrt_profile_print_args_func);
+                            }else if(ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E){
+                                instrument_feature_pass(CB, NULL, ci, debrt_test_predict_predict_func);
                             }
 
                             // instrument after indirect func call
@@ -956,6 +967,12 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                                 VarArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
                                 fix_up_argsv_for_indirect(CB, VarArgsV, builder);
                                 builder.CreateCall(ics_profile_map_indirect_call_func, VarArgsV);
+                            }else if(ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E){
+                                // use vararg approach (need to fix-up-argsv)
+                                vector<Value *> VarArgsV;
+                                VarArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
+                                fix_up_argsv_for_indirect(CB, VarArgsV, builder);
+                                builder.CreateCall(ics_test_predict_map_indirect_call_func, VarArgsV);
                             }else{
                                 assert(0 && "TODO: Implement missing artd-build and remove this");
                             }
@@ -1066,9 +1083,10 @@ void AdvancedRuntimeDebloat::push_arg(Value *argV, vector<Value *> &ArgsV, IRBui
     }
 }
 
-void AdvancedRuntimeDebloat::instrument_feature_print(CallBase *callsite,
+void AdvancedRuntimeDebloat::instrument_feature_pass(CallBase *callsite,
                                                       Function *parent_func,
-                                                      CallInst *inst_to_follow)
+                                                      CallInst *inst_to_follow,
+                                                      Function *func_to_instrument)
 {
     //errs() << "inst to follow: " << inst_to_follow << "\n";
     if(callsite){
@@ -1107,7 +1125,7 @@ void AdvancedRuntimeDebloat::instrument_feature_print(CallBase *callsite,
 
     ArgsV[0] = llvm::ConstantInt::get(int32Ty, ArgsV.size() - 1, false);
 
-    builder.CreateCall(debrt_profile_print_args_func, ArgsV);
+    builder.CreateCall(func_to_instrument, ArgsV);
 }
 
 void AdvancedRuntimeDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
@@ -1160,8 +1178,11 @@ void AdvancedRuntimeDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
                             IRBuilder<> builder(CB);
                             CallInst *ci = builder.CreateCall(debrt_protect_reachable_func, ArgsV);
                             if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
-                                instrument_feature_print(CB, NULL, ci);
+                                instrument_feature_pass(CB, NULL, ci, debrt_profile_print_args_func);
+                            }else if(ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E){
+                                instrument_feature_pass(CB, NULL, ci, debrt_test_predict_predict_func);
                             }
+
 
                             if(CI){
                                 IRBuilder<> builder_end(CI);
@@ -1311,7 +1332,9 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
             // reachable
             CallInst *ci = builder.CreateCall(debrt_protect_reachable_func, ArgsV);
             if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
-                instrument_feature_print(CB_external_call, NULL, ci);
+                instrument_feature_pass(CB_external_call, NULL, ci, debrt_profile_print_args_func);
+            }else if(ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E){
+                instrument_feature_pass(CB_external_call, NULL, ci, debrt_test_predict_predict_func);
             }
             end_call = debrt_protect_reachable_end_func;
         }else{
@@ -1365,6 +1388,21 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
             deck_id_counter++;
 
             builder.CreateCall(ics_profile_map_indirect_call_func, ArgsV);
+        }else if(ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E){
+            // Use the new vararg approach to ics-map-indirect-call.
+            // First argument is number of args to follow -- 2 in this case.
+            // Second is the function pointer target address.
+            // Third is a decker ID counter.
+            // TODO We could pass arguments -- perhaps to the external call itself,
+            // but we'll ignore that for now. It could potentially help
+            // predict which functions to enable after the callback hits.
+            ArgsV.push_back(llvm::ConstantInt::get(int64Ty, 2, false));
+            ArgsV.push_back(builder.CreatePtrToInt(callback, int64Ty));
+            ArgsV.push_back(llvm::ConstantInt::get(int64Ty, deck_id_counter, false));
+            update_deck_id_to_caller_callee(deck_id_counter, CB_external_call, NULL);
+            deck_id_counter++;
+
+            builder.CreateCall(ics_test_predict_map_indirect_call_func, ArgsV);
         }else{
             assert(0 && "TODO: Implement missing artd-build and remove this");
         }
@@ -1421,11 +1459,11 @@ bool AdvancedRuntimeDebloat::instrument_main_start(Module &M)
             builder.CreateCall(debrt_init_func, ArgsV);
 
             found_main = 1;
-            if(ARTD_BUILD != ARTD_BUILD_PROFILE_E){
+            if( (ARTD_BUILD != ARTD_BUILD_PROFILE_E) && (ARTD_BUILD != ARTD_BUILD_TEST_PREDICT_E) ){
                 break;
             }
         }else{
-            if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
+            if( (ARTD_BUILD == ARTD_BUILD_PROFILE_E) || (ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E) ){
                 if(F.hasName() && !F.isDeclaration()){
                     if(ics_func_names.find(F.getName().str()) != ics_func_names.end()){
                         continue;
@@ -1436,7 +1474,12 @@ bool AdvancedRuntimeDebloat::instrument_main_start(Module &M)
                     assert(I);
                     IRBuilder<> builder(I);
                     ArgsV.push_back(ConstantInt::get(int32Ty, func_to_id[&F], false));
-                    builder.CreateCall(debrt_profile_trace_func, ArgsV);
+                    if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
+                        builder.CreateCall(debrt_profile_trace_func, ArgsV);
+                    }else{
+                        assert(ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E);
+                        builder.CreateCall(debrt_test_predict_trace_func, ArgsV);
+                    }
                 }
             }
         }
@@ -1948,6 +1991,16 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
             Function::ExternalWeakLinkage,
             "debrt_profile_update_recorded_funcs",
             M);
+    debrt_test_predict_trace_func
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+            Function::ExternalLinkage,
+            "debrt_test_predict_trace",
+            M);
+    debrt_test_predict_predict_func
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
+            Function::ExternalLinkage,
+            "debrt_test_predict_predict",
+            M);
 
 
     // FIXME ? not sure if external weak linkage is what i want here
@@ -1976,11 +2029,24 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
             Function::ExternalWeakLinkage,
             "ics_profile_wrapper_debrt_protect_loop_end",
             M);
+    ics_test_predict_map_indirect_call_func
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
+            Function::ExternalWeakLinkage,
+            "ics_test_predict_map_indirect_call",
+            M);
+    ics_test_predict_wrapper_debrt_protect_loop_end_func
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+            Function::ExternalWeakLinkage,
+            "ics_test_predict_wrapper_debrt_protect_loop_end",
+            M);
+
     ics_func_names.insert("ics_static_map_indirect_call");
     ics_func_names.insert("ics_static_wrapper_debrt_protect_loop_end");
     ics_func_names.insert("ics_profile_map_indirect_call");
     ics_func_names.insert("ics_profile_end_indirect_call");
     ics_func_names.insert("ics_profile_wrapper_debrt_protect_loop_end");
+    ics_func_names.insert("ics_test_predict_map_indirect_call");
+    ics_func_names.insert("ics_test_predict_wrapper_debrt_protect_loop_end");
 
 
 }

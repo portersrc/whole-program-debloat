@@ -396,9 +396,25 @@ artd_pass_profile:
       --artd-build=profile \
       < $(NUMBER).$(NAME)_ics_opt.bc \
       > $(NUMBER).$(NAME)_artd.bc
-artd_ics_inline_static:
+artd_pass_test_predict:
+	opt \
+      --function-sections \
+      -load libAdvancedRuntimeDebloat.so \
+      -AdvancedRuntimeDebloat \
+      --artd-build=test_predict \
+      < $(NUMBER).$(NAME)_ics_opt.bc \
+      > $(NUMBER).$(NAME)_artd.bc
+artd_ics_inline_pre:
 	# disassemble so we can do a hacky fix to the ics symbols
 	llvm-dis $(NUMBER).$(NAME)_artd.bc
+artd_ics_inline_post:
+	# now ingest the modified .ll file and run always-inline on it.
+	opt \
+      --function-sections \
+      -always-inline \
+      < $(NUMBER).$(NAME)_artd.ll \
+      > $(NUMBER).$(NAME)_artd.bc
+artd_ics_inline_static_sed:
 	# these sed commands have to change if prototypes change, we add more, etc.
 	sed -i \
       's/debrt_protect_indirect.1/debrt_protect_indirect/w sed_changes_0.txt' \
@@ -418,15 +434,7 @@ artd_ics_inline_static:
 	sed -i \
       's/ics_static_wrapper_debrt_protect_loop_end.4/ics_static_wrapper_debrt_protect_loop_end/w sed_changes_5.txt' \
       $(NUMBER).$(NAME)_artd.ll
-	# now ingest the modified .ll file and run always-inline on it.
-	opt \
-      --function-sections \
-      -always-inline \
-      < $(NUMBER).$(NAME)_artd.ll \
-      > $(NUMBER).$(NAME)_artd.bc
-artd_ics_inline_profile:
-	# disassemble so we can do a hacky fix to the ics symbols
-	llvm-dis $(NUMBER).$(NAME)_artd.bc
+artd_ics_inline_profile_sed:
 	# these sed commands have to change if prototypes change, we add more, etc.
 	sed -i \
       's/debrt_protect_indirect.1/debrt_protect_indirect/w sed_changes_0.txt' \
@@ -458,12 +466,29 @@ artd_ics_inline_profile:
 	sed -i \
       's/ics_profile_wrapper_debrt_protect_loop_end.7/ics_profile_wrapper_debrt_protect_loop_end/w sed_changes_9.txt' \
       $(NUMBER).$(NAME)_artd.ll
-	# now ingest the modified .ll file and run always-inline on it.
-	opt \
-      --function-sections \
-      -always-inline \
-      < $(NUMBER).$(NAME)_artd.ll \
-      > $(NUMBER).$(NAME)_artd.bc
+artd_ics_inline_test_predict_sed:
+	# these sed commands have to change if prototypes change, we add more, etc.
+	sed -i \
+      's/debrt_protect_indirect.1/debrt_protect_indirect/w sed_changes_0.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/declare i32 @debrt_protect_indirect(i64)$$//w sed_changes_1.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/declare extern_weak i32 @ics_test_predict_map_indirect_call.8(i64, ...)//w sed_changes_2.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/ics_test_predict_map_indirect_call.8/ics_test_predict_map_indirect_call/w sed_changes_3.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/declare extern_weak i32 @ics_test_predict_wrapper_debrt_protect_loop_end.9(i32)//w sed_changes_4.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/ics_test_predict_wrapper_debrt_protect_loop_end.9/ics_test_predict_wrapper_debrt_protect_loop_end/w sed_changes_5.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+artd_ics_inline_static:  artd_ics_inline_pre artd_ics_inline_static_sed  artd_ics_inline_post
+artd_ics_inline_profile: artd_ics_inline_pre artd_ics_inline_profile_sed artd_ics_inline_post
+artd_ics_inline_test_predict: artd_ics_inline_pre artd_ics_inline_test_predict_sed artd_ics_inline_post
 artd_assemble:
 	llc  \
       --function-sections \
@@ -499,9 +524,17 @@ artd_bin_profile:
       $(NUMBER).$(NAME)_artd.o \
       -o $(NUMBER).$(NAME)_artd_profile \
       -ldebloat_rt -lm -lrt
+artd_bin_test_predict:
+	g++ \
+      -ffunction-sections \
+      -T artd-linker-script.lds \
+      $(NUMBER).$(NAME)_artd.o \
+      -o $(NUMBER).$(NAME)_artd_test_predict \
+      -ldebloat_rt -lm -lrt
 baseline:     bc_base basebin
 artd_static:  bc_artd artd_opt artd_pass_static  artd_ics_inline_static  artd_assemble artd_bin_static
 artd_profile: bc_artd artd_opt artd_pass_profile artd_ics_inline_profile artd_assemble artd_bin_profile
+artd_test_predict: bc_artd artd_opt artd_pass_test_predict artd_ics_inline_test_predict artd_assemble artd_bin_test_predict
 else
 	$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) @$(OBJNAMES) $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
 endif

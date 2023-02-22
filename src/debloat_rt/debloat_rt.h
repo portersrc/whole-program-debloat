@@ -39,6 +39,10 @@ int debrt_profile_print_args(int argc, ...);
 int debrt_profile_indirect_print_args(long long *varargs);
 int debrt_profile_update_recorded_funcs(int and_dump);
 
+int debrt_test_predict_trace(int func_id);
+int debrt_test_predict_predict(int argc, ...);
+int debrt_test_predict_indirect_predict(long long *varargs);
+
 }
 
 #endif
