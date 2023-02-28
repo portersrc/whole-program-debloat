@@ -17,9 +17,8 @@
 #include <map>
 #include <stack>
 
-// stubbing this out for artifact eval
-//#include "debrt_decision_tree.h"
-int debrt_decision_tree(const int *feature_vector) { return 0; }
+#include "debrt_decision_tree.h"
+//int debrt_decision_tree(const int *feature_vector) { return 0; }
 
 
 
@@ -46,10 +45,13 @@ int ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = 0;
 // Will dump features and trace function calls
 int ENV_DEBRT_ENABLE_PROFILING = 0;
 
+// Introducing in order to call _read_func_sets
+// To enable, set env var DEBRT_ENABLE_PREDICTION=1
+int ENV_DEBRT_ENABLE_PREDICTION = 0;
+
 #define DEBRT_INDIRECT_CALL_SINKING 1
 
 
-#define CGPredict
 
 
 #ifdef DEBRT_DEBUG
@@ -121,12 +123,22 @@ const char *PROFILE_CSV_COLUMNS = "deck_id," \
 
 vector<set<int> > func_sets;
 set<int> *pred_set_p;
+unsigned long long trace_count = 0;
+unsigned long long trace_count_wrap = 0;
+unsigned long long num_mispredictions = 0;
+int pred_set_initialized = 0;
+
+
+// deprecated prediction stuff
+//vector<set<int> > func_sets;
+//set<int> *pred_set_p;
 int next_prediction_func_set_id;
-int num_mispredictions;
+//int num_mispredictions;
 int total_predictions;
 stack<set<int> *> pred_set_stack;
 vector<int> single_stack;
 set<int> ics_set;
+
 
 
 int  _debrt_monitor_init(void);
@@ -1065,13 +1077,9 @@ void _read_func_sets(void)
     vector<string> elems;
     int func_set_id;
 
-#ifdef CGPredict
-    ifs.open("cgpprof-func-set-ids-to-funcs.out");
-#else
-    ifs.open("debprof-func-set-ids-to-funcs.out");
-#endif
+    ifs.open("func-set-ids-to-funcs.out");
     if(!ifs.is_open()) {
-        perror("Error open");
+        fprintf(stderr, "ERROR: Failed to open func-set-ids-to-funcs.out.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -1080,19 +1088,13 @@ void _read_func_sets(void)
     i = 0;
     getline(ifs, line); // parse out the header
 
-#ifdef CGPredict
-    i++;
-    func_sets.push_back(set<int>());
-#endif
     while(getline(ifs, line)){
-        vector<string> func_ids_str;
         vector<int> func_ids;
-        elems = split(line, ' ');
+        elems = split(line, ',');
         func_set_id = atoi(elems[0].c_str());
         assert(func_set_id == i);
-        func_ids_str = split(elems[1], ',');
-        for(k = 0; k < func_ids_str.size(); k++){
-            func_ids.push_back(atoi(func_ids_str[k].c_str()));
+        for(k = 1; k < elems.size(); k++){
+            func_ids.push_back(atoi(elems[k].c_str()));
         }
         set<int> func_id_set(func_ids.begin(), func_ids.end());
         func_sets.push_back(func_id_set);
@@ -1645,8 +1647,12 @@ void _debrt_monitor_destroy(void)
 {
     int e;
     int rc;
-    fprintf(fp_out, "num_mispredictions: %d\n", num_mispredictions);
-    fprintf(fp_out, "total_predictions:  %d\n", total_predictions);
+
+    // 2023.02.22 cporter probably this function just gets deleted.
+    // removing fprintfs to avoid warnings and adding FIXME fprintf
+    //fprintf(fp_out, "num_mispredictions: %d\n", num_mispredictions);
+    //fprintf(fp_out, "total_predictions:  %d\n", total_predictions);
+    fprintf(fp_out, "FIXME deprecated\n");
 
     //fprintf(fp_out, "\nfunc_sets:\n");
     //int i;
@@ -1842,8 +1848,13 @@ void _debrt_protect_destroy(void)
 
     _debrt_protect_all_pages(RX_PERM);
 
-    fprintf(fp_out, "num_mispredictions: %d\n", num_mispredictions);
-    fprintf(fp_out, "total_predictions:  %d\n", total_predictions);
+    //fprintf(fp_out, "total_predictions:  %d\n", total_predictions);
+    fprintf(fp_out, "num_mispredictions: %llu\n", num_mispredictions);
+    fprintf(fp_out, "trace_count:        %llu\n", trace_count);
+    fprintf(fp_out, "trace_count_wrap:   %llu\n", trace_count_wrap);
+    if(trace_count_wrap){
+        fprintf(fp_out, "WARNING: trace count wrapped. Need to adjust trace_count accordingly (64-bit unsigned counter) and should probably add support for num_mispredictions_wrap, as well.\n");
+    }
     fprintf(fp_out, "ics_set_short_circuit_count: %llu\n", ics_set_short_circuit_count);
 
     if(ENV_DEBRT_ENABLE_STATS){
@@ -2005,6 +2016,10 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     if(getenv("DEBRT_ENABLE_PROFILING")){
         ENV_DEBRT_ENABLE_PROFILING = 1;
     }
+    if(getenv("DEBRT_ENABLE_PREDICTION")){
+        ENV_DEBRT_ENABLE_PREDICTION = 1;
+    }
+    DEBRT_PRINTF("ENV_DEBRT_ENABLE_PREDICTION: %d\n", ENV_DEBRT_ENABLE_PREDICTION);
     DEBRT_PRINTF("ENV_DEBRT_ENABLE_STATS: %d\n", ENV_DEBRT_ENABLE_STATS);
     DEBRT_PRINTF("ENV_DEBRT_ENABLE_STACK_CLEANING: %d\n", ENV_DEBRT_ENABLE_STACK_CLEANING);
     //DEBRT_PRINTF("ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING: %d\n", ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING);
@@ -2043,6 +2058,9 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     _read_loop_static_reachability(sink_is_enabled);
     _read_encompassed_funcs();
     _read_sinks();
+    if(ENV_DEBRT_ENABLE_PREDICTION){
+        _read_func_sets();
+    }
 
     _dump_func_id_to_pages();
     _dump_func_id_to_addr_and_size();
@@ -2536,32 +2554,98 @@ int debrt_profile_indirect_print_args(long long *varargs)
 }
 }
 
+// Trace every function call
 extern "C" {
 int debrt_test_predict_trace(int func_id)
 {
-    // Traces every function call.
-    //if(predicted_set.find(func_id) == func_id_to_pages.end()){
-    //    // miss
-    //}else{
-    //    // hit
-    //}
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+    if(pred_set_initialized){
+        trace_count++;
+        if(pred_set_p->find(func_id) == pred_set_p->end()){
+            num_mispredictions++;
+        }
+        if(trace_count == 0){
+            trace_count_wrap++;
+        }
+    }
     return 0;
 }
 }
 
+// Issue a prediction
 extern "C" {
 int debrt_test_predict_predict(int argc, ...)
 {
-    // Issues a prediction
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+    int i;
+    int func_set_id;
+    va_list ap;
+    int feature_buf[MAX_NUM_FEATURES];
+
+    // XXX can we avoid this memset?
+    memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
+
+    // gather features into a buffer
+    va_start(ap, argc);
+    for(i = 0; i < argc; i++){
+        feature_buf[i] = va_arg(ap, int);
+    }
+    va_end(ap);
+
+    // Get a new prediction
+    func_set_id = debrt_decision_tree(feature_buf);
+    //func_set_id = 6 + debrt_decision_tree(feature_buf);
+    printf("pred_set_p before: %p\n", pred_set_p);
+    pred_set_p = &func_sets[func_set_id];
+    printf("pred_set_p after:  %p\n", pred_set_p);
+    pred_set_initialized = 1;
+
     return 0;
 }
 }
+
+// Issue a prediction from ics.
+// One critical point is that because it comes from ics, it needs to grow the
+// predicted set (not replace it).
 extern "C" {
 int debrt_test_predict_indirect_predict(long long *varargs)
 {
-    // Issues a prediction from ics.
-    // XXX One critical point is that because it comes from ics, it needs
-    // to grow the predicted set (not shrink it).
+
+
+
+
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+
+    int feature_buf[MAX_NUM_FEATURES];
+    int i;
+    int func_set_id;
+    long long num_args;
+    long long fp_addr;
+
+    // XXX can we avoid this memset?
+    memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
+
+    num_args = varargs[0];
+    fp_addr = varargs[1];
+
+    // gather features into a buffer
+    for(i = 1; i < num_args; i++){
+        // FIXME see profile print args functions (normal and ics) which
+        // also cast to int and drop info.
+        feature_buf[i-1] = (int) varargs[i+1];
+    }
+
+    // Get a new prediction
+    func_set_id = debrt_decision_tree(feature_buf);
+    //func_set_id = 6 + debrt_decision_tree(feature_buf);
+    printf("pred_set_p before: %p\n", pred_set_p);
+    pred_set_p = &func_sets[func_set_id];
+    printf("pred_set_p after:  %p\n", pred_set_p);
+    pred_set_initialized = 1;
+
     return 0;
 }
 }
