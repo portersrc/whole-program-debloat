@@ -15,6 +15,7 @@ extern "C" {int debrt_protect_loop_end(int);}
 extern "C" {int debrt_profile_indirect_print_args(long long *);}
 extern "C" {int debrt_profile_update_recorded_funcs(int);}
 extern "C" {int debrt_test_predict_indirect_predict(long long *);}
+extern "C" {int debrt_release_indirect_predict(long long *);}
 
 
 typedef struct{
@@ -380,6 +381,104 @@ int ics_test_predict_map_indirect_call(long long argc, ...)
 extern "C" {
 __attribute__((always_inline))
 int ics_test_predict_wrapper_debrt_protect_loop_end(int loop_id)
+{
+    debrt_protect_loop_end(loop_id);
+    memset(cached_fp_addrs, 0, sizeof(fp_addr_recorded_t) * MAX_CACHED_FP_ADDRS_SZ);
+    return 0;
+}
+}
+
+
+
+
+
+//
+//
+//
+// ICS release support
+//
+//
+//
+
+// Arguments that get passed:
+// Element 0: argc (number of args to follow, >=2)
+// Element 1: function pointer target address
+// Element 2: deck ID
+// Element 3: function pointer arg 0 (optional)
+// Element 4: function pointer arg 1 (optional)
+// Element m: function pointer arg n (optional)
+extern "C" {
+__attribute__((always_inline))
+int ics_release_map_indirect_call(long long argc, ...)
+{
+    long long x;
+    int i;
+    va_list ap;
+    long long fp_addr;
+    //printf("ics_map_indirect_call\n");
+
+
+    va_start(ap, argc);
+    fp_addr = va_arg(ap, long long);
+
+    x = fp_addr;
+    HASH_ADDR(x);
+
+    if(cached_fp_addrs[x].fp_addr == fp_addr){
+        va_end(ap);
+        return 0;
+    }
+
+    //printf("ics_map_indirect_call: fp_addr is 0x%llx\n", fp_addr);
+
+    // We should always pass at least the func ptr target addr and
+    // the deck ID, so argc should always be >= 2.
+    // FIXME... dont assert in a real version of this.
+    assert(argc >= 2);
+
+    // Make sure we have enough buffer space.
+    // We need enough space to hold all the arguments,
+    // which would be:
+    //   argc <= INDIRECT_CALL_STATIC_VARARG_STATIC_SZ
+    // FIXME... dont assert here in a real version of this.
+    assert(argc <= INDIRECT_CALL_STATIC_VARARG_STATIC_SZ);
+
+    // Element 0 of this vararg_stack will hold the number of elements to
+    // follow. It's equivalent to argc.
+    indirect_call_static_vararg_stack[0] = argc;
+    // push the fp-addr in first.
+    indirect_call_static_vararg_stack[1] = fp_addr;
+
+    // Start at i = 1, because we've already "popped" fp_addr from the valist.
+    // Note that on this first iteration, va_arg is going to return to us
+    // the deck ID, and it will go into idx 2 for our vararg_stack (as desired).
+    for(i = 1; i < argc; i++){
+        indirect_call_static_vararg_stack[i+1] = va_arg(ap, long long);
+    }
+    va_end(ap);
+
+    debrt_release_indirect_predict(indirect_call_static_vararg_stack);
+
+    // XXX no need to "reset" or do anything with vararg_stack between calls.
+    // Whenever we invoke ics_map_indirect_call() again with a non-cached
+    // function pointer, we will set element 0 to the proper count again and
+    // update its elements.
+
+    // XXX This check could be optimized out. We could move the definition of
+    // cached-fp-addrs to the debrt library and make it responsibe for all
+    // writes. debrt-protect-indirect only returns non-zero during that
+    // start-up edge case where we throw a WARNING.
+    if(debrt_protect_indirect(fp_addr) == 0){
+        cached_fp_addrs[x].fp_addr = fp_addr;
+    }
+
+    return 0;
+}
+}
+
+extern "C" {
+__attribute__((always_inline))
+int ics_release_wrapper_debrt_protect_loop_end(int loop_id)
 {
     debrt_protect_loop_end(loop_id);
     memset(cached_fp_addrs, 0, sizeof(fp_addr_recorded_t) * MAX_CACHED_FP_ADDRS_SZ);

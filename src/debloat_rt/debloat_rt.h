@@ -43,6 +43,8 @@ int debrt_test_predict_trace(int func_id);
 int debrt_test_predict_predict(int argc, ...);
 int debrt_test_predict_indirect_predict(long long *varargs);
 
+int debrt_release_indirect_predict(long long *varargs);
+
 }
 
 #endif

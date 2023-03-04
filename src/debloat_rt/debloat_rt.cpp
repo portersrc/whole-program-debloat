@@ -2649,3 +2649,51 @@ int debrt_test_predict_indirect_predict(long long *varargs)
     return 0;
 }
 }
+
+
+
+//TODO
+//TODO ... just a placeholder for now.
+//TODO
+//TODO
+//TODO
+// Issue a prediction from ics.
+// One critical point is that because it comes from ics, it needs to grow the
+// predicted set (not replace it).
+extern "C" {
+int debrt_release_indirect_predict(long long *varargs)
+{
+
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+
+    int feature_buf[MAX_NUM_FEATURES];
+    int i;
+    int func_set_id;
+    long long num_args;
+    long long fp_addr;
+
+    // XXX can we avoid this memset?
+    memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
+
+    num_args = varargs[0];
+    fp_addr = varargs[1];
+
+    // gather features into a buffer
+    for(i = 1; i < num_args; i++){
+        // FIXME see profile print args functions (normal and ics) which
+        // also cast to int and drop info.
+        feature_buf[i-1] = (int) varargs[i+1];
+    }
+
+    // Get a new prediction
+    func_set_id = debrt_decision_tree(feature_buf);
+    //func_set_id = 6 + debrt_decision_tree(feature_buf);
+    printf("pred_set_p before: %p\n", pred_set_p);
+    pred_set_p = &func_sets[func_set_id];
+    printf("pred_set_p after:  %p\n", pred_set_p);
+    pred_set_initialized = 1;
+
+    return 0;
+}
+}
