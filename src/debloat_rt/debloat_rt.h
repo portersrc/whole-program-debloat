@@ -36,14 +36,19 @@ int debrt_protect_sink_end(int sink_id);
 
 int debrt_profile_trace(int func_id);
 int debrt_profile_print_args(int argc, ...);
-int debrt_profile_indirect_print_args(long long *varargs);
+int debrt_profile_indirect_print_args(long long argc, ...);
+int debrt_profile_indirect_print_args_ics(long long *varargs);
 int debrt_profile_update_recorded_funcs(int and_dump);
 
 int debrt_test_predict_trace(int func_id);
 int debrt_test_predict_predict(int argc, ...);
-int debrt_test_predict_indirect_predict(long long *varargs);
+int debrt_test_predict_indirect_predict(long long argc, ...);
+int debrt_test_predict_indirect_predict_ics(long long *varargs);
 
-int debrt_release_indirect_predict(long long *varargs);
+int debrt_release_predict(int argc, ...);
+int debrt_release_rectify(int func_id);
+int debrt_release_indirect_predict(long long argc, ...);
+int debrt_release_indirect_predict_ics(long long *varargs);
 
 }
 

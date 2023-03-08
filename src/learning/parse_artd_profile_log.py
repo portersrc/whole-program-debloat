@@ -218,9 +218,25 @@ def process_profile_log(input_filename):
 
     print('Finished with len of samples: {}'.format(len(samples)))
     print('Finished with len of sample_stack: {}'.format(len(sample_stack)))
+
+    # Write the samples to file.
+    # Also populate a map so we have all unique func-set-id, deck-root pairs
+    unique_func_set_id_deck_root_pairs = {}
     fp_train_out.write('func_set_id,feature0,feature1,feature2,feature3,feature4,feature5,feature6,feature7,feature8,feature9\n')
     for sample in samples:
         fp_train_out.write(str(sample) + '\n')
+
+        if sample.func_set_id not in unique_func_set_id_deck_root_pairs:
+            unique_func_set_id_deck_root_pairs[sample.func_set_id] = set()
+        unique_func_set_id_deck_root_pairs[sample.func_set_id].add(sample.features[0])
+
+    # Write all unique func-set-id, deck-root pairs to file
+    fp_deck_root_out.write('func_set_id,deck_root\n')
+    for func_set_id in unique_func_set_id_deck_root_pairs:
+        for deck_root in unique_func_set_id_deck_root_pairs[func_set_id]:
+            fp_deck_root_out.write('{},{}\n'.format(func_set_id, deck_root))
+
+
 
 
 
@@ -234,6 +250,7 @@ if len(sys.argv) > 1:
 PROFILE_FILENAME      = BASE_PATH + 'debrt-mapped-rx-pages-artd_profile.out'
 TRAIN_FILENAME        = BASE_PATH + 'training-data.out'
 FUNC_SET_IDS_FILENAME = BASE_PATH + 'func-set-ids-to-funcs.out'
+DECK_ROOT_FILENAME    = BASE_PATH + 'func-set-id-deck-root-pairs.out'
 
 
 if not isfile(PROFILE_FILENAME):
@@ -241,8 +258,9 @@ if not isfile(PROFILE_FILENAME):
     print('Exiting')
     sys.exit(1)
 
-fp_train_out    = open(TRAIN_FILENAME, 'w')
-fp_func_set_ids = open(FUNC_SET_IDS_FILENAME, 'w')
+fp_train_out     = open(TRAIN_FILENAME, 'w')
+fp_func_set_ids  = open(FUNC_SET_IDS_FILENAME, 'w')
+fp_deck_root_out = open(DECK_ROOT_FILENAME, 'w')
 
 process_profile_log(PROFILE_FILENAME)
 

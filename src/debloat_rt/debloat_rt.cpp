@@ -128,6 +128,11 @@ unsigned long long trace_count_wrap = 0;
 unsigned long long num_mispredictions = 0;
 int pred_set_initialized = 0;
 
+// A vector, indexed by function IDs.
+// An element is 1 if the function ID should trigger rectification, i.e.
+// the complement of the predicted set should be mapped. Else, it's 0.
+int *debrt_rectification_flags;
+
 
 // deprecated prediction stuff
 //vector<set<int> > func_sets;
@@ -2061,6 +2066,16 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     if(ENV_DEBRT_ENABLE_PREDICTION){
         _read_func_sets();
     }
+    //if(ENV_DEBRT_ENABLE_PREDICTION){
+    //    _read_func_sets();
+    //    debrt_rectification_flags = (int *) malloc(sizeof(int) * func_id_to_name.size());
+    //    // TESTING
+    //    printf("func id to name size: %lu\n", func_id_to_name.size());
+    //    debrt_rectification_flags[1] = 1;
+    //    debrt_rectification_flags[2] = 2;
+    //    printf("debrt_rectification_flags[2]: %d\n", debrt_rectification_flags[2]);
+    //}
+
 
     _dump_func_id_to_pages();
     _dump_func_id_to_addr_and_size();
@@ -2465,6 +2480,7 @@ int debrt_protect_sink_end(int sink_id)
 //
 // Receives a variable number of arguments:
 // argc: Number of args to follow.
+// Function or loop ID (positive for functions, negative for loops)
 // Deck ID
 // deck arg1 (optional)
 // deck arg2 (optional)
@@ -2473,14 +2489,14 @@ int debrt_protect_sink_end(int sink_id)
 // 
 //
 // The output of this function starts with:
-//   profile <deck_id>
+//   profile <func_or_loop_id> <deck_id>
 // These are always guaranteed to be there. Then:
 //   [deck argument 1] [deck argument 2] ...
 // These arguments are optional. Note that argc holds the number of
 // arguments for the variadic function call itself. It will always hold at
-// least the deck ID. That is, it will always be >= 1; if there are 0
-// arguments to the deck, then argc=1; if there is 1 argument to the
-// deck, then argc=2; and so on.
+// least the function/loop ID and deck ID. That is, it will always be >= 2;
+// if there are 0 arguments to the deck, then argc=2; if there is 1 argument to
+// the deck, then argc=3; and so on.
 //
 extern "C" {
 int debrt_profile_print_args(int argc, ...)
@@ -2521,10 +2537,50 @@ int debrt_profile_trace(int func_id)
     return 0;
 }
 }
+extern "C" {
+int debrt_profile_indirect_print_args(long long argc, ...)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+    int i;
+    va_list ap;
+    if(ENV_DEBRT_ENABLE_PROFILING){
+
+        va_start(ap, argc);
+
+        long long fp_addr = va_arg(ap, long long);
+        if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){
+            // See debrt_protect_indirect() for how this can happen.
+            // With respect to profiling specifically and the ramifications,
+            // it's fine to ignore. If you don't ignore it, then you end up
+            // training on these features, which lead to empty pred sets.
+            // And if you ignore it, you just don't have such training data.
+            // But regardless, the release binary is going to ignore such
+            // a call with this exact same check, because it will have nothing
+            // to map RX when there is an indirect call to library code.
+            DEBRT_PRINTF("WARNING: profile-indirect-print-args' fp_addr not found.\n");
+            return 0;
+        }
+        int func_id = func_addr_to_id[fp_addr];
+
+        fprintf(fp_mapped_pages, "profile-indirect");
+        fprintf(fp_mapped_pages, " %d", func_id);
+        for(i = 1; i < argc; i++){
+            fprintf(fp_mapped_pages, " %lld", va_arg(ap, long long));
+        }
+        fprintf(fp_mapped_pages, "\n");
+
+        va_end(ap);
+
+
+    }
+    return 0;
+}
+}
 //
 // Very similar to debrt_profile_print_args. The main difference is that
 // we call this from the ics-indirect code, which prepares a buffer that
-// we receive here that we call varargs.
+// we receive here. The buffer argument is called varargs. Its layout is:
 // element 0: the number of args to follow
 // element 1: fp-addr
 // element 2: the deck ID
@@ -2532,8 +2588,11 @@ int debrt_profile_trace(int func_id)
 // element 4: argument 2 to the indirect call, if any
 // element m: argument n to the indirect call, if any
 //
+// The output to the log is of the form:
+//   profile-indirect func_id deck_id arg1 arg2 ... argn
+//
 extern "C" {
-int debrt_profile_indirect_print_args(long long *varargs)
+int debrt_profile_indirect_print_args_ics(long long *varargs)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
@@ -2542,7 +2601,21 @@ int debrt_profile_indirect_print_args(long long *varargs)
     if(ENV_DEBRT_ENABLE_PROFILING){
         num_args = varargs[0];
         long long fp_addr  = varargs[1];
+        if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){
+            // See debrt_protect_indirect() for how this can happen.
+            // With respect to profiling specifically and the ramifications,
+            // it's fine to ignore. If you don't ignore it, then you end up
+            // training on these features, which lead to empty pred sets.
+            // And if you ignore it, you just don't have such training data.
+            // But regardless, the release binary is going to ignore such
+            // a call with this exact same check, because it will have nothing
+            // to map RX when there is an indirect call to library code.
+            DEBRT_PRINTF("WARNING: profile-indirect-print-args-ics' fp_addr not found.\n");
+            return 0;
+        }
+        int func_id = func_addr_to_id[fp_addr];
         fprintf(fp_mapped_pages, "profile-indirect");
+        fprintf(fp_mapped_pages, " %d", func_id);
         for(i = 1; i < num_args; i++){
             // FIXME this print and the normal print-args function are using
             // int and dropping information.
@@ -2606,16 +2679,57 @@ int debrt_test_predict_predict(int argc, ...)
 }
 }
 
+// Issue a prediction for an indirect call (which is not from ics).
+extern "C" {
+int debrt_test_predict_indirect_predict(long long argc, ...)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+    int i;
+    int func_set_id;
+    va_list ap;
+    int feature_buf[MAX_NUM_FEATURES];
+
+    // XXX can we avoid this memset?
+    memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
+
+    // gather features into a buffer
+    va_start(ap, argc);
+    long long fp_addr = va_arg(ap, long long);
+
+    if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){
+        // See debrt_protect_indirect() for how this can happen.
+        // Should be fine to ignore
+        DEBRT_PRINTF("WARNING: test-predict-indirect-predict' fp_addr not found.\n");
+        return 0;
+    }
+    int func_id = func_addr_to_id[fp_addr];
+
+    feature_buf[0] = func_id;
+
+    for(i = 1; i < argc; i++){
+        feature_buf[i] = (int) va_arg(ap, long long);
+    }
+    va_end(ap);
+
+    // Get a new prediction
+    func_set_id = debrt_decision_tree(feature_buf);
+    //func_set_id = 6 + debrt_decision_tree(feature_buf);
+    printf("pred_set_p before: %p\n", pred_set_p);
+    pred_set_p = &func_sets[func_set_id];
+    printf("pred_set_p after:  %p\n", pred_set_p);
+    pred_set_initialized = 1;
+
+    return 0;
+}
+}
+
 // Issue a prediction from ics.
 // One critical point is that because it comes from ics, it needs to grow the
 // predicted set (not replace it).
 extern "C" {
-int debrt_test_predict_indirect_predict(long long *varargs)
+int debrt_test_predict_indirect_predict_ics(long long *varargs)
 {
-
-
-
-
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
 
@@ -2631,11 +2745,24 @@ int debrt_test_predict_indirect_predict(long long *varargs)
     num_args = varargs[0];
     fp_addr = varargs[1];
 
+    if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){
+        // See debrt_profile_indirect_print_args() for details on this case.
+        DEBRT_PRINTF("WARNING: test-predict-indirect-print-args' fp_addr not found.\n");
+        return 0;
+    }
+    int func_id = func_addr_to_id[fp_addr];
+
     // gather features into a buffer
+    //for(i = 1; i < num_args; i++){
+    //    // FIXME see profile print args functions (normal and ics) which
+    //    // also cast to int and drop info.
+    //    feature_buf[i-1] = (int) varargs[i+1];
+    //}
+    feature_buf[0] = func_id;
     for(i = 1; i < num_args; i++){
         // FIXME see profile print args functions (normal and ics) which
         // also cast to int and drop info.
-        feature_buf[i-1] = (int) varargs[i+1];
+        feature_buf[i] = (int) varargs[i+1];
     }
 
     // Get a new prediction
@@ -2693,6 +2820,29 @@ int debrt_release_indirect_predict(long long *varargs)
     pred_set_p = &func_sets[func_set_id];
     printf("pred_set_p after:  %p\n", pred_set_p);
     pred_set_initialized = 1;
+
+    return 0;
+}
+}
+
+extern "C" {
+int debrt_release_rectify(int func_id)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+
+    // FIXME? Could eliminate this assert and lookup overhead, i guess
+    assert(pred_set_p->find(func_id) == pred_set_p->end());
+
+    // pseudocode:
+    //for func in pred_set_complement {
+    //    map function RX
+    //}
+
+    // mark debrt_rectification_flags as .
+    // memset might be a bad idea, b/c we might need to think about this
+    // in terms of the callstack....
+    //memset(debrt_rectification_flags, 0, sizeof(int) * func_id_to_name.size()); // FIXME, store this func-id-to-name-size as a variable, and we can use that here.
 
     return 0;
 }

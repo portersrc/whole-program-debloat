@@ -85,9 +85,11 @@ namespace {
         Function *debrt_protect_sink_end_func;
         Function *debrt_profile_trace_func;
         Function *debrt_profile_print_args_func;
+        Function *debrt_profile_indirect_print_args_func;
         Function *debrt_profile_update_recorded_funcs_func;
         Function *debrt_test_predict_trace_func;
         Function *debrt_test_predict_predict_func;
+        Function *debrt_test_predict_indirect_predict_func;
         Function *ics_static_map_indirect_call_func;
         Function *ics_static_wrapper_debrt_protect_loop_end_func;
         Function *ics_profile_map_indirect_call_func;
@@ -132,6 +134,7 @@ namespace {
         set<string> ics_func_names;
         set<string> libc_nonstatic_func_names;
         map<int, pair<Function *, Function *> > deck_id_to_caller_callee;
+        map<int, int> RPs;      // caller -> callee,
 
 
         void getAnalysisUsage(AnalysisUsage &AU) const
@@ -216,7 +219,8 @@ namespace {
         void instrument_feature_pass(CallBase *callsite,
                                      Function *parent_func,
                                      CallInst *inst_to_follow,
-                                     Function *func_to_instrument);
+                                     Function *func_to_instrument,
+                                     int func_or_loop_id);
         void push_arg(Value *argV, vector<Value *> &ArgsV, IRBuilder<> &builder, bool is_64);
         void fix_up_argsv_for_indirect(CallBase *CB,
                                        vector<Value *> &ArgsV,
@@ -236,6 +240,38 @@ struct artd_stats{
     int sink_fail_due_to_visited;
     int sink_fail_thresh_check;
 }stats;
+
+
+// This function is responsible for building the RPs map. It doesn't
+// need to know about debrt_rectification_flags or anything like this.
+// It's only goal is to create map that tells you for a given function
+// ID, whether a callee's function ID needs to be protected by RP
+// instrumentation.
+// Intuitively these are all points where execution can flow from a function
+// in a predicted set to a function in the complement set (where the complement
+// is just the full deck set-minus the prediction set).
+//void AdvancedRuntimeDebloat::build_RPs(void)
+//{
+//    // This has no "duplicates problem" (by design of the input file).
+//    // The "duplicates problem" is that more than one callsite can have
+//    // the same pred set. This matters, because their complement sets
+//    // could be very different.
+//    // Each line is a unique pair of a pred set label and a callee func ID.
+//    // So even if the pred set label can occur at different callsites,
+//    // we still know the root of the callgraph where such a prediction
+//    // set can happen.
+//    pred_sets = read_pred_sets(); // this needs to have a fix for duplicates problem
+//    //callers_callees = read_corresponding_callers_callees();
+//    the_roots = read_corresponding_roots();
+//    //for each pred_set, (caller,callee) in pred_sets, callers_callees:
+//    for each pred_set, root in pred_sets, the_roots:
+//        full_deck = static_reachability[the_root]
+//        complement_set = full_deck \ pred_set
+//        for each caller in pred_set:
+//            for each callee in adj_list[caller]
+//                if callee is element of complement_set
+//                    RPs[caller].insert(callee)
+//}
 
 
 void AdvancedRuntimeDebloat::update_deck_id_to_caller_callee(int deck_id,
@@ -643,9 +679,9 @@ void AdvancedRuntimeDebloat::instrument_loop(int func_id, Loop *loop)
         IRBuilder<> builder(TI);
         CallInst *ci = builder.CreateCall(debrt_protect_loop_func, ArgsV);
         if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
-            instrument_feature_pass(NULL, func_id_to_func[func_id], ci, debrt_profile_print_args_func);
+            instrument_feature_pass(NULL, func_id_to_func[func_id], ci, debrt_profile_print_args_func, loop_id);
         }else if(ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E){
-            instrument_feature_pass(NULL, func_id_to_func[func_id], ci, debrt_test_predict_predict_func);
+            instrument_feature_pass(NULL, func_id_to_func[func_id], ci, debrt_test_predict_predict_func, loop_id);
         }
 
         //Set of functions debloated within loop (Sharjeel)
@@ -942,9 +978,17 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                         if(f_is_not_encompassed && block_is_outside_loop){
                             CallInst *ci = builder.CreateCall(debrt_protect_indirect_func, ArgsV);
                             if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
-                                instrument_feature_pass(CB, NULL, ci, debrt_profile_print_args_func);
+                                vector<Value *> VarArgsV;
+                                IRBuilder<> builder2(ci);
+                                VarArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
+                                fix_up_argsv_for_indirect(CB, VarArgsV, builder2);
+                                builder2.CreateCall(debrt_profile_indirect_print_args_func, VarArgsV);
                             }else if(ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E){
-                                instrument_feature_pass(CB, NULL, ci, debrt_test_predict_predict_func);
+                                vector<Value *> VarArgsV;
+                                IRBuilder<> builder2(ci);
+                                VarArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
+                                fix_up_argsv_for_indirect(CB, VarArgsV, builder2);
+                                builder2.CreateCall(debrt_test_predict_indirect_predict_func, VarArgsV);
                             }
 
                             // instrument after indirect func call
@@ -1084,25 +1128,39 @@ void AdvancedRuntimeDebloat::push_arg(Value *argV, vector<Value *> &ArgsV, IRBui
 }
 
 void AdvancedRuntimeDebloat::instrument_feature_pass(CallBase *callsite,
-                                                      Function *parent_func,
-                                                      CallInst *inst_to_follow,
-                                                      Function *func_to_instrument)
+                                                     Function *parent_func,
+                                                     CallInst *inst_to_follow,
+                                                     Function *func_to_instrument,
+                                                     int func_or_loop_id)
 {
-    //errs() << "inst to follow: " << inst_to_follow << "\n";
-    if(callsite){
-        //errs() << "callsite num args: " << callsite->arg_size() << "\n";
-        if(callsite->getCalledFunction()){
-            //errs() << "Name of the called function: " << callsite->getCalledFunction()->getName() << "\n";
-        }else{
-            //errs() << "Called func unknown (func pointer)\n";
-        }
-    }else{
-        //errs() << "parent_func num args: " << parent_func->arg_size() << "\n";
-        //errs() << "Name of the parent function: " << parent_func->getName() << "\n";
-    }
+    ////errs() << "inst to follow: " << inst_to_follow << "\n";
+    //if(callsite){
+    //    //errs() << "callsite num args: " << callsite->arg_size() << "\n";
+    //    if(callsite->getCalledFunction()){
+    //        //errs() << "Name of the called function: " << callsite->getCalledFunction()->getName() << "\n";
+    //    }else{
+    //        //errs() << "Called func unknown (func pointer)\n";
+    //    }
+    //}else{
+    //    //errs() << "parent_func num args: " << parent_func->arg_size() << "\n";
+    //    //errs() << "Name of the parent function: " << parent_func->getName() << "\n";
+    //}
     IRBuilder<> builder(inst_to_follow);
     vector<Value *> ArgsV;
     ArgsV.push_back(llvm::ConstantInt::get(int32Ty, 0, false));
+
+    if(callsite == NULL){
+        // Case: we're passing features for a loop (not for a function call)
+        // hacky protocol: set func_or_loop_id to negative to indicate it's a loop ID.
+        // Subtract 1 b/c IDs will collide on the value 0.
+        // (So, to recover, you multiply by -1 and then subtract 1 again).
+        assert(parent_func);
+        func_or_loop_id = (func_or_loop_id * -1) - 1;
+    }else{
+        // sanity check assert... maybe catch a future bug/assumption if code changes, too
+        assert(parent_func == NULL);
+    }
+    ArgsV.push_back(llvm::ConstantInt::get(int32Ty, func_or_loop_id, false));
 
     ArgsV.push_back(llvm::ConstantInt::get(int32Ty, deck_id_counter, false));
     update_deck_id_to_caller_callee(deck_id_counter, callsite, parent_func);
@@ -1111,10 +1169,12 @@ void AdvancedRuntimeDebloat::instrument_feature_pass(CallBase *callsite,
     // FIXME no better way to do this? function and callbase live in different
     // parts of the inheritance tree i think.
     if(callsite){
+        assert(func_or_loop_id >= 0);
         for(auto it_arg = callsite->arg_begin(); it_arg != callsite->arg_end(); it_arg++){
             push_arg((Value *) *it_arg, ArgsV, builder, false);
         }
     }else{
+        assert(func_or_loop_id < 0);
         for(Function::arg_iterator it_arg = parent_func->arg_begin(); it_arg != parent_func->arg_end(); it_arg++){
             // XXX I've tested this cast and it works. Reason, I think, is that
             // it_arg iterates over Argument types (no pointer). And Argument
@@ -1178,9 +1238,9 @@ void AdvancedRuntimeDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
                             IRBuilder<> builder(CB);
                             CallInst *ci = builder.CreateCall(debrt_protect_reachable_func, ArgsV);
                             if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
-                                instrument_feature_pass(CB, NULL, ci, debrt_profile_print_args_func);
+                                instrument_feature_pass(CB, NULL, ci, debrt_profile_print_args_func, func_to_id[callee]);
                             }else if(ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E){
-                                instrument_feature_pass(CB, NULL, ci, debrt_test_predict_predict_func);
+                                instrument_feature_pass(CB, NULL, ci, debrt_test_predict_predict_func, func_to_id[callee]);
                             }
 
 
@@ -1332,9 +1392,9 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
             // reachable
             CallInst *ci = builder.CreateCall(debrt_protect_reachable_func, ArgsV);
             if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
-                instrument_feature_pass(CB_external_call, NULL, ci, debrt_profile_print_args_func);
+                instrument_feature_pass(CB_external_call, NULL, ci, debrt_profile_print_args_func, func_to_id[callback]);
             }else if(ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E){
-                instrument_feature_pass(CB_external_call, NULL, ci, debrt_test_predict_predict_func);
+                instrument_feature_pass(CB_external_call, NULL, ci, debrt_test_predict_predict_func, func_to_id[callback]);
             }
             end_call = debrt_protect_reachable_end_func;
         }else{
@@ -1986,6 +2046,11 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
             Function::ExternalLinkage,
             "debrt_profile_print_args",
             M);
+    debrt_profile_indirect_print_args_func
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
+            Function::ExternalLinkage,
+            "debrt_profile_indirect_print_args",
+            M);
     debrt_profile_update_recorded_funcs_func
       = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
             Function::ExternalWeakLinkage,
@@ -2000,6 +2065,11 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
       = Function::Create(FunctionType::get(int32Ty, ArgTypes, true),
             Function::ExternalLinkage,
             "debrt_test_predict_predict",
+            M);
+    debrt_test_predict_indirect_predict_func
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
+            Function::ExternalLinkage,
+            "debrt_test_predict_indirect_predict",
             M);
 
 

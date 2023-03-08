@@ -12,10 +12,12 @@
 
 extern "C" {int debrt_protect_indirect(long long);}
 extern "C" {int debrt_protect_loop_end(int);}
-extern "C" {int debrt_profile_indirect_print_args(long long *);}
+extern "C" {int debrt_profile_indirect_print_args_ics(long long *);}
 extern "C" {int debrt_profile_update_recorded_funcs(int);}
-extern "C" {int debrt_test_predict_indirect_predict(long long *);}
-extern "C" {int debrt_release_indirect_predict(long long *);}
+extern "C" {int debrt_test_predict_indirect_predict_ics(long long *);}
+extern "C" {int debrt_release_rectify(int);}
+//extern "C" {int debrt_release_indirect_predict(long long *);}
+extern "C" {int *debrt_rectification_flags;}
 
 
 typedef struct{
@@ -189,7 +191,7 @@ int ics_profile_map_indirect_call(long long argc, ...)
     // TODO maybe we don't even invoke this in release version (check
     //   env variable for this info).
     //printf("ics_map_indirect_call: invoking indirect-print-args\n");
-    debrt_profile_indirect_print_args(indirect_call_static_vararg_stack);
+    debrt_profile_indirect_print_args_ics(indirect_call_static_vararg_stack);
     // XXX no need to "reset" or do anything with vararg_stack between calls.
     // Whenever we invoke ics_map_indirect_call() again with a non-cached
     // function pointer, we will set element 0 to the proper count again and
@@ -317,8 +319,6 @@ int ics_test_predict_map_indirect_call(long long argc, ...)
     int i;
     va_list ap;
     long long fp_addr;
-    //printf("ics_map_indirect_call\n");
-
 
     va_start(ap, argc);
     fp_addr = va_arg(ap, long long);
@@ -359,7 +359,7 @@ int ics_test_predict_map_indirect_call(long long argc, ...)
     }
     va_end(ap);
 
-    debrt_test_predict_indirect_predict(indirect_call_static_vararg_stack);
+    debrt_test_predict_indirect_predict_ics(indirect_call_static_vararg_stack);
 
     // XXX no need to "reset" or do anything with vararg_stack between calls.
     // Whenever we invoke ics_map_indirect_call() again with a non-cached
@@ -390,7 +390,7 @@ int ics_test_predict_wrapper_debrt_protect_loop_end(int loop_id)
 
 
 
-
+/*
 
 //
 //
@@ -457,7 +457,7 @@ int ics_release_map_indirect_call(long long argc, ...)
     }
     va_end(ap);
 
-    debrt_release_indirect_predict(indirect_call_static_vararg_stack);
+    debrt_release_indirect_predict_ics(indirect_call_static_vararg_stack);
 
     // XXX no need to "reset" or do anything with vararg_stack between calls.
     // Whenever we invoke ics_map_indirect_call() again with a non-cached
@@ -485,4 +485,15 @@ int ics_release_wrapper_debrt_protect_loop_end(int loop_id)
     return 0;
 }
 }
+*/
 
+extern "C" {
+__attribute__((always_inline))
+int ics_release_rectify(int func_id)
+{
+    if(debrt_rectification_flags[func_id]){
+        debrt_release_rectify(func_id);
+    }
+    return 0;
+}
+}
