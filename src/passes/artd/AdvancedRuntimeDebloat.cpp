@@ -980,12 +980,14 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                             if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
                                 vector<Value *> VarArgsV;
                                 IRBuilder<> builder2(ci);
+                                //IRBuilder<> builder2(CB);
                                 VarArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
                                 fix_up_argsv_for_indirect(CB, VarArgsV, builder2);
                                 builder2.CreateCall(debrt_profile_indirect_print_args_func, VarArgsV);
                             }else if(ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E){
                                 vector<Value *> VarArgsV;
                                 IRBuilder<> builder2(ci);
+                                //IRBuilder<> builder2(CB);
                                 VarArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
                                 fix_up_argsv_for_indirect(CB, VarArgsV, builder2);
                                 builder2.CreateCall(debrt_test_predict_indirect_predict_func, VarArgsV);
@@ -1111,11 +1113,13 @@ void AdvancedRuntimeDebloat::push_arg(Value *argV, vector<Value *> &ArgsV, IRBui
                 }
             }else if(funcArg->getType()->isPointerTy()){
                 //errs() << "pointer\n";
-                if(is_64){
-                    castedArg = builder.CreatePtrToInt(funcArg, int64Ty);
-                }else{
-                    castedArg = builder.CreatePtrToInt(funcArg, int32Ty);
-                }
+                //if(is_64){
+                //    castedArg = builder.CreatePtrToInt(funcArg, int64Ty);
+                //}else{
+                //    castedArg = builder.CreatePtrToInt(funcArg, int32Ty);
+                //}
+                // Don't train on pointer values
+                return;
             }
 
             if(castedArg == nullptr){
