@@ -32,6 +32,9 @@ using namespace llvm;
 using namespace std;
 
 
+int IS_ACTUALLY_RELEASE = 0;
+
+
 #define INDIRECT_CALL_SINKING true
 
 
@@ -134,7 +137,9 @@ namespace {
         set<string> ics_func_names;
         set<string> libc_nonstatic_func_names;
         map<int, pair<Function *, Function *> > deck_id_to_caller_callee;
-        map<int, int> RPs;      // caller -> callee,
+        map<int, set<int> > RPs; // caller -> set of callees that need RP
+        vector<set<int> > func_set_id_to_funcs; // not a map. index by func set id.
+        vector<pair<int, int> > func_set_id_deck_root_pairs;
 
 
         void getAnalysisUsage(AnalysisUsage &AU) const
@@ -200,6 +205,9 @@ namespace {
         void get_address_taken_uses(Function &F, vector<User *> &offenders);
         void build_func_to_fps(Module &M);
         void update_disjoint_sets(set<Function *> &new_set);
+        void build_RPs(void);
+        void read_func_set_id_deck_root_pairs(void);
+        void read_func_set_id_to_funcs(void);
 
 
         string get_demangled_name(const Function &F);
@@ -215,6 +223,9 @@ namespace {
         void print_disjoint_sets(void);
         void dump_stats(void);
         void dump_deck_id_to_caller_callee(void);
+        void dump_func_set_id_deck_root_pairs(void);
+        void dump_func_set_id_to_funcs(void);
+        void dump_RPs(void);
 
         void instrument_feature_pass(CallBase *callsite,
                                      Function *parent_func,
@@ -242,36 +253,213 @@ struct artd_stats{
 }stats;
 
 
-// This function is responsible for building the RPs map. It doesn't
-// need to know about debrt_rectification_flags or anything like this.
-// It's only goal is to create map that tells you for a given function
-// ID, whether a callee's function ID needs to be protected by RP
-// instrumentation.
-// Intuitively these are all points where execution can flow from a function
-// in a predicted set to a function in the complement set (where the complement
-// is just the full deck set-minus the prediction set).
-//void AdvancedRuntimeDebloat::build_RPs(void)
-//{
-//    // This has no "duplicates problem" (by design of the input file).
-//    // The "duplicates problem" is that more than one callsite can have
-//    // the same pred set. This matters, because their complement sets
-//    // could be very different.
-//    // Each line is a unique pair of a pred set label and a callee func ID.
-//    // So even if the pred set label can occur at different callsites,
-//    // we still know the root of the callgraph where such a prediction
-//    // set can happen.
-//    pred_sets = read_pred_sets(); // this needs to have a fix for duplicates problem
-//    //callers_callees = read_corresponding_callers_callees();
-//    the_roots = read_corresponding_roots();
-//    //for each pred_set, (caller,callee) in pred_sets, callers_callees:
-//    for each pred_set, root in pred_sets, the_roots:
-//        full_deck = static_reachability[the_root]
-//        complement_set = full_deck \ pred_set
-//        for each caller in pred_set:
-//            for each callee in adj_list[caller]
-//                if callee is element of complement_set
-//                    RPs[caller].insert(callee)
-//}
+// don't insert elements that are empty (so for example split(' ') on
+// "a     b" will do the expected thing and return on ['a', 'b'])
+template<typename Out>
+void split_nonempty(const string &s, char delim, Out result)
+{
+    stringstream ss(s);
+    string item;
+    while(getline(ss, item, delim)){
+        if(!item.empty()){
+            *(result++) = item;
+        }
+    }
+}
+vector<string> split_nonempty(const string &s, char delim)
+{
+    vector<string> elems;
+    split_nonempty(s, delim, back_inserter(elems));
+    return elems;
+}
+
+
+// This function is responsible for building the RPs map.
+// Its only goal is to create a map where the key is a function ID,
+// and the value is the set of that function's callees that need to be
+// protected by RP instrumentation.
+// Intuitively, the map captures all points where execution can flow
+// from a function in a predicted set to a function in the complement set
+// (complement set = full deck \ prediction set).
+//
+// This function, and the RPs map that it builds, do not need to know about
+// debrt_rectification_flags or anything like this. This is a very important
+// point when reviewing or rethinking what's happening here! The RPs map does
+// NOT need to capture any "context" like this, because for the purposes of
+// _instrumenting RPs_ in this compiler pass, the context is irrelevant. We
+// just care that all of the prediction sets that can happen (i.e. which we saw
+// in training) have their complement sets protected by RPs. Runtime techniques
+// will handle the problem of figuring out which RPs to enable and disable,
+// based on context.
+
+// Note, by context I mean something like the following: During execution, the
+// program may issue two predictions at two completely different callsites,
+// e.g. just before calling foo, and just before calling bar. But that
+// prediction may turn out to be the same function set ID, i.e. it corresponds
+// to the same set of functions, say, A, B, C. But the decks for foo and bar
+// may be very different, so despite having two identical predictions --
+// meaning we need to enable the same functions -- their complement sets could
+// be very different, and hence the RPs that need to be enabled must be
+// different. All of that is related to context. All of that context is
+// NOT relevant to this function and the RPs map. It will be handled
+// elsewhere with runtime techniques.
+void AdvancedRuntimeDebloat::build_RPs(void)
+{
+    read_func_set_id_to_funcs();
+    read_func_set_id_deck_root_pairs();
+    //dump_func_set_id_to_funcs();
+    //dump_func_set_id_deck_root_pairs();
+
+    for(pair<int, int> func_set_id_deck_root : func_set_id_deck_root_pairs) {
+
+        errs() << "hit 0\n";
+
+        set<Function *> *full_deck;
+        set<int> *pred_set_ids;
+        set<Function *> pred_set;
+        set<Function *> complement_set;
+
+        // Grab the full deck. It's based off the deck's root
+        int func_set_id  = func_set_id_deck_root.first;
+        int deck_root_id = func_set_id_deck_root.second;
+        if(deck_root_id >= 0){
+            Function *deck_root_func = func_id_to_func[deck_root_id];
+            full_deck = &static_reachability[deck_root_func];
+        }else{
+            // loop IDs are encoded as the negative minus 1 of the original.
+            // recover the loop ID and grab the loop's deck
+            deck_root_id = (deck_root_id * -1) - 1;
+            full_deck = &loop_static_reachability[deck_root_id];
+        }
+
+        // Grab the predicted set.
+        // It's just based off the prediction, which is the func-set-id
+        // Need to get all the Function *s, though, not just the IDs.
+        pred_set_ids = &func_set_id_to_funcs[func_set_id];
+        for(int pred_set_id : (*pred_set_ids)){
+            pred_set.insert(func_id_to_func[pred_set_id]);
+        }
+
+        // Calculate the complement set.
+        //   complement_set = full_deck \ pred_set
+        set_difference(full_deck->begin(),
+                       full_deck->end(),
+                       pred_set.begin(),
+                       pred_set.end(),
+                       inserter(complement_set, complement_set.end()));
+
+        for(Function *caller : pred_set){
+            errs() << "hit 1\n";
+            int caller_id = func_to_id[caller];
+            assert(pred_set_ids->find(caller_id) != pred_set_ids->end());
+            for(Function *callee : adj_list[caller]){
+                int callee_id = func_to_id[callee];
+                if(complement_set.find(callee) != complement_set.end()){
+                    errs() << "hit 2 for callee id: " << callee_id << "\n";
+                    RPs[caller_id].insert(callee_id);
+                }
+            }
+        }
+    }
+}
+
+
+// Read the all the unique pairs of func set IDs and their corresponding deck
+// root IDs into an array, func_set_id_deck_root_pairs.
+// Each element is a unique pair of a func set ID and the ID (function
+// or loop ID) that can be the deck root of that set. The "deck root"
+// is just the first function that executes in the deck (which establishes
+// reachability), or, in the case of a loop, it's the loop itself, which
+// also establishes reachability.
+//
+// Example file (which is created by parse_artd_profile_log.py):
+//   func_set_id,deck_root
+//   0,-1
+//   1,-6
+//   2,-3
+//   2,98
+//   3,67
+//   4,59
+void AdvancedRuntimeDebloat::read_func_set_id_deck_root_pairs(void)
+{
+    string line;
+    ifstream ifs;
+    vector<string> elems;
+    int func_set_id;
+    int deck_root_id;
+
+    ifs.open("func-set-id-deck-root-pairs.out");
+    if(!ifs.is_open()) {
+        fprintf(stderr, "ERROR: Failed to open func-set-id-deck-root-pairs.out.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    getline(ifs, line); // parse out the header
+
+    while(getline(ifs, line)){
+        vector<int> func_ids;
+        elems = split_nonempty(line, ',');
+        func_set_id  = atoi(elems[0].c_str());
+        deck_root_id = atoi(elems[1].c_str());
+        func_set_id_deck_root_pairs.push_back(make_pair(func_set_id, deck_root_id));
+    }
+
+    ifs.close();
+}
+
+
+//
+// TODO This is a copy-paste of code from the debloat_rt.cpp (see
+// _read_func_sets()).
+//
+// Read the all func set IDs and their corresponding func IDs into an array
+// of sets called "func_sets". func_sets is indexed by the func set ID. Each
+// element is a set of integers, which are the function IDs of that func set.
+//
+// Example file (which is created by parse_artd_profile_log.py):
+//   predicted_func_set_id,called_func_id1,called_func_id2,...
+//   0,114
+//   1,92
+//   2,98
+//   3,16,22,67
+void AdvancedRuntimeDebloat::read_func_set_id_to_funcs(void)
+{
+    int i;
+    int k;
+    string line;
+    ifstream ifs;
+    vector<string> elems;
+    int func_set_id;
+
+    ifs.open("func-set-ids-to-funcs.out"); // n.b. filename is "ids" not "id"
+    if(!ifs.is_open()) {
+        fprintf(stderr, "ERROR: Failed to open func-set-ids-to-funcs.out.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Construct "func_set_id_to_funcs". It's not a map. It's a vector.
+    // It's indexed by func set ID.  Each element is a a set of function IDs
+    // that is part of that prediction set.
+    i = 0;
+    getline(ifs, line); // parse out the header
+
+    while(getline(ifs, line)){
+        vector<int> func_ids;
+        elems = split_nonempty(line, ',');
+        func_set_id = atoi(elems[0].c_str());
+        assert(func_set_id == i);
+        for(k = 1; k < elems.size(); k++){
+            func_ids.push_back(atoi(elems[k].c_str()));
+        }
+        set<int> func_id_set(func_ids.begin(), func_ids.end());
+        func_set_id_to_funcs.push_back(func_id_set);
+        i++;
+    }
+
+    ifs.close();
+}
+
+
 
 
 void AdvancedRuntimeDebloat::update_deck_id_to_caller_callee(int deck_id,
@@ -2178,6 +2366,10 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
 
     // finalize disjoint sets
     finalize_disjoint_sets();
+
+    if(IS_ACTUALLY_RELEASE){
+        build_RPs();
+    }
 }
 
 bool AdvancedRuntimeDebloat::runOnModule(Module &M)
@@ -2425,6 +2617,39 @@ void AdvancedRuntimeDebloat::dump_deck_id_to_caller_callee(void)
     }
     fclose(fp);
 }
+void AdvancedRuntimeDebloat::dump_func_set_id_deck_root_pairs(void)
+{
+    for(auto it = func_set_id_deck_root_pairs.begin(); it != func_set_id_deck_root_pairs.end(); it++){
+        errs() << it->first << " " << it->second << "\n";
+    }
+}
+void AdvancedRuntimeDebloat::dump_func_set_id_to_funcs(void)
+{
+    for(int func_set_id = 0; func_set_id < func_set_id_to_funcs.size(); func_set_id++){
+        set<int> &pred_set_ids = func_set_id_to_funcs[func_set_id];
+        errs() << func_set_id << ":";
+        for(auto it = pred_set_ids.begin(); it != pred_set_ids.end(); it++){
+            int func_id = *it;
+            errs() << " " << func_id;
+        }
+        errs() << "\n";
+    }
+}
+void AdvancedRuntimeDebloat::dump_RPs(void)
+{
+    FILE *fp = fopen("artd_RPs.txt", "w");
+    fprintf(fp, "caller,callee1,callee2,...\n");
+    for(auto it = RPs.begin(); it != RPs.end(); it++){
+        int caller_id = it->first;
+        set<int> &callee_ids = it->second;
+        fprintf(fp, "%d", caller_id);
+        for(auto itt = callee_ids.begin(); itt != callee_ids.end(); itt++){
+            fprintf(fp, ",%d", (*itt));
+        }
+        fprintf(fp, "\n");
+    }
+    fclose(fp);
+}
 string AdvancedRuntimeDebloat::get_demangled_name(const Function &F)
 {
     ItaniumPartialDemangler IPD;
@@ -2436,25 +2661,6 @@ string AdvancedRuntimeDebloat::get_demangled_name(const Function &F)
         return IPD.getFunctionBaseName(nullptr, nullptr);
     }
     return IPD.finishDemangle(nullptr, nullptr);
-}
-// don't insert elements that are empty (so for example split(' ') on
-// "a     b" will do the expected thing and return on ['a', 'b'])
-template<typename Out>
-void split_nonempty(const string &s, char delim, Out result)
-{
-    stringstream ss(s);
-    string item;
-    while(getline(ss, item, delim)){
-        if(!item.empty()){
-            *(result++) = item;
-        }
-    }
-}
-vector<string> split_nonempty(const string &s, char delim)
-{
-    vector<string> elems;
-    split_nonempty(s, delim, back_inserter(elems));
-    return elems;
 }
 void AdvancedRuntimeDebloat::read_readelf_sections(void)
 {
@@ -2588,6 +2794,7 @@ bool AdvancedRuntimeDebloat::doFinalization(Module &M)
     dump_disjoint_sets();
     dump_stats();
     dump_deck_id_to_caller_callee();
+    dump_RPs();
     return false;
 }
 bool AdvancedRuntimeDebloat::doInitialization(Module &M)
@@ -2608,6 +2815,14 @@ artd_build_e AdvancedRuntimeDebloat::parseARTDBuildOpt(void)
     }else if(ARTDBuild == "test_predict"){
         return ARTD_BUILD_TEST_PREDICT_E;
     }else if(ARTDBuild == "release"){
+        // FIXME
+        // FIXME
+        // FIXME
+        // FIXME
+        // FIXME
+        // FIXME
+        IS_ACTUALLY_RELEASE = 1; // FIXME...
+        return ARTD_BUILD_TEST_PREDICT_E; // FIXME...
         return ARTD_BUILD_RELEASE_E;
     }else{
         assert(0 && "ERROR: invalid artd-build option");
