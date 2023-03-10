@@ -1068,11 +1068,12 @@ int debrt_return(long long func_addr)
 // of sets called "func_sets". func_sets is indexed by the func set ID. Each
 // element is a set of integers, which are the function IDs of that func set.
 //
-// Example input file (which is created by parse_debprof_out.py)
-//   predicted_func_set_id called_func_id1,called_func_id2,...
-//   0 -1292216545,-1292216556,-1292216557,
-//   1 -1292216556,-1292216557,
-//   2 -1292216544,-1292216556,-1292216557,
+// Example file (which is created by parse_artd_profile_log.py):
+//   predicted_func_set_id,called_func_id1,called_func_id2,...
+//   0,114
+//   1,92
+//   2,98
+//   3,16,22,67
 void _read_func_sets(void)
 {
     int i;
