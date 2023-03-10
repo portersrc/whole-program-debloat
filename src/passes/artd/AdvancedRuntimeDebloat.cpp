@@ -32,9 +32,6 @@ using namespace llvm;
 using namespace std;
 
 
-int IS_ACTUALLY_RELEASE = 0;
-
-
 #define INDIRECT_CALL_SINKING true
 
 
@@ -2367,7 +2364,7 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
     // finalize disjoint sets
     finalize_disjoint_sets();
 
-    if(IS_ACTUALLY_RELEASE){
+    if(ARTD_BUILD == ARTD_BUILD_RELEASE_E){
         build_RPs();
     }
 }
@@ -2815,14 +2812,6 @@ artd_build_e AdvancedRuntimeDebloat::parseARTDBuildOpt(void)
     }else if(ARTDBuild == "test_predict"){
         return ARTD_BUILD_TEST_PREDICT_E;
     }else if(ARTDBuild == "release"){
-        // FIXME
-        // FIXME
-        // FIXME
-        // FIXME
-        // FIXME
-        // FIXME
-        IS_ACTUALLY_RELEASE = 1; // FIXME...
-        return ARTD_BUILD_TEST_PREDICT_E; // FIXME...
         return ARTD_BUILD_RELEASE_E;
     }else{
         assert(0 && "ERROR: invalid artd-build option");
