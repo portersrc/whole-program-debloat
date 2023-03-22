@@ -141,6 +141,7 @@ namespace {
         map<int, pair<Function *, Function *> > deck_id_to_caller_callee;
         map<int, set<int> > RPs; // caller -> set of callees that need RP
         vector<set<int> > func_set_id_to_funcs; // not a map. index by func set id.
+        vector<set<Function *> > func_set_id_to_complements; // not a map. complements to func_set_id_to_funcs
         vector<pair<int, int> > func_set_id_deck_root_pairs;
 
 
@@ -208,6 +209,7 @@ namespace {
         void build_func_to_fps(Module &M);
         void update_disjoint_sets(set<Function *> &new_set);
         void build_RPs(void);
+        void instrument_RPs(void);
         void read_func_set_id_deck_root_pairs(void);
         void read_func_set_id_to_funcs(void);
 
@@ -225,9 +227,10 @@ namespace {
         void print_disjoint_sets(void);
         void dump_stats(void);
         void dump_deck_id_to_caller_callee(void);
-        void dump_func_set_id_deck_root_pairs(void);
-        void dump_func_set_id_to_funcs(void);
+        void print_func_set_id_deck_root_pairs(void);
+        void print_func_set_id_to_funcs(void);
         void dump_RPs(void);
+        void dump_func_set_id_to_complements(void);
 
         void instrument_feature_pass(CallBase *callsite,
                                      Function *parent_func,
@@ -309,12 +312,12 @@ void AdvancedRuntimeDebloat::build_RPs(void)
 {
     read_func_set_id_to_funcs();
     read_func_set_id_deck_root_pairs();
-    //dump_func_set_id_to_funcs();
-    //dump_func_set_id_deck_root_pairs();
+    assert(func_set_id_deck_root_pairs.size() == func_set_id_to_funcs.size());
+    //print_func_set_id_to_funcs();
+    //print_func_set_id_deck_root_pairs();
+    func_set_id_to_complements = std::vector<set<Function *> >(func_set_id_to_funcs.size());
 
     for(pair<int, int> func_set_id_deck_root : func_set_id_deck_root_pairs) {
-
-        errs() << "hit 0\n";
 
         set<Function *> *full_deck;
         set<int> *pred_set_ids;
@@ -350,15 +353,44 @@ void AdvancedRuntimeDebloat::build_RPs(void)
                        pred_set.end(),
                        inserter(complement_set, complement_set.end()));
 
+        func_set_id_to_complements[func_set_id] = complement_set;
+
         for(Function *caller : pred_set){
-            errs() << "hit 1\n";
             int caller_id = func_to_id[caller];
             assert(pred_set_ids->find(caller_id) != pred_set_ids->end());
             for(Function *callee : adj_list[caller]){
                 int callee_id = func_to_id[callee];
                 if(complement_set.find(callee) != complement_set.end()){
-                    errs() << "hit 2 for callee id: " << callee_id << "\n";
                     RPs[caller_id].insert(callee_id);
+                }
+            }
+        }
+    }
+}
+
+
+void AdvancedRuntimeDebloat::instrument_RPs(void)
+{
+    errs() << "Hit instrument_RPs\n";
+    for(auto it = RPs.begin(); it != RPs.end(); it++){
+        int caller_func_id = it->first;
+        set<int> &callees_to_rectify = it->second;
+        Function *caller = func_id_to_func[caller_func_id];
+        for(auto &b : *caller){
+            for(auto &I : b){
+                CallBase   *CB = dyn_cast<CallBase>(&I);
+                //CallInst   *CI = dyn_cast<CallInst>(&I);
+                //InvokeInst *II = dyn_cast<InvokeInst>(&I);
+                if(CB){
+                    Function *callee = CB->getCalledFunction();
+                    int callee_func_id = func_to_id[callee];
+                    if(callees_to_rectify.find(callee_func_id) != callees_to_rectify.end()){
+                        // instrument RP before callee
+                        vector<Value *> ArgsV;
+                        ArgsV.push_back(ConstantInt::get(int32Ty, callee_func_id, false));
+                        IRBuilder<> builder(CB);
+                        CallInst *ci = builder.CreateCall(ics_release_rectify_func, ArgsV);
+                    }
                 }
             }
         }
@@ -433,9 +465,9 @@ void AdvancedRuntimeDebloat::read_func_set_id_to_funcs(void)
     vector<string> elems;
     int func_set_id;
 
-    ifs.open("func-set-ids-to-funcs.out"); // n.b. filename is "ids" not "id"
+    ifs.open("func-set-id-to-funcs.out");
     if(!ifs.is_open()) {
-        fprintf(stderr, "ERROR: Failed to open func-set-ids-to-funcs.out.\n");
+        fprintf(stderr, "ERROR: Failed to open func-set-id-to-funcs.out.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -2452,6 +2484,7 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
 
     if(ARTD_BUILD == ARTD_BUILD_RELEASE_E){
         build_RPs();
+        instrument_RPs();
     }
 }
 
@@ -2700,13 +2733,13 @@ void AdvancedRuntimeDebloat::dump_deck_id_to_caller_callee(void)
     }
     fclose(fp);
 }
-void AdvancedRuntimeDebloat::dump_func_set_id_deck_root_pairs(void)
+void AdvancedRuntimeDebloat::print_func_set_id_deck_root_pairs(void)
 {
     for(auto it = func_set_id_deck_root_pairs.begin(); it != func_set_id_deck_root_pairs.end(); it++){
         errs() << it->first << " " << it->second << "\n";
     }
 }
-void AdvancedRuntimeDebloat::dump_func_set_id_to_funcs(void)
+void AdvancedRuntimeDebloat::print_func_set_id_to_funcs(void)
 {
     for(int func_set_id = 0; func_set_id < func_set_id_to_funcs.size(); func_set_id++){
         set<int> &pred_set_ids = func_set_id_to_funcs[func_set_id];
@@ -2731,6 +2764,22 @@ void AdvancedRuntimeDebloat::dump_RPs(void)
         }
         fprintf(fp, "\n");
     }
+    fclose(fp);
+}
+void AdvancedRuntimeDebloat::dump_func_set_id_to_complements(void)
+{
+    FILE *fp = fopen("func-set-id-to-complements.out", "w");
+    fprintf(fp, "predicted_func_set_id,complement_func_id1,complement_func_id2,...\n");
+
+    for(int func_set_id = 0; func_set_id < func_set_id_to_complements.size(); func_set_id++){
+        set<Function *> &pred_set_complement = func_set_id_to_complements[func_set_id];
+        fprintf(fp, "%d", func_set_id);
+        for(auto it = pred_set_complement.begin(); it != pred_set_complement.end(); it++){
+            fprintf(fp, ",%d", func_to_id[*it]);
+        }
+        errs() << "\n";
+    }
+
     fclose(fp);
 }
 string AdvancedRuntimeDebloat::get_demangled_name(const Function &F)
@@ -2878,6 +2927,7 @@ bool AdvancedRuntimeDebloat::doFinalization(Module &M)
     dump_stats();
     dump_deck_id_to_caller_callee();
     dump_RPs();
+    dump_func_set_id_to_complements();
     return false;
 }
 bool AdvancedRuntimeDebloat::doInitialization(Module &M)
