@@ -45,9 +45,11 @@ int ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS = 0;
 // Will dump features and trace function calls
 int ENV_DEBRT_ENABLE_PROFILING = 0;
 
-// Introducing in order to call _read_func_sets
-// To enable, set env var DEBRT_ENABLE_PREDICTION=1
-int ENV_DEBRT_ENABLE_PREDICTION = 0;
+// To enable, set env var DEBRT_ENABLE_TEST_PREDICTION=1
+int ENV_DEBRT_ENABLE_TEST_PREDICTION = 0;
+
+// To enable, set env var DEBRT_ENABLE_RELEASE=1
+int ENV_DEBRT_ENABLE_RELEASE = 0;
 
 #define DEBRT_INDIRECT_CALL_SINKING 1
 
@@ -122,11 +124,14 @@ const char *PROFILE_CSV_COLUMNS = "deck_id," \
 
 
 vector<set<int> > func_sets;
+vector<set<int> > complement_sets;
 set<int> *pred_set_p;
+set<int> *pred_set_complement_p;
 unsigned long long trace_count = 0;
 unsigned long long trace_count_wrap = 0;
 unsigned long long num_mispredictions = 0;
 int pred_set_initialized = 0;
+int rectification_happened = 0;
 
 // A vector, indexed by function IDs.
 // An element is 1 if the function ID should trigger rectification, i.e.
@@ -518,7 +523,7 @@ int update_page_counts(int func_id, int addend)
     //
 
     DEBRT_PRINTF("%s\n", __FUNCTION__);
-    DEBRT_PRINTF("func_id is %d\n", func_id);
+    DEBRT_PRINTF("update_page_counts func_id is %d\n", func_id);
     DEBRT_PRINTF("addend is %d\n", addend);
     DEBRT_PRINTF("pages.size(): %lu\n", pages.size());
     for(i = 0; i < pages.size(); i++){
@@ -532,10 +537,14 @@ int update_page_counts(int func_id, int addend)
         //    debug_i++;
         //    DEBRT_PRINTF("seeing EXACT addr (%d)\n", debug_i);
         //}
+
+        DEBRT_PRINTF("page_to_count[%lld] old: %d\n", addr, page_to_count[addr]);
         page_to_count[addr] += addend;
+        DEBRT_PRINTF("page_to_count[%lld] new: %d\n", addr, page_to_count[addr]);
+
         if(page_to_count[addr] < 0){
-            DEBRT_PRINTF("page_to_count[addr] < 0. exiting. " \
-                         "addr(0x%llx) func_id(%d)\n", addr, func_id);
+            fprintf(stdout, "page_to_count[addr] < 0. exiting. " \
+                            "addr(0x%llx) func_id(%d)\n", addr, func_id);
             exit(1);
         }
         if((page_to_count[addr] == 1) && (addend == 1)){
@@ -1083,9 +1092,9 @@ void _read_func_sets(void)
     vector<string> elems;
     int func_set_id;
 
-    ifs.open("func-set-ids-to-funcs.out");
+    ifs.open("func-set-id-to-funcs.out");
     if(!ifs.is_open()) {
-        fprintf(stderr, "ERROR: Failed to open func-set-ids-to-funcs.out.\n");
+        fprintf(stderr, "ERROR: Failed to open func-set-id-to-funcs.out.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -1104,6 +1113,50 @@ void _read_func_sets(void)
         }
         set<int> func_id_set(func_ids.begin(), func_ids.end());
         func_sets.push_back(func_id_set);
+        complement_sets.push_back(set<int>());
+        i++;
+    }
+
+    ifs.close();
+}
+
+// ASSUMPTION: _read_func_sets is called first. It initializes complement_sets
+// with empty sets.
+void _read_complement_sets(void)
+{
+    int i;
+    int k;
+    string line;
+    ifstream ifs;
+    vector<string> elems;
+    int func_set_id;
+
+    printf("reading complement sets\n");
+
+    ifs.open("func-set-id-to-complements.out");
+    if(!ifs.is_open()) {
+        fprintf(stderr, "ERROR: Failed to open func-set-id-to-funcs.out.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Construct "complement_sets". It's indexed by func set ID. Each element is a
+    // a set of function ID.
+    i = 0;
+    getline(ifs, line); // parse out the header
+
+    while(getline(ifs, line)){
+        vector<int> func_ids;
+        elems = split(line, ',');
+        func_set_id = atoi(elems[0].c_str());
+        assert(func_set_id == i);
+        //for(k = 1; k < elems.size(); k++){
+        //    func_ids.push_back(atoi(elems[k].c_str()));
+        //}
+        //set<int> func_id_set(func_ids.begin(), func_ids.end());
+        //complement_sets.push_back(func_id_set);
+        for(k = 1; k < elems.size(); k++){
+            complement_sets[i].insert(atoi(elems[k].c_str()));
+        }
         i++;
     }
 
@@ -2022,10 +2075,14 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     if(getenv("DEBRT_ENABLE_PROFILING")){
         ENV_DEBRT_ENABLE_PROFILING = 1;
     }
-    if(getenv("DEBRT_ENABLE_PREDICTION")){
-        ENV_DEBRT_ENABLE_PREDICTION = 1;
+    if(getenv("DEBRT_ENABLE_TEST_PREDICTION")){
+        ENV_DEBRT_ENABLE_TEST_PREDICTION = 1;
     }
-    DEBRT_PRINTF("ENV_DEBRT_ENABLE_PREDICTION: %d\n", ENV_DEBRT_ENABLE_PREDICTION);
+    if(getenv("DEBRT_ENABLE_RELEASE")){
+        ENV_DEBRT_ENABLE_RELEASE = 1;
+    }
+    DEBRT_PRINTF("ENV_DEBRT_ENABLE_RELEASE: %d\n", ENV_DEBRT_ENABLE_RELEASE);
+    DEBRT_PRINTF("ENV_DEBRT_ENABLE_TEST_PREDICTION: %d\n", ENV_DEBRT_ENABLE_TEST_PREDICTION);
     DEBRT_PRINTF("ENV_DEBRT_ENABLE_STATS: %d\n", ENV_DEBRT_ENABLE_STATS);
     DEBRT_PRINTF("ENV_DEBRT_ENABLE_STACK_CLEANING: %d\n", ENV_DEBRT_ENABLE_STACK_CLEANING);
     //DEBRT_PRINTF("ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING: %d\n", ENV_DEBRT_ENABLE_INDIRECT_CALL_SINKING);
@@ -2064,18 +2121,14 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     _read_loop_static_reachability(sink_is_enabled);
     _read_encompassed_funcs();
     _read_sinks();
-    if(ENV_DEBRT_ENABLE_PREDICTION){
+    if(ENV_DEBRT_ENABLE_TEST_PREDICTION){
         _read_func_sets();
     }
-    //if(ENV_DEBRT_ENABLE_PREDICTION){
-    //    _read_func_sets();
-    //    debrt_rectification_flags = (int *) malloc(sizeof(int) * func_id_to_name.size());
-    //    // TESTING
-    //    printf("func id to name size: %lu\n", func_id_to_name.size());
-    //    debrt_rectification_flags[1] = 1;
-    //    debrt_rectification_flags[2] = 2;
-    //    printf("debrt_rectification_flags[2]: %d\n", debrt_rectification_flags[2]);
-    //}
+    if(ENV_DEBRT_ENABLE_RELEASE){
+        _read_func_sets(); // also initializes complement_set with empty sets.
+        _read_complement_sets();
+        debrt_rectification_flags = (int *) malloc(sizeof(int) * func_id_to_name.size());
+    }
 
 
     _dump_func_id_to_pages();
@@ -2256,20 +2309,38 @@ int _protect_reachable(int callee_func_id,
 {
     int rv = 0;
     DEBRT_PRINTF("callee_func_id: %d\n", callee_func_id);
-    rv += update_page_counts(callee_func_id, addend);
-    for(int reachable_func : func_id_to_reachable_funcs[callee_func_id]){
-        rv += update_page_counts(reachable_func, addend);
-    }
-    if(ENV_DEBRT_ENABLE_PROFILING){
-        if(addend == 1){
-            DEBRT_PRINTF("recorded_funcs_stack (_protect_reachable) is pushing new set\n");
-            debrt_profile_update_recorded_funcs(0/*new set*/);
-        }else{
-            DEBRT_PRINTF("recorded_funcs_stack (_protect_reachable) will pop and dump\n");
-            debrt_profile_update_recorded_funcs(2/*pop and_dump*/);
+    if(ENV_DEBRT_ENABLE_RELEASE){
+        // map predicted set.
+        // Note: callee_func_id is already in there (handled by caller)
+        for(int pred_func_id : (*pred_set_p)){
+            rv += update_page_counts(pred_func_id, addend);
         }
+        if(addend == -1 && rectification_happened){
+            // Case: we're tearing down a deck (hence addend == -1), and we
+            // also had to deal with rectification while servicing that deck.
+            // reset the rectification-happened flag, and unmap all the
+            // complement functions.
+            rectification_happened = 0;
+            for(int complement_func_id : (*pred_set_complement_p)){
+                rv += update_page_counts(complement_func_id, addend);
+            }
+        }
+    }else{
+        rv += update_page_counts(callee_func_id, addend);
+        for(int reachable_func : func_id_to_reachable_funcs[callee_func_id]){
+            rv += update_page_counts(reachable_func, addend);
+        }
+        if(ENV_DEBRT_ENABLE_PROFILING){
+            if(addend == 1){
+                DEBRT_PRINTF("recorded_funcs_stack (_protect_reachable) is pushing new set\n");
+                debrt_profile_update_recorded_funcs(0/*new set*/);
+            }else{
+                DEBRT_PRINTF("recorded_funcs_stack (_protect_reachable) will pop and dump\n");
+                debrt_profile_update_recorded_funcs(2/*pop and_dump*/);
+            }
+        }
+        _write_mapped_pages_to_file(rv, addend == 1, deck_type);
     }
-    _write_mapped_pages_to_file(rv, addend == 1, deck_type);
     DEBRT_PRINTF("leaving _protect_reachable\n");
     return 0;
 }
@@ -2296,19 +2367,35 @@ int _protect_loop_reachable(int loop_id, int addend)
 {
     int rv = 0;
     DEBRT_PRINTF("loop id: %d\n", loop_id);
-    for(int reachable_func : loop_id_to_reachable_funcs[loop_id]){
-        rv += update_page_counts(reachable_func, addend);
-    }
-    if(ENV_DEBRT_ENABLE_PROFILING){
-        if(addend == 1){
-            DEBRT_PRINTF("recorded_funcs_stack (_protect_loop_reachable) is pushing new set\n");
-            debrt_profile_update_recorded_funcs(0/*new set*/);
-        }else{
-            DEBRT_PRINTF("recorded_funcs_stack (_protect_loop_reachable) will pop and dump\n");
-            debrt_profile_update_recorded_funcs(2/*pop and_dump*/);
+    if(ENV_DEBRT_ENABLE_RELEASE){
+        for(int pred_func_id : (*pred_set_p)){
+            rv += update_page_counts(pred_func_id, addend);
         }
+        if(addend == -1 && rectification_happened){
+            // Case: we're tearing down a deck (hence addend == -1), and we
+            // also had to deal with rectification while servicing that deck.
+            // reset the rectification-happened flag, and unmap all the
+            // complement functions.
+            rectification_happened = 0;
+            for(int complement_func_id : (*pred_set_complement_p)){
+                rv += update_page_counts(complement_func_id, addend);
+            }
+        }
+    }else{
+        for(int reachable_func : loop_id_to_reachable_funcs[loop_id]){
+            rv += update_page_counts(reachable_func, addend);
+        }
+        if(ENV_DEBRT_ENABLE_PROFILING){
+            if(addend == 1){
+                DEBRT_PRINTF("recorded_funcs_stack (_protect_loop_reachable) is pushing new set\n");
+                debrt_profile_update_recorded_funcs(0/*new set*/);
+            }else{
+                DEBRT_PRINTF("recorded_funcs_stack (_protect_loop_reachable) will pop and dump\n");
+                debrt_profile_update_recorded_funcs(2/*pop and_dump*/);
+            }
+        }
+        _write_mapped_pages_to_file(rv, addend == 1, "loop");
     }
-    _write_mapped_pages_to_file(rv, addend == 1, "loop");
     return 0;
 }
 extern "C" {
@@ -2326,29 +2413,34 @@ int debrt_protect_loop_end(int loop_id)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
-    // Hijack the loop-end call to turn off any functions that were enabled
-    // inside of a loop due to ICS. Note that ics-set will always have a size
-    // of 0 when ICS is disabled, so checking that it's enabled doesn't really
-    // matter here.
-    for(int func_id : ics_set){
-        if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
-            // Don't use _protect_reachable. We don't want its logging.
-            // Just call update_page_counts as needed here.
-            // _protect_reachable now does this pop/dump stuff, which we don't
-            // want when fixing up ics-related pages. It also writes the
-            // updated pages to the log. But all of this will be done (as
-            // desired) at the end of this function when it calls
-            // _protect_loop_reachable().
-            DEBRT_PRINTF("ics_set func_id: %d\n", func_id);
-            update_page_counts(func_id, -1); // dropping return value
-            for(int reachable_func : func_id_to_reachable_funcs[func_id]){
-                update_page_counts(reachable_func, -1); // dropping return value
+
+    // For artd release builds, this is handled differently.
+    if(!ENV_DEBRT_ENABLE_RELEASE){
+        // Hijack the loop-end call to turn off any functions that were enabled
+        // inside of a loop due to ICS. Note that ics-set will always have a size
+        // of 0 when ICS is disabled, so checking that it's enabled doesn't really
+        // matter here.
+        for(int func_id : ics_set){
+            if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
+                // Don't use _protect_reachable. We don't want its logging.
+                // Just call update_page_counts as needed here.
+                // _protect_reachable now does this pop/dump stuff, which we don't
+                // want when fixing up ics-related pages. It also writes the
+                // updated pages to the log. But all of this will be done (as
+                // desired) at the end of this function when it calls
+                // _protect_loop_reachable().
+                DEBRT_PRINTF("ics_set func_id: %d\n", func_id);
+                update_page_counts(func_id, -1); // dropping return value
+                for(int reachable_func : func_id_to_reachable_funcs[func_id]){
+                    update_page_counts(reachable_func, -1); // dropping return value
+                }
+            }else{
+                _protect_single_end(func_id, "single-loop"); // ignoring return value
             }
-        }else{
-            _protect_single_end(func_id, "single-loop"); // ignoring return value
         }
     }
     ics_set.clear();
+    rectification_happened = 0;
     _protect_loop_reachable(loop_id, -1);
     return 0;
 }
@@ -2748,7 +2840,7 @@ int debrt_test_predict_indirect_predict_ics(long long *varargs)
 
     if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){
         // See debrt_profile_indirect_print_args() for details on this case.
-        DEBRT_PRINTF("WARNING: test-predict-indirect-print-args' fp_addr not found.\n");
+        DEBRT_PRINTF("WARNING: test-predict-indirect-predict-ics fp_addr not found.\n");
         return 0;
     }
     int func_id = func_addr_to_id[fp_addr];
@@ -2779,19 +2871,177 @@ int debrt_test_predict_indirect_predict_ics(long long *varargs)
 }
 
 
+static inline
+int _release_predict(int *feature_buf)
+{
+    int func_set_id;
+    int func_or_loop_id;
 
-//TODO
-//TODO ... just a placeholder for now.
-//TODO
-//TODO
-//TODO
+    func_or_loop_id = feature_buf[0];
+
+    // Get a new prediction
+    func_set_id = debrt_decision_tree(feature_buf);
+    //func_set_id = 6 + debrt_decision_tree(feature_buf);
+    printf("pred_set_p before: %p\n", pred_set_p);
+    pred_set_p = &func_sets[func_set_id];
+    pred_set_complement_p = &complement_sets[func_set_id];
+    printf("pred_set_p after:  %p\n", pred_set_p);
+
+    // Map predicted set
+    if(func_or_loop_id >= 0){
+        // Case: We're mapping for a function call (reachable subdeck)
+        if(pred_set_p->find(func_or_loop_id) == pred_set_p->end()){
+            fprintf(fp_out, "WARNING: pred_set does not include upcoming function. func_set_id == %d, upcoming func_id == %d\n", func_set_id, func_or_loop_id);
+            fprintf(fp_out, "FIXME Exiting. This case shouldn't happen, and it would take work to implement a fix\n");
+            // TODO how do you actually add this function into that pred set?
+            // The pred sets are predefined. I think it requires a deep copy of the
+            // set, and then we can add it.
+            // This would also have to be handled gracefully during deck teardown
+            // and could affect rectification stuff depending on how it's implemented
+            // maybe one FIXME could be to do something like this here:
+            //   rv += update_page_counts(pred_func_id, addend);
+            // it avoid having to muck with pred-set-p. just have to remember
+            // to unmap it later
+            exit(1);
+        }
+
+        // Map the functions in the pred set as active
+        _protect_reachable(func_or_loop_id /*not used*/, 1, "notused");
+    }else{
+        // Case: We're mapping for a loop (loop subdeck)
+        func_or_loop_id = (func_or_loop_id * -1) -1;
+
+        // Map the the functions in the pred set as active
+        _protect_loop_reachable(func_or_loop_id, 1);
+    }
+
+    // Update rectification flags
+    printf("complement_sets size: %lu\n", complement_sets.size());
+    printf("checking for func_set_id: %d\n", func_set_id);
+    set<int> &complements = complement_sets[func_set_id];
+    printf("complements size: %lu\n", complements.size());
+    for(auto it = complements.begin(); it != complements.end(); it++){
+        int complement_func_id = *it;
+        debrt_rectification_flags[complement_func_id] = 1;
+    }
+    //for(int complement_func_id : complements){
+    //    debrt_rectification_flags[complement_func_id] = 1;
+    //}
+
+    pred_set_initialized = 1;
+
+    return 0;
+}
+
+
+
+// This function does the following:
+// 1. Extracts the args
+// 2. Makes the prediction
+// 3. If upcoming function is not part of the predicted set,
+//      Throws warning and adds it to the predicted set
+// 4. Maps the predicted set
+// 5. Marks the rectification flags
+extern "C" {
+int debrt_release_predict(int argc, ...)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+    int i;
+    va_list ap;
+    int feature_buf[MAX_NUM_FEATURES];
+
+    // XXX can we avoid this memset?
+    memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
+
+    // gather features into a buffer
+    va_start(ap, argc);
+    for(i = 0; i < argc; i++){
+        feature_buf[i] = va_arg(ap, int);
+    }
+    va_end(ap);
+
+    return _release_predict(feature_buf);
+}
+}
+
+extern "C" {
+int debrt_release_rectify(int func_id)
+{
+    int rv = 0;
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+
+    // XXX I don't think we can use these asserts due to loop nestings.
+    // We'd have to maintain a stack of predictions within loops for that.
+    //assert(pred_set_p->find(func_id) == pred_set_p->end());
+    //assert(pred_set_complement_p->find(func_id) != pred_set_complement_p->end());
+
+
+    // Map the complement set
+    for(int complement_func_id : (*pred_set_complement_p)){
+        rv += update_page_counts(complement_func_id, 1);
+    }
+
+    // Mark debrt_rectification_flags as 0
+    // XXX memset is okay, even in the context of rectification w/in the loops.
+    // (In fact, the flag below, rectification_happened, addresses this.)
+    memset(debrt_rectification_flags, 0, sizeof(int) * func_id_to_name.size());
+
+    // Flag the fact that we had to use rectification for the current deck.
+    // It will get reset to 0 when the deck completes (a protect-end call)
+    rectification_happened = 1;
+
+    return 0;
+}
+}
+
+extern "C" {
+int debrt_release_indirect_predict(long long argc, ...)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+
+    int i;
+    int feature_buf[MAX_NUM_FEATURES];
+    long long fp_addr;
+    va_list ap;
+
+    // XXX can we avoid this memset?
+    memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
+
+
+    // gather features into a buffer
+    va_start(ap, argc);
+    fp_addr = va_arg(ap, long long);
+
+    if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){
+        // See debrt_protect_indirect() for how this can happen.
+        // Should be fine to ignore
+        DEBRT_PRINTF("WARNING: release-indirect-predict fp_addr not found.\n");
+        return 0;
+    }
+    int func_id = func_addr_to_id[fp_addr];
+
+    feature_buf[0] = func_id;
+
+    for(i = 1; i < argc; i++){
+        feature_buf[i] = (int) va_arg(ap, long long);
+    }
+    va_end(ap);
+
+    return _release_predict(feature_buf);
+}
+}
+
+
+
 // Issue a prediction from ics.
 // One critical point is that because it comes from ics, it needs to grow the
 // predicted set (not replace it).
 extern "C" {
-int debrt_release_indirect_predict(long long *varargs)
+int debrt_release_indirect_predict_ics(long long *varargs)
 {
-
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
 
@@ -2807,44 +3057,21 @@ int debrt_release_indirect_predict(long long *varargs)
     num_args = varargs[0];
     fp_addr = varargs[1];
 
+    if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){
+        // See debrt_profile_indirect_print_args() for details on this case.
+        DEBRT_PRINTF("WARNING: release-indirect-predict-ics fp_addr not found.\n");
+        return 0;
+    }
+    int func_id = func_addr_to_id[fp_addr];
+
     // gather features into a buffer
+    feature_buf[0] = func_id;
     for(i = 1; i < num_args; i++){
         // FIXME see profile print args functions (normal and ics) which
         // also cast to int and drop info.
-        feature_buf[i-1] = (int) varargs[i+1];
+        feature_buf[i] = (int) varargs[i+1];
     }
 
-    // Get a new prediction
-    func_set_id = debrt_decision_tree(feature_buf);
-    //func_set_id = 6 + debrt_decision_tree(feature_buf);
-    printf("pred_set_p before: %p\n", pred_set_p);
-    pred_set_p = &func_sets[func_set_id];
-    printf("pred_set_p after:  %p\n", pred_set_p);
-    pred_set_initialized = 1;
-
-    return 0;
-}
-}
-
-extern "C" {
-int debrt_release_rectify(int func_id)
-{
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
-    _WARN_RETURN_IF_NOT_INITIALIZED();
-
-    // FIXME? Could eliminate this assert and lookup overhead, i guess
-    assert(pred_set_p->find(func_id) == pred_set_p->end());
-
-    // pseudocode:
-    //for func in pred_set_complement {
-    //    map function RX
-    //}
-
-    // mark debrt_rectification_flags as .
-    // memset might be a bad idea, b/c we might need to think about this
-    // in terms of the callstack....
-    //memset(debrt_rectification_flags, 0, sizeof(int) * func_id_to_name.size()); // FIXME, store this func-id-to-name-size as a variable, and we can use that here.
-
-    return 0;
+    return _release_predict(feature_buf);
 }
 }
