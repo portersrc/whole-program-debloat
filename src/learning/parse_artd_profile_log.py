@@ -249,7 +249,7 @@ if len(sys.argv) > 1:
 
 PROFILE_FILENAME      = BASE_PATH + 'debrt-mapped-rx-pages-artd_profile.out'
 TRAIN_FILENAME        = BASE_PATH + 'training-data.out'
-FUNC_SET_IDS_FILENAME = BASE_PATH + 'func-set-ids-to-funcs.out'
+FUNC_SET_IDS_FILENAME = BASE_PATH + 'func-set-id-to-funcs.out'
 DECK_ROOT_FILENAME    = BASE_PATH + 'func-set-id-deck-root-pairs.out'
 
 
