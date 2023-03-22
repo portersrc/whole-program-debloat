@@ -16,7 +16,7 @@ extern "C" {int debrt_profile_indirect_print_args_ics(long long *);}
 extern "C" {int debrt_profile_update_recorded_funcs(int);}
 extern "C" {int debrt_test_predict_indirect_predict_ics(long long *);}
 extern "C" {int debrt_release_rectify(int);}
-//extern "C" {int debrt_release_indirect_predict(long long *);}
+extern "C" {int debrt_release_indirect_predict_ics(long long *);}
 extern "C" {int *debrt_rectification_flags;}
 
 
@@ -390,7 +390,6 @@ int ics_test_predict_wrapper_debrt_protect_loop_end(int loop_id)
 
 
 
-/*
 
 //
 //
@@ -415,7 +414,7 @@ int ics_release_map_indirect_call(long long argc, ...)
     int i;
     va_list ap;
     long long fp_addr;
-    //printf("ics_map_indirect_call\n");
+    //printf("ics_release_map_indirect_call\n");
 
 
     va_start(ap, argc);
@@ -429,7 +428,7 @@ int ics_release_map_indirect_call(long long argc, ...)
         return 0;
     }
 
-    //printf("ics_map_indirect_call: fp_addr is 0x%llx\n", fp_addr);
+    //printf("ics_release_map_indirect_call: fp_addr is 0x%llx\n", fp_addr);
 
     // We should always pass at least the func ptr target addr and
     // the deck ID, so argc should always be >= 2.
@@ -460,7 +459,7 @@ int ics_release_map_indirect_call(long long argc, ...)
     debrt_release_indirect_predict_ics(indirect_call_static_vararg_stack);
 
     // XXX no need to "reset" or do anything with vararg_stack between calls.
-    // Whenever we invoke ics_map_indirect_call() again with a non-cached
+    // Whenever we invoke ics_release_map_indirect_call() again with a non-cached
     // function pointer, we will set element 0 to the proper count again and
     // update its elements.
 
@@ -485,7 +484,6 @@ int ics_release_wrapper_debrt_protect_loop_end(int loop_id)
     return 0;
 }
 }
-*/
 
 extern "C" {
 __attribute__((always_inline))
