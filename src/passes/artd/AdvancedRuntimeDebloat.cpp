@@ -1226,7 +1226,7 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                                 vector<Value *> VarArgsV;
                                 VarArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
                                 fix_up_argsv_for_indirect(CB, VarArgsV, builder);
-                                builder.CreateCall(debrt_test_predict_indirect_predict_func, VarArgsV);
+                                builder.CreateCall(debrt_release_indirect_predict_func, VarArgsV);
                             }
 
                             // instrument after indirect func call
