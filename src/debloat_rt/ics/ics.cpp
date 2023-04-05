@@ -463,13 +463,10 @@ int ics_release_map_indirect_call(long long argc, ...)
     // function pointer, we will set element 0 to the proper count again and
     // update its elements.
 
-    // XXX This check could be optimized out. We could move the definition of
-    // cached-fp-addrs to the debrt library and make it responsibe for all
-    // writes. debrt-protect-indirect only returns non-zero during that
-    // start-up edge case where we throw a WARNING.
-    if(debrt_protect_indirect(fp_addr) == 0){
-        cached_fp_addrs[x].fp_addr = fp_addr;
-    }
+    // XXX don't call debrt-protect-indirect() or anything here. runtime's
+    // release mode will carry out the page-protection stuff.
+
+    cached_fp_addrs[x].fp_addr = fp_addr;
 
     return 0;
 }
