@@ -312,7 +312,6 @@ void AdvancedRuntimeDebloat::build_RPs(void)
 {
     read_func_set_id_to_funcs();
     read_func_set_id_deck_root_pairs();
-    assert(func_set_id_deck_root_pairs.size() == func_set_id_to_funcs.size());
     //print_func_set_id_to_funcs();
     //print_func_set_id_deck_root_pairs();
     func_set_id_to_complements = std::vector<set<Function *> >(func_set_id_to_funcs.size());
@@ -2777,7 +2776,7 @@ void AdvancedRuntimeDebloat::dump_func_set_id_to_complements(void)
         for(auto it = pred_set_complement.begin(); it != pred_set_complement.end(); it++){
             fprintf(fp, ",%d", func_to_id[*it]);
         }
-        errs() << "\n";
+        fprintf(fp, "\n");
     }
 
     fclose(fp);
