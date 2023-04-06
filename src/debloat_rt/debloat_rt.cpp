@@ -2797,7 +2797,7 @@ int debrt_test_predict_predict(int argc, ...)
     //printf("pred_set_p before: %p\n", pred_set_p);
     pred_set_p = &func_sets[func_set_id];
     //printf("pred_set_p after:  %p\n", pred_set_p);
-    printf("pred_set_p:  %p\n", pred_set_p);
+    //printf("pred_set_p:  %p\n", pred_set_p);
     pred_sets.push_back(pred_set_p);
     pred_set_initialized = 1;
 
@@ -2845,7 +2845,7 @@ int debrt_test_predict_indirect_predict(long long argc, ...)
     //printf("pred_set_p before: %p\n", pred_set_p);
     pred_set_p = &func_sets[func_set_id];
     //printf("pred_set_p after:  %p\n", pred_set_p);
-    printf("pred_set_p:  %p\n", pred_set_p);
+    //printf("pred_set_p:  %p\n", pred_set_p);
     pred_sets.push_back(pred_set_p);
     pred_set_initialized = 1;
 
@@ -2927,7 +2927,7 @@ int _release_predict(int *feature_buf)
     pred_set_p = &func_sets[func_set_id];
     pred_set_complement_p = &complement_sets[func_set_id];
     //printf("pred_set_p after:  %p\n", pred_set_p);
-    printf("pred_set_p:  %p\n", pred_set_p);
+    //printf("pred_set_p:  %p\n", pred_set_p);
 
     assert(ENV_DEBRT_ENABLE_RELEASE);
 
