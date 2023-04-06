@@ -2992,10 +2992,10 @@ int _release_predict(int *feature_buf)
 
 
     // Update rectification flags
-    printf("complement_sets size: %lu\n", complement_sets.size());
-    printf("checking for func_set_id: %d\n", func_set_id);
+    //printf("complement_sets size: %lu\n", complement_sets.size());
+    //printf("checking for func_set_id: %d\n", func_set_id);
     set<int> &complements = complement_sets[func_set_id];
-    printf("complements size: %lu\n", complements.size());
+    //printf("complements size: %lu\n", complements.size());
     for(int complement_func_id : complements){
         debrt_rectification_flags[complement_func_id] = 1;
     }
