@@ -124,7 +124,7 @@ namespace {
         vector<set<Function *>> instrumented_sets;
         map<long, set<Function *> *> disjoint_sets;
         map<Function *, disjoint_set_t> func_to_disjoint_set;
-        map<int, int> loop_id_to_func_id; // for debugging
+        map<int, int> loop_id_to_func_id;
         set<string> func_name_has_addr_taken;
         set<Function *> func_has_addr_taken;
         map<Function *, set<Function *> > func_to_fps;
@@ -322,11 +322,20 @@ void AdvancedRuntimeDebloat::build_RPs(void)
         set<int> *pred_set_ids;
         set<Function *> pred_set;
         set<Function *> complement_set;
+        int func_set_id;
+        int deck_root_id;
+        int is_loop_deck;
 
         // Grab the full deck. It's based off the deck's root
-        int func_set_id  = func_set_id_deck_root.first;
-        int deck_root_id = func_set_id_deck_root.second;
-        if(deck_root_id >= 0){
+        func_set_id  = func_set_id_deck_root.first;
+        deck_root_id = func_set_id_deck_root.second;
+
+        is_loop_deck = 0;
+        if(deck_root_id < 0){
+            is_loop_deck = 1;
+        }
+
+        if(!is_loop_deck){
             Function *deck_root_func = func_id_to_func[deck_root_id];
             full_deck = &static_reachability[deck_root_func];
         }else{
@@ -353,6 +362,36 @@ void AdvancedRuntimeDebloat::build_RPs(void)
                        inserter(complement_set, complement_set.end()));
 
         func_set_id_to_complements[func_set_id] = complement_set;
+
+        if(is_loop_deck){
+            //
+            // XXX Edge case (and a bit of a hack): This is to ensure we insert
+            // RPs the loop's host function.  When deciding whether to insert
+            // into the RPs map further down below, we just look at the callees
+            // of the pred-set functions. But because of that, the callees from
+            // the loop's /host/ function might get missed. To correct for
+            // that, this pred_set.insert() call will insert the function ID of
+            // the function where the loop lives.  This forces us to examine
+            // its adj-list further down below, which catches any calles not in
+            // the pred set. This doesn't matter for non-loop decks, because
+            // the pred set includes the root of the deck. (Runtime's
+            // _release_predict() will hard fail if we mess this up, too.) I
+            // suppose the adj list of the loop's host function could
+            // include some odd functions outside of our loop. But I think this
+            // is a non-issue -- perhaps accuracy mistake but not a correctness
+            // mistake. (Would need a deeper think for considering how this
+            // could all shake out, e.g. callees in the host function that
+            // aren't in the loop but are encompassed (i.e. within another
+            // loop) vs. callees that just live outside of any loops but are
+            // still called by the host, etc. Should be safe to ignore for
+            // now.)
+            //
+            // FIXME? could be a bug in the runtime, though, b/c not sure if it
+            // is aware of loops and that the function ID of the host of the
+            // loop should also be in the prediction.
+            //
+            pred_set.insert(func_id_to_func[loop_id_to_func_id[deck_root_id]]);
+        }
 
         for(Function *caller : pred_set){
             int caller_id = func_to_id[caller];
