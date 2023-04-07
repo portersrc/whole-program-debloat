@@ -395,7 +395,8 @@ void AdvancedRuntimeDebloat::build_RPs(void)
 
         for(Function *caller : pred_set){
             int caller_id = func_to_id[caller];
-            assert(pred_set_ids->find(caller_id) != pred_set_ids->end());
+            assert(pred_set_ids->find(caller_id) != pred_set_ids->end()
+                || caller_id == loop_id_to_func_id[deck_root_id]);
             for(Function *callee : adj_list[caller]){
                 int callee_id = func_to_id[callee];
                 if(complement_set.find(callee) != complement_set.end()){
