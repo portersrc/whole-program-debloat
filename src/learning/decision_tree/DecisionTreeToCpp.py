@@ -45,7 +45,7 @@ def get_code(tree, function_name="debrt_decision_tree"):
 
         return code
 
-    code = "inline\nint %s(const int *feature_vector)\n{\n%s}" \
+    code = "static inline\nint %s(const int *feature_vector)\n{\n%s}" \
            % (function_name, recurse(left, right, threshold, features, 0, 1))
     return code
 
