@@ -50,7 +50,7 @@ def get_code(tree, function_name="debrt_decision_tree"):
             #code += '%sreturn value[node]: %s;\n' % (tabs * '\t', value[node])
             #code += '%sreturn value[node].argmax(): %s;\n' % (tabs * '\t', value[node].argmax())
             #code += '%sreturn tree.classes_[value[node].argmax()]: %s;\n' % (tabs * '\t', tree.classes_[value[node].argmax()])
-            code += '%sreturn %s;\n' % (tabs * '\t', tree.classes_[value[node].argmax()])
+            code += '%sreturn %s;\n' % (tabs * '\t', int(tree.classes_[value[node].argmax()]))
 
         return code
 
