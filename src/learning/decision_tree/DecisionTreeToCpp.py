@@ -25,9 +25,14 @@ def get_code(tree, function_name="debrt_decision_tree"):
     features = tree.tree_.feature
     value = tree.tree_.value
 
+    #print('tree max features: {}'.format(tree.max_features_))
+    #print('tree num classes: {}'.format(tree.n_classes_))
+    #print('tree classes: {}'.format(tree.classes_))
     def recurse(left, right, threshold, features, node, tabs):
+        #print('hit recurse')
         code = ''
         if tree.tree_.feature[node] != _tree.TREE_UNDEFINED:
+            #print('doing work')
             code += '%sif (feature_vector[%s] <= %s) {\n' % (tabs * '\t', features[node], int(threshold[node]))
             tabs += 1
 
@@ -41,12 +46,17 @@ def get_code(tree, function_name="debrt_decision_tree"):
             code += '%s}\n' % (tabs * '\t')
 
         else:
-            code += '%sreturn %s;\n' % (tabs * '\t', value[node].argmax())
+            #print('adding return')
+            #code += '%sreturn value[node]: %s;\n' % (tabs * '\t', value[node])
+            #code += '%sreturn value[node].argmax(): %s;\n' % (tabs * '\t', value[node].argmax())
+            #code += '%sreturn tree.classes_[value[node].argmax()]: %s;\n' % (tabs * '\t', tree.classes_[value[node].argmax()])
+            code += '%sreturn %s;\n' % (tabs * '\t', tree.classes_[value[node].argmax()])
 
         return code
 
     code = "static inline\nint %s(const int *feature_vector)\n{\n%s}" \
            % (function_name, recurse(left, right, threshold, features, 0, 1))
+
     return code
 
 
