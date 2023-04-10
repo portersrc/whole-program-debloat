@@ -18,7 +18,7 @@
 #
 from sklearn.tree import _tree
 
-def get_code(tree, function_name="debrt_decision_tree"):
+def get_code_legacy(tree, function_name="debrt_decision_tree"):
     left = tree.tree_.children_left
     right = tree.tree_.children_right
     threshold = tree.tree_.threshold
@@ -57,6 +57,58 @@ def get_code(tree, function_name="debrt_decision_tree"):
     code = "static inline\nint %s(const int *feature_vector)\n{\n%s}" \
            % (function_name, recurse(left, right, threshold, features, 0, 1))
 
+    return code
+
+def get_case(tree):
+    left = tree.tree_.children_left
+    right = tree.tree_.children_right
+    threshold = tree.tree_.threshold
+    features = tree.tree_.feature
+    value = tree.tree_.value
+
+    def recurse(left, right, threshold, features, node, tabs):
+        code = ''
+        if tree.tree_.feature[node] != _tree.TREE_UNDEFINED:
+            code += '%sif (feature_vector[%s] <= %s) {\n' % (tabs * '\t', features[node], int(threshold[node]))
+            tabs += 1
+
+            code += recurse(left, right, threshold, features, left[node], tabs)
+            tabs -= 1
+            code += '%s}\n%selse {\n' % (tabs * '\t', tabs * '\t')
+
+            tabs += 1
+            code += recurse(left, right, threshold, features, right[node], tabs)
+            tabs -= 1
+            code += '%s}\n' % (tabs * '\t')
+
+        else:
+            code += '%sreturn %s;\n' % (tabs * '\t', int(tree.classes_[value[node].argmax()]))
+
+        return code
+
+    code = "%s\n" % (recurse(left, right, threshold, features, 0, 2))
+
+    return code
+
+
+def get_code(dts, function_name="debrt_decision_tree"):
+
+    def get_cases():
+        the_code = ''
+        for deck_id in dts:
+            dt = dts[deck_id]
+            the_case = get_case(dt)
+            the_code += '\tcase {}:\n{}'.format(deck_id, the_case)
+        return the_code
+
+    code = 'static inline\n' \
+           'int %s(const int *feature_vector)\n{\n' \
+           '\tswitch(feature_vector[1]){ // switch on deck_id\n' \
+           '%s' \
+           '\tdefault:\n' \
+           '\t\treturn -1; // no prediction available; runtime should map whole deck\n' \
+           '}' \
+           % (function_name, get_cases())
     return code
 
 
