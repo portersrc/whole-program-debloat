@@ -113,23 +113,8 @@ def get_code(dts, function_name="debrt_decision_tree"):
 
 
 def save_code(tree, function_name="debrt_decision_tree"):
-
-    preamble = """
-/*
-This inline function was automatically generated using DecisionTreeToCpp Converter
-
-Simply include this file to your project and use it
-*/
-
-"""
-
-    code = '%s\n\n%s' % (preamble, get_code(tree, function_name))
-
-    with open(function_name + '.h', "w") as f:
-        f.write(code)
-        print("File %s was written" % (function_name + '.h'))
-
-    return 0
+    print('save-code is deprecated. exiting...')
+    sys.exit(1)
 
 
 def main():
