@@ -221,6 +221,10 @@ def process_profile_log(input_filename):
 
     # Write the samples to file.
     # Also populate a map so we have all unique func-set-id, deck-root pairs
+    # Note: the "deck root" is the function or loop ID where the deck occurs
+    #       (i.e. not the deck ID, which is just a unique identifier for a
+    #       deck). features[0] is the function or loop ID. features[1] is the
+    #       deck ID. We want features[0] for this.
     unique_func_set_id_deck_root_pairs = {}
     fp_train_out.write('func_set_id,feature0,feature1,feature2,feature3,feature4,feature5,feature6,feature7,feature8,feature9\n')
     for sample in samples:
