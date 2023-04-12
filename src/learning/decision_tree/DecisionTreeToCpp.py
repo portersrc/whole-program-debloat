@@ -107,6 +107,7 @@ def get_code(dts, function_name="debrt_decision_tree"):
            '%s' \
            '\tdefault:\n' \
            '\t\treturn -1; // no prediction available; runtime should map whole deck\n' \
+           '\t}\n' \
            '}' \
            % (function_name, get_cases())
     return code
