@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import pandas
+import numpy as np
 import argparse
 from sklearn.tree import export_text
 from sklearn.tree import export_graphviz
@@ -31,8 +32,13 @@ def read_csv_get_dataframe(csvFilename):
 
 
 def train_dt(train_x, train_y):
-    dt = DecisionTreeClassifier(presort=True, max_depth=max_tree_depth)
-    dt = dt.fit(train_x, train_y)
+    #dt = DecisionTreeClassifier(presort=True, max_depth=max_tree_depth)
+    dt = DecisionTreeClassifier(max_depth=max_tree_depth)
+    #print('type of train_x: {}'.format(type(train_x)))
+    #print('type of casted train_x: {}'.format(type(np.array(train_x))))
+    #print('type of train_y: {}'.format(type(train_y)))
+    #dt = dt.fit(train_x, train_y)
+    dt = dt.fit(np.array(train_x), np.array(train_y))
     return dt 
 
 
@@ -121,10 +127,40 @@ def test_dt(dt, test_x, test_y, verify_y):
 def train_and_test(training_dataset, test_dataset):
     #print(training_dataset)
     # slice the 1st column to the last one (our features), over all rows
-    train_x = training_dataset.values[:,1:]
+    train_x_all = training_dataset.values[:,1:]
     # slice the 0th column (we want to predict) over all rows
-    train_y = training_dataset.values[:,0]
+    train_y_all = training_dataset.values[:,0]
     # fit only on training data
+
+    #print(train_x_all)
+    #print(len(train_x_all))
+    #print(train_y_all)
+    #print(len(train_y_all))
+    #dt = train_dt(train_x_all, train_y_all)
+    #print(dt)
+    #accuracy = dt.score(train_x_all, train_y_all)
+    #print('accuracy on same training set: {}'.format(accuracy))
+    #print(export_text(dt, max_depth=1000))
+    #print(to_cpp.get_code(dt))
+    #sys.exit(45)
+
+    #print('type of original train_x_all: {}'.format(type(train_x_all)))
+    #print('type of original train_y_all: {}'.format(type(train_y_all)))
+
+    deck_id_to_train_x = {}
+    deck_id_to_train_y = {}
+    for idx, _ in enumerate(train_x_all):
+        # func/loop ID is element 0. deck ID is element 1
+        deck_id = int(train_x_all[idx][1])
+        if deck_id not in deck_id_to_train_x:
+            deck_id_to_train_x[deck_id] = []
+            deck_id_to_train_y[deck_id] = []
+        # train_x_all[idx] holds the features
+        # train_y_all[idx] holds the func set ID you want to predict
+        deck_id_to_train_x[deck_id].append(train_x_all[idx])
+        deck_id_to_train_y[deck_id].append(train_y_all[idx])
+    #print('len of deck_id_to_train_x: {}'.format(len(deck_id_to_train_x)))
+    #print('len of deck_id_to_train_y: {}'.format(len(deck_id_to_train_y)))
 
     verify_y = None
     test_x = None
@@ -136,12 +172,63 @@ def train_and_test(training_dataset, test_dataset):
         verify_y = test_dataset.values[:,2] # the actual func (not set) id that got hit at runtime
         if do_scaling == 1:
             scaler = StandardScaler()
-            scaler.fit(train_x)
-            train_x = scaler.transform(train_x)
+            scaler.fit(train_x_all)
+            train_x_all = scaler.transform(train_x_all)
             test_x = scaler.transform(test_x)
 
-    dt = train_dt(train_x, train_y)
-    test_dt(dt, test_x, test_y, verify_y)
+    all_dts = {}
+    for deck_id in deck_id_to_train_x:
+        print('working with deck_id: {}'.format(deck_id))
+        train_x = deck_id_to_train_x[deck_id]
+        train_y = deck_id_to_train_y[deck_id]
+        assert len(train_x) == len(train_y)
+        assert len(train_x) > 0
+        #print(train_x)
+        #print(len(train_x))
+        #tmp_x = np.array(train_x)
+        #print(tmp_x)
+        #print(len(tmp_x))
+        #print(train_y)
+        #print(len(train_y))
+        #tmp_y = np.array(train_y)
+        #print(tmp_y)
+        #print(len(tmp_y))
+        dt = train_dt(train_x, train_y)
+        #print(dt)
+        #print(to_cpp.get_code(dt))
+        #accuracy = dt.score(train_x, train_y)
+        #print('accuracy on same training subset: {}'.format(accuracy))
+        #print(export_text(dt, max_depth=1000))
+        #print(to_cpp.get_code(dt))
+        #sys.exit(41)
+
+        # TODO Not worried about test-dt right now. Testing is online.
+        # can look into this later for offline testing again, if needed.
+        #test_dt(dt, test_x, test_y, verify_y)
+
+        all_dts[deck_id] = dt
+
+    #sys.exit(42)
+    write_cpp(all_dts)
+
+
+def write_cpp(dts):
+    the_code = to_cpp.get_code(dts)
+
+    with open('exported-scikit-dt.txt', 'w') as f:
+        for deck_id, dt in dts.items():
+            f.write('deck_id: {}\n'.format(deck_id))
+            f.write(export_text(dt, max_depth=1000))
+            f.write('\n\n'.format(deck_id))
+
+
+    with open('debrt_decision_tree.h', 'w') as f:
+        f.write(the_code)
+    print(the_code)
+
+    return 0
+
+
 
 
 if __name__ == '__main__' :
@@ -203,6 +290,7 @@ if __name__ == '__main__' :
     training_dataset = read_csv_get_dataframe(csvFileName)
     test_dataset = None
     if do_accuracy:
+        assert False # dropping any support for this for now
         test_dataset = read_csv_get_dataframe(test_csvFileName)
         read_func_sets(func_sets_filename)
 
