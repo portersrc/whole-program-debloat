@@ -134,6 +134,7 @@ unsigned long long trace_count_wrap = 0;
 unsigned long long num_mispredictions = 0;
 int pred_set_initialized = 0;
 int rectification_happened = 0;
+int default_prediction_flag = 0;
 
 // A vector, indexed by function IDs.
 // An element is 1 if the function ID should trigger rectification, i.e.
@@ -2312,7 +2313,7 @@ int _protect_reachable(int callee_func_id,
 {
     int rv = 0;
     DEBRT_PRINTF("callee_func_id: %d\n", callee_func_id);
-    assert(!ENV_DEBRT_ENABLE_RELEASE);
+    //assert(!ENV_DEBRT_ENABLE_RELEASE);
     rv += update_page_counts(callee_func_id, addend);
     for(int reachable_func : func_id_to_reachable_funcs[callee_func_id]){
         rv += update_page_counts(reachable_func, addend);
@@ -2345,7 +2346,7 @@ int debrt_protect_reachable_end(int callee_func_id)
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
 
-    if(ENV_DEBRT_ENABLE_RELEASE){
+    if(ENV_DEBRT_ENABLE_RELEASE && !default_prediction_flag){
         rv = 0;
         // Map predicted set
         for(set<int> *pred_set_p_tmp : pred_sets){
@@ -2368,6 +2369,7 @@ int debrt_protect_reachable_end(int callee_func_id)
         pred_sets.clear();
         pred_set_complements.clear();
     }else{
+        default_prediction_flag = 0;
         rv = _protect_reachable(callee_func_id, -1, "reachable");
     }
 
@@ -2381,7 +2383,7 @@ int _protect_loop_reachable(int loop_id, int addend)
 {
     int rv = 0;
     DEBRT_PRINTF("loop id: %d\n", loop_id);
-    assert(!ENV_DEBRT_ENABLE_RELEASE);
+    //assert(!ENV_DEBRT_ENABLE_RELEASE);
     for(int reachable_func : loop_id_to_reachable_funcs[loop_id]){
         rv += update_page_counts(reachable_func, addend);
     }
@@ -2419,7 +2421,7 @@ int debrt_protect_loop_end(int loop_id)
     // that's happening for release builds relates to predictions inside of
     // loops (and growing those prediction sets). See pred_sets as a starting
     // point for how this is handled.
-    if(ENV_DEBRT_ENABLE_RELEASE){
+    if(ENV_DEBRT_ENABLE_RELEASE && !default_prediction_flag){
         rv = 0;
         // Map predicted set
         for(set<int> *pred_set_p_tmp : pred_sets){
@@ -2466,6 +2468,7 @@ int debrt_protect_loop_end(int loop_id)
             }
         }
         ics_set.clear();
+        default_prediction_flag = 0;
         rv = _protect_loop_reachable(loop_id, -1);
     }
 
@@ -2922,6 +2925,21 @@ int _release_predict(int *feature_buf)
 
     // Get a new prediction
     func_set_id = debrt_decision_tree(feature_buf);
+    if(func_set_id == -1){
+        default_prediction_flag = 1;
+        // No prediction available: map everything.
+        if(func_or_loop_id >= 0){
+            // Case: We're mapping for a function call (reachable subdeck)
+            // Map the whole reachable deck as active
+            return _protect_reachable(func_or_loop_id, 1, "notused");
+        }else{
+            // Case: We're mapping for a loop (loop subdeck)
+            // Map the whole loop deck as active
+            func_or_loop_id = (func_or_loop_id * -1) -1;
+            return _protect_loop_reachable(func_or_loop_id, 1);
+        }
+    }
+
     //func_set_id = 6 + debrt_decision_tree(feature_buf);
     //printf("pred_set_p before: %p\n", pred_set_p);
     pred_set_p = &func_sets[func_set_id];
