@@ -2223,7 +2223,6 @@ int debrt_test_predict_predict(int argc, ...)
 
     // Get a new prediction
     func_set_id = debrt_decision_tree(feature_buf);
-    //func_set_id = 6 + debrt_decision_tree(feature_buf);
     //printf("pred_set_p before: %p\n", pred_set_p);
     pred_set_p = &func_sets[func_set_id];
     //printf("pred_set_p after:  %p\n", pred_set_p);
@@ -2271,7 +2270,6 @@ int debrt_test_predict_indirect_predict(long long argc, ...)
 
     // Get a new prediction
     func_set_id = debrt_decision_tree(feature_buf);
-    //func_set_id = 6 + debrt_decision_tree(feature_buf);
     //printf("pred_set_p before: %p\n", pred_set_p);
     pred_set_p = &func_sets[func_set_id];
     //printf("pred_set_p after:  %p\n", pred_set_p);
@@ -2327,7 +2325,6 @@ int debrt_test_predict_indirect_predict_ics(long long *varargs)
 
     // Get a new prediction
     func_set_id = debrt_decision_tree(feature_buf);
-    //func_set_id = 6 + debrt_decision_tree(feature_buf);
     //printf("pred_set_p before: %p\n", pred_set_p);
     pred_set_p = &func_sets[func_set_id];
     //printf("pred_set_p after:  %p\n", pred_set_p);
@@ -2367,7 +2364,6 @@ int _release_predict(int *feature_buf)
         }
     }
 
-    //func_set_id = 6 + debrt_decision_tree(feature_buf);
     //printf("pred_set_p before: %p\n", pred_set_p);
     pred_set_p = &func_sets[func_set_id];
     pred_set_complement_p = &complement_sets[func_set_id];
