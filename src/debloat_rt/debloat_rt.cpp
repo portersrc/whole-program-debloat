@@ -3018,8 +3018,6 @@ int _release_predict(int *feature_buf)
         debrt_rectification_flags[complement_func_id] = 1;
     }
 
-    pred_set_initialized = 1;
-
     return rv;
 }
 
