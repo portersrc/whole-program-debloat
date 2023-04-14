@@ -2,19 +2,6 @@
 #define DEBLOAT_RT_H
 
 extern "C" {
-int debrt_monitor(int argc, ...);
-
-int debrt_protect(int argc, ...);
-int debrt_protect_end(int argc, ...);
-
-int debrt_protect_sequence(int argc, ...);
-
-int debrt_return(long long);
-
-int debrt_cgmonitor(int argc, ...);
-int debrt_cgreturn(long long);
-
-
 
 int debrt_init(int main_func_id, int sink_is_enabled);
 int debrt_destroy(int notused);
