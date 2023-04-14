@@ -2579,6 +2579,6 @@ int debrt_release_indirect_predict_ics(long long *varargs)
         feature_buf[i] = (int) varargs[i+1];
     }
 
-    return _release_predict(feature_buf); // TODO Please expand set.
+    return _release_predict(feature_buf);
 }
 }
