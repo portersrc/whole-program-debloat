@@ -122,6 +122,12 @@ const char *PROFILE_CSV_COLUMNS = "deck_id," \
 //const char *PROFILE_OUTPUT_FILENAME = "debrt-profile.out";
 //FILE *fp_profile_out;
 
+//map<int, int> DEBUG_mispredict_func_ids;
+//set<int> DEBUG_mispredict_func_ids_novel;
+//set<int> DEBUG_mispredict_func_ids_novel_2;
+//int DEBUG_last_func_set_id = -1;
+//vector<int> DEBUG_predicted_func_set_ids;
+
 
 vector<set<int> > func_sets;
 vector<set<int> > complement_sets;
@@ -129,8 +135,8 @@ vector<set<int> > complement_sets;
 //set<int> *pred_set_complement_p;
 vector<set<int> *> pred_sets;
 vector<set<int> *> pred_set_complements;
-unsigned long long trace_count = 0;
-unsigned long long trace_count_wrap = 0;
+unsigned long long num_func_calls = 0; // XXX only counts func calls if pred-sets.size > 0
+unsigned long long num_func_calls_wrap = 0;
 unsigned long long num_mispredictions = 0;
 int pred_set_initialized = 0;
 int rectification_happened = 0;
@@ -1406,12 +1412,33 @@ void _debrt_protect_destroy(void)
 
     _debrt_protect_all_pages(RX_PERM);
 
+    //fprintf(fp_out, "DEBUG_mispredict_func_ids:\n");
+    //for(auto func_id_count : DEBUG_mispredict_func_ids){
+    //    int func_id = func_id_count.first;
+    //    int count = func_id_count.second;
+    //    fprintf(fp_out, "  %d: %d\n", func_id, count);
+    //}
+    //fprintf(fp_out, "\n");
+
+    //fprintf(fp_out, "DEBUG_mispredict_func_ids_novel:\n");
+    //for(auto x : DEBUG_mispredict_func_ids_novel){
+    //    fprintf(fp_out, "  %d,", x);
+    //}
+    //fprintf(fp_out, "\n");
+
+    //fprintf(fp_out, "DEBUG_mispredict_func_ids_novel_2 (size: %lu):\n",
+    //   DEBUG_mispredict_func_ids_novel_2.size());
+    //for(auto x : DEBUG_mispredict_func_ids_novel_2){
+    //    fprintf(fp_out, "  %d,", x);
+    //}
+    //fprintf(fp_out, "\n");
+
     //fprintf(fp_out, "total_predictions:  %d\n", total_predictions);
-    fprintf(fp_out, "num_mispredictions: %llu\n", num_mispredictions);
-    fprintf(fp_out, "trace_count:        %llu\n", trace_count);
-    fprintf(fp_out, "trace_count_wrap:   %llu\n", trace_count_wrap);
-    if(trace_count_wrap){
-        fprintf(fp_out, "WARNING: trace count wrapped. Need to adjust trace_count accordingly (64-bit unsigned counter) and should probably add support for num_mispredictions_wrap, as well.\n");
+    fprintf(fp_out, "num_mispredictions:    %llu\n", num_mispredictions);
+    fprintf(fp_out, "num_func_calls:        %llu\n", num_func_calls);
+    fprintf(fp_out, "num_func_calls_wrap:   %llu\n", num_func_calls_wrap);
+    if(num_func_calls_wrap){
+        fprintf(fp_out, "WARNING: trace count wrapped. Need to adjust num_func_calls accordingly (64-bit unsigned counter) and should probably add support for num_mispredictions_wrap, as well.\n");
     }
     fprintf(fp_out, "ics_set_short_circuit_count: %llu\n", ics_set_short_circuit_count);
 
@@ -1797,6 +1824,11 @@ int debrt_protect_reachable_end(int callee_func_id)
         pred_set_complements.clear();
     }else{
         default_prediction_flag = 0;
+        // need to clear pred sets for TEST_PREDICTION, but should be fine to
+        // do always, even for RELEASE, which shouldn't have any element
+        // in the stack along this else branch anyway.
+        pred_sets.clear(); 
+        //DEBUG_predicted_func_set_ids.clear();
         rv = _protect_reachable(callee_func_id, -1, "reachable");
     }
 
@@ -1896,6 +1928,11 @@ int debrt_protect_loop_end(int loop_id)
         }
         ics_set.clear();
         default_prediction_flag = 0;
+        // need to clear pred sets for TEST_PREDICTION, but should be fine to
+        // do always, even for RELEASE, which shouldn't have any element
+        // in the stack along this else branch anyway.
+        pred_sets.clear(); 
+        //DEBUG_predicted_func_set_ids.clear();
         rv = _protect_loop_reachable(loop_id, -1);
     }
 
@@ -2181,18 +2218,44 @@ int debrt_profile_indirect_print_args_ics(long long *varargs)
 extern "C" {
 int debrt_test_predict_trace(int func_id)
 {
+    int i;
+    int func_is_in_a_pred_set;
     set<int> *pred_set_p;
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
-    if(pred_set_initialized){
-        trace_count++;
-        assert(pred_sets.size() > 0);
-        pred_set_p = pred_sets[pred_sets.size()-1];
-        if(pred_set_p->find(func_id) == pred_set_p->end()){
-            num_mispredictions++;
+    if( (pred_set_initialized) && (pred_sets.size() > 0) ){
+        // Increment our counter for dynamic function calls
+        num_func_calls++;
+        if(num_func_calls == 0){
+            num_func_calls_wrap++;
         }
-        if(trace_count == 0){
-            trace_count_wrap++;
+
+        // Check for misprediction.
+        // cporter notes from 2023.04.14 describe what accuracy means in this
+        // current approach. Can/should change depending on what we want
+        // to measure later.
+        func_is_in_a_pred_set = 0;
+        for(i = 0; i < pred_sets.size(); i++){
+            pred_set_p = pred_sets[i];
+            if(pred_set_p->find(func_id) != pred_set_p->end()){
+                func_is_in_a_pred_set = 1;
+                break;
+            }
+        }
+        if(!func_is_in_a_pred_set){
+            num_mispredictions++;
+            //if(DEBUG_mispredict_func_ids.find(func_id) == DEBUG_mispredict_func_ids.end()){
+            //    DEBUG_mispredict_func_ids[func_id] = 0;
+            //}
+            //DEBUG_mispredict_func_ids[func_id] += 1;
+            //if(func_id == 33){
+            //    //DEBUG_mispredict_func_ids_novel.insert(pred_sets.size());
+            //    DEBUG_mispredict_func_ids_novel.insert(DEBUG_last_func_set_id);
+            //    assert(DEBUG_predicted_func_set_ids.size() == 3);
+            //    for(i = 0; i < DEBUG_predicted_func_set_ids.size(); i++){
+            //        DEBUG_mispredict_func_ids_novel_2.insert(DEBUG_predicted_func_set_ids[i]);
+            //    }
+            //}
         }
     }
     return 0;
@@ -2225,9 +2288,14 @@ int debrt_test_predict_predict(int argc, ...)
     func_set_id = debrt_decision_tree(feature_buf);
     //printf("pred_set_p before: %p\n", pred_set_p);
     pred_set_p = &func_sets[func_set_id];
+    //DEBUG_last_func_set_id = func_set_id;
+    //if(DEBUG_last_func_set_id == 8){
+    //    DEBUG_mispredict_func_ids_novel_2.insert(feature_buf[1]);
+    //}
     //printf("pred_set_p after:  %p\n", pred_set_p);
     //printf("pred_set_p:  %p\n", pred_set_p);
     pred_sets.push_back(pred_set_p);
+    //DEBUG_predicted_func_set_ids.push_back(func_set_id);
     pred_set_initialized = 1;
 
     return 0;
@@ -2275,6 +2343,7 @@ int debrt_test_predict_indirect_predict(long long argc, ...)
     //printf("pred_set_p after:  %p\n", pred_set_p);
     //printf("pred_set_p:  %p\n", pred_set_p);
     pred_sets.push_back(pred_set_p);
+    //DEBUG_predicted_func_set_ids.push_back(func_set_id);
     pred_set_initialized = 1;
 
     return 0;
@@ -2329,6 +2398,7 @@ int debrt_test_predict_indirect_predict_ics(long long *varargs)
     pred_set_p = &func_sets[func_set_id];
     //printf("pred_set_p after:  %p\n", pred_set_p);
     pred_sets.push_back(pred_set_p);
+    //DEBUG_predicted_func_set_ids.push_back(func_set_id);
     pred_set_initialized = 1;
 
     return 0;
