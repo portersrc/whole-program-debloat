@@ -1667,6 +1667,15 @@ int debrt_profile_update_recorded_funcs(int new_pop_popanddump)
     _WARN_RETURN_IF_NOT_INITIALIZED();
     set<int> *recorded_funcs;
 
+    if(lib_destroyed){
+        fprintf(stderr, "WARNING: tried to update-recorded-funcs " \
+          "after already calling destroy for library. Could be 'normal' " \
+          "behavior if application's exit-handlers (like for deconstructors) " \
+          "are still firing off. (Long-term profiling/stats fix: handle " \
+          "these teardown cases more carefully.)\n");
+        return 0; // FIXME one day these return values should matter
+    }
+
     if(!ENV_DEBRT_ENABLE_PROFILING){
         assert(0 && "Dump-and-pop recorded funcs should only be instrumented " \
                     "and invoked when DEBRT_ENABLE_PROFILING is set.");
@@ -2194,6 +2203,14 @@ int debrt_profile_indirect_print_args_ics(long long *varargs)
     int i;
     long long num_args;
     if(ENV_DEBRT_ENABLE_PROFILING){
+        if(lib_destroyed){
+            fprintf(stderr, "WARNING: tried to indirect-print-args-ics " \
+              "after already calling destroy for library. Could be 'normal' " \
+              "behavior if application's exit-handlers (like for deconstructors) " \
+              "are still firing off. (Long-term profiling/stats fix: handle " \
+              "these teardown cases more carefully.)\n");
+            return 0; // FIXME one day these return values should matter
+        }
         num_args = varargs[0];
         long long fp_addr  = varargs[1];
         if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){
