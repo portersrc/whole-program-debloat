@@ -92,6 +92,7 @@ int ENV_DEBRT_ENABLE_RELEASE = 0;
 
 
 int lib_initialized = 0;
+int lib_destroyed = 0;
 
 
 // XXX this could be read in? It varies based on the benchmark. we have
@@ -488,6 +489,14 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated,
     long long page;
     int count;
     if(ENV_DEBRT_ENABLE_STATS){
+        if(lib_destroyed){
+            fprintf(stderr, "WARNING: tried to write-mapped-pages-to-file " \
+              "after already calling destroy for library. Could be 'normal' " \
+              "behavior if application's exit-handlers (like for deconstructors) " \
+              "are still firing off. (Long-term profiling/stats fix: handle " \
+              "these teardown cases more carefully.)\n");
+            return;
+        }
         if(is_grow){
             fprintf(fp_mapped_pages, "page-grow-%s ", deck_type.c_str());
         }else{
@@ -1403,12 +1412,11 @@ void _debrt_protect_destroy(void)
     int e;
     int rc;
     int i;
-    static int already_destroyed = 0;
 
-    if(already_destroyed){
+    if(lib_destroyed){
         return;
     }
-    already_destroyed = 1;
+    lib_destroyed = 1;
 
     _debrt_protect_all_pages(RX_PERM);
 
