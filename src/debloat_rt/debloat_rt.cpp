@@ -1827,7 +1827,7 @@ int debrt_protect_reachable_end(int callee_func_id)
         // need to clear pred sets for TEST_PREDICTION, but should be fine to
         // do always, even for RELEASE, which shouldn't have any element
         // in the stack along this else branch anyway.
-        pred_sets.clear(); 
+        pred_sets.clear();
         //DEBUG_predicted_func_set_ids.clear();
         rv = _protect_reachable(callee_func_id, -1, "reachable");
     }
@@ -1931,7 +1931,7 @@ int debrt_protect_loop_end(int loop_id)
         // need to clear pred sets for TEST_PREDICTION, but should be fine to
         // do always, even for RELEASE, which shouldn't have any element
         // in the stack along this else branch anyway.
-        pred_sets.clear(); 
+        pred_sets.clear();
         //DEBUG_predicted_func_set_ids.clear();
         rv = _protect_loop_reachable(loop_id, -1);
     }
