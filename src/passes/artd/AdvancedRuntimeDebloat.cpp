@@ -296,7 +296,7 @@ vector<string> split_nonempty(const string &s, char delim)
 // in training) have their complement sets protected by RPs. Runtime techniques
 // will handle the problem of figuring out which RPs to enable and disable,
 // based on context.
-
+//
 // Note, by context I mean something like the following: During execution, the
 // program may issue two predictions at two completely different callsites,
 // e.g. just before calling foo, and just before calling bar. But that
@@ -312,16 +312,20 @@ void AdvancedRuntimeDebloat::build_RPs(void)
 {
     read_func_set_id_to_funcs();
     read_func_set_id_deck_root_pairs();
+    // May have a func set ID that occurs at multiple deck roots, hence its
+    // size is >= func-set-id-to-funcs
+    assert(func_set_id_deck_root_pairs.size() >= func_set_id_to_funcs.size());
     //print_func_set_id_to_funcs();
     //print_func_set_id_deck_root_pairs();
     func_set_id_to_complements = std::vector<set<Function *> >(func_set_id_to_funcs.size());
 
     for(pair<int, int> func_set_id_deck_root : func_set_id_deck_root_pairs) {
 
-        set<Function *> *full_deck;
+        set<Function *> full_deck;
         set<int> *pred_set_ids;
         set<Function *> pred_set;
         set<Function *> complement_set;
+        set<Function *> intersect_set;
         int func_set_id;
         int deck_root_id;
         int is_loop_deck;
@@ -337,12 +341,13 @@ void AdvancedRuntimeDebloat::build_RPs(void)
 
         if(!is_loop_deck){
             Function *deck_root_func = func_id_to_func[deck_root_id];
-            full_deck = &static_reachability[deck_root_func];
+            full_deck = static_reachability[deck_root_func]; // copy
+            full_deck.insert(deck_root_func); // necessary only for sanity check below
         }else{
             // loop IDs are encoded as the negative minus 1 of the original.
             // recover the loop ID and grab the loop's deck
             deck_root_id = (deck_root_id * -1) - 1;
-            full_deck = &loop_static_reachability[deck_root_id];
+            full_deck = loop_static_reachability[deck_root_id];
         }
 
         // Grab the predicted set.
@@ -355,11 +360,24 @@ void AdvancedRuntimeDebloat::build_RPs(void)
 
         // Calculate the complement set.
         //   complement_set = full_deck \ pred_set
-        set_difference(full_deck->begin(),
-                       full_deck->end(),
+        set_difference(full_deck.begin(),
+                       full_deck.end(),
                        pred_set.begin(),
                        pred_set.end(),
                        inserter(complement_set, complement_set.end()));
+
+        // Calculate the intersection as a sanity check
+        set_intersection(full_deck.begin(),
+                         full_deck.end(),
+                         pred_set.begin(),
+                         pred_set.end(),
+                         inserter(intersect_set, intersect_set.end()));
+        //errs() << "func_set_id: " << func_set_id << "\n";
+        //errs() << "full_deck size: " << full_deck.size() << "\n";
+        //errs() << "pred_set size: " << pred_set.size() << "\n";
+        //errs() << "intersect_set size: " << intersect_set.size() << "\n";
+        //errs() << "\n";
+        assert(intersect_set == pred_set);
 
         func_set_id_to_complements[func_set_id] = complement_set;
 
