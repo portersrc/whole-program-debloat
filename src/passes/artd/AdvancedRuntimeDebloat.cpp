@@ -314,7 +314,11 @@ void AdvancedRuntimeDebloat::build_RPs(void)
     read_func_set_id_deck_root_pairs();
     // May have a func set ID that occurs at multiple deck roots, hence its
     // size is >= func-set-id-to-funcs
-    assert(func_set_id_deck_root_pairs.size() >= func_set_id_to_funcs.size());
+    // --update: no longer a safe assumption/assertion. See the parser for the
+    // profile log for details, but if pred sets have to be reduced to fit
+    // within a deck, "stale" entries can live in the func-set-ids-to-funcs
+    // at the moment.
+    //assert(func_set_id_deck_root_pairs.size() >= func_set_id_to_funcs.size());
     //print_func_set_id_to_funcs();
     //print_func_set_id_deck_root_pairs();
     func_set_id_to_complements = std::vector<set<Function *> >(func_set_id_to_funcs.size());
@@ -409,12 +413,22 @@ void AdvancedRuntimeDebloat::build_RPs(void)
             // loop should also be in the prediction.
             //
             pred_set.insert(func_id_to_func[loop_id_to_func_id[deck_root_id]]);
+        }else{
+            // XXX Update: just do it anyway for functions, too. Can't hurt.
+            // It's a set, too, so can't double-insert anyway
+            pred_set.insert(func_id_to_func[deck_root_id]);
         }
 
         for(Function *caller : pred_set){
             int caller_id = func_to_id[caller];
+            // assert that either this caller_id is in the pred-set-ids,
+            // or that it's a loop case and the caller id is actually
+            // the id of the loop's host function,
+            // or that it's a func case and the caller id is actually
+            // the id of the deck root function.
             assert(pred_set_ids->find(caller_id) != pred_set_ids->end()
-                || caller_id == loop_id_to_func_id[deck_root_id]);
+                || caller_id == loop_id_to_func_id[deck_root_id]
+                || caller_id == deck_root_id);
             for(Function *callee : adj_list[caller]){
                 int callee_id = func_to_id[callee];
                 if(complement_set.find(callee) != complement_set.end()){
