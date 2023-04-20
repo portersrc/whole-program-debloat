@@ -8,9 +8,32 @@ import sys
 # The purpose of this script....
 #
 
+samples = []
+static_reachability = {}
+loop_static_reachability = {}
+
 funcs_to_func_set_id = {}
 func_set_id_to_funcs = {}
 func_set_id_counter = 0
+unique_func_set_id_deck_root_pairs = {}
+
+BASE_PATH='./'
+#BASE_PATH = '/home/rudy/wo/advanced-rtd/whole-program-debloat/test/07_test/' # example test
+if len(sys.argv) > 1:
+    BASE_PATH = sys.argv[1] + '/'
+
+PROFILE_FILENAME      = BASE_PATH + 'debrt-mapped-rx-pages-artd_profile.out'
+TRAIN_FILENAME        = BASE_PATH + 'training-data.out'
+FUNC_SET_IDS_FILENAME = BASE_PATH + 'func-set-id-to-funcs.out'
+DECK_ROOT_FILENAME    = BASE_PATH + 'func-set-id-deck-root-pairs.out'
+
+if not isfile(PROFILE_FILENAME):
+    print('ERROR: Profile filename does not exist ({}).'.format(PROFILE_FILENAME))
+    print('Exiting')
+    sys.exit(1)
+
+
+
 
 class LogType:
     DECKING = 0
@@ -113,15 +136,14 @@ def parse_line(line_vec):
     return LineParts(line_vec[1:], log_type, deck_change, deck_type, indirect_deck_type)
 
 
-def process_profile_log(input_filename):
+def process_profile_log():
     uniq_func_set_cnt = 0
-    samples = []
     samples_shadow = []
     sample_stack = []
     sample_stack_shadow = []
     profile_flag = False
     features = None
-    with open(input_filename) as f:
+    with open(PROFILE_FILENAME) as f:
         assert f.readline().strip().startswith('page-grow-init') # skip first line
         line_num = 1
         for line in f:
@@ -182,57 +204,158 @@ def process_profile_log(input_filename):
                     # see a shrink, it should match with whatever was last
                     # pushed into our samples.
 
-
-            #if line_parts.log_type == LogType.PROFILE:
-            #    profile_flag = True
-            #    features = line_parts.data_part
-
-            #elif profile_flag:
-            #    assert line_parts.log_type == LogType.DECKING
-            #    assert line_parts.deck_change == DeckChange.GROW
-            #    sample = Sample(features=features,
-            #                    deck_type=line_parts.deck_type)
-            #    # push onto stack
-            #    print('push')
-            #    sample_stack.append(sample)
-            #    profile_flag = False
-
-            #elif line_parts.deck_change == DeckChange.SHRINK:
-            #    # ignore single decks (nothing to predict)
-            #    if line_parts.deck_type == DeckType.SINGLE:
-            #        continue
-            #    print('pop')
-            #    s = sample_stack.pop()
-            #    samples.append(s)
-
-
-    # FIXME ? I think I blew over some old code that used to precede
-    # this block. May be needed for func ID sets, etc.
-    # See also the FIXME near the end of this script (where we write this stuff to file)
-    #key = ','.join(sorted(recorded_func_ids))
-    #if key not in funcs_to_func_set_id:
-    #    funcs_to_func_set_id[key] = func_set_id_counter
-    #    func_set_id_to_funcs[func_set_id_counter] = key
-    #    func_set_id_counter += 1
-
+    # Populate a map so we have all unique func-set-id, deck-root pairs.
+    # The "deck root" is the function or loop ID where the deck occurs (i.e.
+    # not the deck ID, which is just a unique identifier for a deck).
+    # features[0] is the function or loop ID. features[1] is the deck ID.
+    # We want features[0] for this.
+    for sample in samples:
+        if sample.func_set_id not in unique_func_set_id_deck_root_pairs:
+            unique_func_set_id_deck_root_pairs[sample.func_set_id] = set()
+        unique_func_set_id_deck_root_pairs[sample.func_set_id].add(sample.features[0])
 
     print('Finished with len of samples: {}'.format(len(samples)))
     print('Finished with len of sample_stack: {}'.format(len(sample_stack)))
 
+
+# This function is a bit of a hack. The right thing to do in this function  is
+# basically create the intersection between each prediction and its
+# corresponding deck, and ensure that the intersection matches the prediction
+# set. That is, the prediction should be a subset of the full deck. The assert
+# would be something like:
+#   assert intersect_set == pred_set
+# But as of this writing, three benchmarks don't pass this assertion:
+#   parest
+#   omnetpp
+#   xalancbmk
+# The proper fix is to keep this assert and resolve this problem closer to
+# wherever it is occurring. It could be in the compiler instrumentation
+# for the profiling, the runtime support for the profiling, or in this parser
+# script itself when parsing the profile log leading up to this function.
+# This could be challenging, though. Instead, this function opts to identify
+# the cases where the pred set is not a subset of the deck and then remove
+# the extraneous functions from the pred set to force it to be a subset
+# of the deck. This could impact prediction accuracy or performance downstream,
+# but it at least ensures correctness (i.e. that the pred set is a subset of
+# the deck).
+def ensure_pred_sets_are_within_deck():
+
+    def sanity_check_pred_sets_are_within_deck():
+        for func_set_id in unique_func_set_id_deck_root_pairs:
+            for deck_root in unique_func_set_id_deck_root_pairs[func_set_id]:
+                deck_root_int = int(deck_root)
+                if deck_root_int >= 0: # is a func id
+                    # copy the set just in case, b/c we modify it.
+                    full_deck = set(static_reachability[deck_root])
+                    full_deck.add(deck_root)
+                else: # is a loop id
+                    deck_root_int = (deck_root_int * -1) - 1
+                    # copy not needed (we dont modify), but doing it for consistency
+                    full_deck = set(loop_static_reachability[str(deck_root_int)])
+
+                # func-set-id-to-funcs stores its values as a comma separated string
+                pred_set = set(func_set_id_to_funcs[func_set_id].split(','))
+                pred_set.discard('') # remove empty string if present
+
+                intersect_set = full_deck & pred_set
+                assert intersect_set == pred_set
+
+    print('Checking pred sets are within their respective decks')
+    changes_to_make = {}
+    problem_with_intersect_count = 0
+    read_static_reachability()
+    read_loop_static_reachability()
+    for func_set_id in unique_func_set_id_deck_root_pairs:
+        for deck_root in unique_func_set_id_deck_root_pairs[func_set_id]:
+            deck_root_int = int(deck_root)
+            if deck_root_int >= 0: # is a func id
+                # copy the set just in case, b/c we modify it.
+                full_deck = set(static_reachability[deck_root])
+                full_deck.add(deck_root)
+            else: # is a loop id
+                deck_root_int = (deck_root_int * -1) - 1
+                # copy not needed (we dont modify), but doing it for consistency
+                full_deck = set(loop_static_reachability[str(deck_root_int)])
+
+            # func-set-id-to-funcs stores its values as a comma separated string
+            pred_set = set(func_set_id_to_funcs[func_set_id].split(','))
+            pred_set.discard('') # remove empty string if present
+
+            intersect_set = full_deck & pred_set
+            if intersect_set != pred_set:
+                assert (intersect_set & pred_set) == intersect_set
+                assert len(intersect_set) < len(pred_set)
+                # Note, the intersect_set may be empty here. I dont see a
+                # problem with that. For example, this just implies that
+                # the complement set will be everything, but build_RPs should
+                # handle this correctly, I believe.
+                print('failing where intersect-set and pred-set are not equal')
+                print('full_deck (len {}) (sorted)'.format(len(full_deck)))
+                print(sorted(full_deck))
+                print('pred_set (len {}) (sorted)'.format(len(pred_set)))
+                print(sorted(pred_set))
+                print('intersect_set (len {}) (sorted)'.format(len(intersect_set)))
+                print(sorted(intersect_set))
+                set_outside_of_deck = pred_set - intersect_set
+                print('elements not in intersect (i.e. in pred set but not the deck) (len {}) (sorted)'.format(len(set_outside_of_deck)))
+                print(sorted(set_outside_of_deck))
+                new_func_set_id = get_func_set_id(list(intersect_set))
+                assert func_set_id != new_func_set_id
+                if func_set_id not in changes_to_make:
+                    changes_to_make[func_set_id] = {}
+                changes_to_make[func_set_id][deck_root] = new_func_set_id
+                problem_with_intersect_count += 1
+
+    if problem_with_intersect_count > 0:
+        print('WARNING: Found {} cases where functions in a pred set were ' \
+              'outside of the associated deck. This has been remediated by ' \
+              'removing functions from the pred set that were not in the ' \
+              'deck. This is a workaround for now, but the logs and/or the ' \
+              'parsing of those logs (this script) could be improved further, ' \
+              'which could give a boost in prediction accuracy.'.format(problem_with_intersect_count))
+
+        print('Fixing unique_func_set_id_deck_root_pairs and samples...')
+        # Fix up unique-func-set-id-deck-root-pairs
+        for old_func_set_id in changes_to_make:
+            for deck_root in changes_to_make[old_func_set_id]:
+                new_func_set_id = changes_to_make[old_func_set_id][deck_root]
+                # Remove old pair
+                assert old_func_set_id in unique_func_set_id_deck_root_pairs
+                assert deck_root  in unique_func_set_id_deck_root_pairs[old_func_set_id]
+                unique_func_set_id_deck_root_pairs[old_func_set_id].remove(deck_root)
+                if len(unique_func_set_id_deck_root_pairs[old_func_set_id]) == 0:
+                    del unique_func_set_id_deck_root_pairs[old_func_set_id]
+                # Add new pair
+                if new_func_set_id not in unique_func_set_id_deck_root_pairs:
+                    unique_func_set_id_deck_root_pairs[new_func_set_id] = set()
+                unique_func_set_id_deck_root_pairs[new_func_set_id].add(deck_root)
+
+        # Fix up samples
+        for sample in samples:
+            if sample.func_set_id in changes_to_make:
+                # if the func set id and the deck root are a hit in our changes-to-make
+                if sample.features[0] in changes_to_make[sample.func_set_id]:
+                    # ... then change the func set id to new the one (for a reduced pred set)
+                    sample.func_set_id = changes_to_make[sample.func_set_id][sample.features[0]]
+
+        print('Done with fixes')
+        sanity_check_pred_sets_are_within_deck()
+        print('Sanity check passes')
+
+    else:
+        print('Done checking (OK)')
+
+
+
+def write_output():
+    fp_train_out     = open(TRAIN_FILENAME, 'w')
+    fp_func_set_ids  = open(FUNC_SET_IDS_FILENAME, 'w')
+    fp_deck_root_out = open(DECK_ROOT_FILENAME, 'w')
+
     # Write the samples to file.
-    # Also populate a map so we have all unique func-set-id, deck-root pairs
-    # Note: the "deck root" is the function or loop ID where the deck occurs
-    #       (i.e. not the deck ID, which is just a unique identifier for a
-    #       deck). features[0] is the function or loop ID. features[1] is the
-    #       deck ID. We want features[0] for this.
-    unique_func_set_id_deck_root_pairs = {}
     fp_train_out.write('func_set_id,feature0,feature1,feature2,feature3,feature4,feature5,feature6,feature7,feature8,feature9\n')
     for sample in samples:
         fp_train_out.write(str(sample) + '\n')
-
-        if sample.func_set_id not in unique_func_set_id_deck_root_pairs:
-            unique_func_set_id_deck_root_pairs[sample.func_set_id] = set()
-        unique_func_set_id_deck_root_pairs[sample.func_set_id].add(sample.features[0])
 
     # Write all unique func-set-id, deck-root pairs to file
     fp_deck_root_out.write('func_set_id,deck_root\n')
@@ -241,43 +364,55 @@ def process_profile_log(input_filename):
             fp_deck_root_out.write('{},{}\n'.format(func_set_id, deck_root))
 
 
+    # Write the func set IDs and their corresponding functions to file.
+    # We sort by func-set-id (so we read it directly in order into a buffer later
+    # and use the index for the ID).
+    # Even though the func set ID should be equivalent to the index in this loop,
+    # we write it to file in case of sanity check later.
+    fp_func_set_ids.write('predicted_func_set_id,called_func_id1,called_func_id2,...\n')
+    for func_set_id, called_funcs in sorted(func_set_id_to_funcs.items()):
+        fp_func_set_ids.write('{},{}\n'.format(func_set_id, called_funcs))
+
+    fp_train_out.close()
+    fp_func_set_ids.close()
+    fp_deck_root_out.close()
 
 
-
-BASE_PATH='./'
-if len(sys.argv) > 1:
-    BASE_PATH = sys.argv[1] + '/'
-
-# example test:
-#BASE_PATH = '/home/rudy/wo/advanced-rtd/whole-program-debloat/test/07_test/'
-
-PROFILE_FILENAME      = BASE_PATH + 'debrt-mapped-rx-pages-artd_profile.out'
-TRAIN_FILENAME        = BASE_PATH + 'training-data.out'
-FUNC_SET_IDS_FILENAME = BASE_PATH + 'func-set-id-to-funcs.out'
-DECK_ROOT_FILENAME    = BASE_PATH + 'func-set-id-deck-root-pairs.out'
-
-
-if not isfile(PROFILE_FILENAME):
-    print('ERROR: Profile filename does not exist ({}).'.format(PROFILE_FILENAME))
-    print('Exiting')
-    sys.exit(1)
-
-fp_train_out     = open(TRAIN_FILENAME, 'w')
-fp_func_set_ids  = open(FUNC_SET_IDS_FILENAME, 'w')
-fp_deck_root_out = open(DECK_ROOT_FILENAME, 'w')
-
-process_profile_log(PROFILE_FILENAME)
+def read_static_reachability():
+    with open(BASE_PATH + 'artd_static_reachability.txt') as f:
+        for line in f:
+            line = line.strip()
+            line_vec = line.split()
+            root_func_id = line_vec[0]
+            static_reachability[root_func_id] = set()
+            if len(line_vec) > 1:
+                assert len(line_vec) == 2
+                func_ids = line_vec[1].split(',')
+                for fid in func_ids:
+                    if fid != "":
+                        static_reachability[root_func_id].add(fid)
 
 
-# Write the func set IDs and their corresponding functions to file.
-# We sort by func-set-id (so we read it directly in order into a buffer later
-# and use the index for the ID).
-# Even though the func set ID should be equivalent to the index in this loop,
-# we write it to file in case of sanity check later.
-fp_func_set_ids.write('predicted_func_set_id,called_func_id1,called_func_id2,...\n')
-for func_set_id, called_funcs in sorted(func_set_id_to_funcs.items()):
-    fp_func_set_ids.write('{},{}\n'.format(func_set_id, called_funcs))
+def read_loop_static_reachability():
+    with open(BASE_PATH + 'artd_loop_static_reachability.txt') as f:
+        for line in f:
+            line = line.strip()
+            line_vec = line.split()
+            loop_id = line_vec[0]
+            loop_static_reachability[loop_id] = set()
+            if len(line_vec) > 1:
+                assert len(line_vec) == 2
+                func_ids = line_vec[1].split(',')
+                for fid in func_ids:
+                    if fid != "":
+                        loop_static_reachability[loop_id].add(fid)
 
 
-fp_train_out.close()
-fp_func_set_ids.close()
+def main():
+    process_profile_log()
+    ensure_pred_sets_are_within_deck()
+    write_output()
+
+
+if __name__ == '__main__':
+    main()
