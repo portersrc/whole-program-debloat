@@ -442,11 +442,32 @@ void AdvancedRuntimeDebloat::build_RPs(void)
 
 void AdvancedRuntimeDebloat::instrument_RPs(void)
 {
-    errs() << "Hit instrument_RPs\n";
+    errs() << "Instrumenting RPs\n";
     for(auto it = RPs.begin(); it != RPs.end(); it++){
+
         int caller_func_id = it->first;
         set<int> &callees_to_rectify = it->second;
         Function *caller = func_id_to_func[caller_func_id];
+
+        // We shouldn't have RPs at any prediction points -- just shouldn't
+        // happen. There are more precise ways to check it, but one good sanity
+        // check is to make sure the caller in every RP is encompassed.
+        // Predictions should only happen at outermost loops and at reachable
+        // decking sites. (There are also indirect calls inside of loops, but
+        // those won't show up here because of a lack of callee func ID.) Thus,
+        // we can at least assert that encompassed funcs contains the caller's
+        // func ID.
+        // UPDATE: backing this assertion out, because build_RPs also has
+        // the toplevel funcs that have loops right now. So we'd have to
+        // track those loop cases and ignore those here. Also, this gets
+        // into cases where the loop's host function has a callee that is
+        // both in a loop (and needs an RP) and the same callee at a different
+        // callsite further down that's not in the loop. Or the same callee
+        // may be in two different outermost loops and called by that same
+        // toplevel loop host function. But in all of these cases, it should
+        // be fine for now. Extra RPs is imprecise but not a correctness issue.
+        //assert(encompassed_funcs.find(func_id_to_func[caller_func_id]) != encompassed_funcs.end());
+
         for(auto &b : *caller){
             for(auto &I : b){
                 CallBase   *CB = dyn_cast<CallBase>(&I);
