@@ -2431,6 +2431,34 @@ int debrt_test_predict_indirect_predict_ics(long long *varargs)
 }
 
 
+extern "C" {
+int debrt_release_rectify(int func_id)
+{
+    int rv = 0;
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    _WARN_RETURN_IF_NOT_INITIALIZED();
+
+    // Map the complement set
+    for(set<int> *pred_set_complement_p_tmp : pred_set_complements){
+        for(int complement_func_id : (*pred_set_complement_p_tmp)){
+            rv += update_page_counts(complement_func_id, 1);
+        }
+    }
+
+    // Mark debrt_rectification_flags as 0
+    // XXX memset is okay, even in the context of rectification w/in the loops.
+    // (In fact, the flag below, rectification_happened, addresses this.)
+    memset(debrt_rectification_flags, 0, sizeof(int) * func_id_to_name.size());
+
+    // Flag the fact that we had to use rectification for the current deck.
+    // It will get reset to 0 when the deck completes (a protect-end call)
+    rectification_happened = 1;
+
+    return 0;
+}
+}
+
+
 static inline
 int _release_predict(int *feature_buf)
 {
@@ -2493,13 +2521,11 @@ int _release_predict(int *feature_buf)
         // FIXME maybe replace this warning with some metric/counter.
         DEBRT_PRINTF("WARNING: deck root wasnt part of the prediction. " \
                      "Triggering debrt_release_rectify immediately.\n");
-        int debrt_release_rectify(int func_id);
         return debrt_release_rectify(func_or_loop_id);
     }
 
     return rv;
 }
-
 
 
 // This function does the following:
@@ -2532,32 +2558,6 @@ int debrt_release_predict(int argc, ...)
 }
 }
 
-extern "C" {
-int debrt_release_rectify(int func_id)
-{
-    int rv = 0;
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
-    _WARN_RETURN_IF_NOT_INITIALIZED();
-
-    // Map the complement set
-    for(set<int> *pred_set_complement_p_tmp : pred_set_complements){
-        for(int complement_func_id : (*pred_set_complement_p_tmp)){
-            rv += update_page_counts(complement_func_id, 1);
-        }
-    }
-
-    // Mark debrt_rectification_flags as 0
-    // XXX memset is okay, even in the context of rectification w/in the loops.
-    // (In fact, the flag below, rectification_happened, addresses this.)
-    memset(debrt_rectification_flags, 0, sizeof(int) * func_id_to_name.size());
-
-    // Flag the fact that we had to use rectification for the current deck.
-    // It will get reset to 0 when the deck completes (a protect-end call)
-    rectification_happened = 1;
-
-    return 0;
-}
-}
 
 extern "C" {
 int debrt_release_indirect_predict(long long argc, ...)
