@@ -70,6 +70,14 @@ class LineParts:
 
 def get_func_set_id(funcs, deck_root_str):
     global func_set_id_counter
+
+    # This deck_root stuff is intended to improve the func sets so that when we
+    # create them here (and their associated IDs), we make sure to include the
+    # deck root, as well). This does NOT guarantee that every prediction at
+    # runtime will always include impending deck root. It just guarantees that
+    # if the prediction is CORRECT, then the deck root is included. For
+    # mispredictions, at the time of this writing, it'll probably have to be
+    # handled in the runtime.
     deck_root = int(deck_root_str)
     # If the deck root is a loop, don't insert it (i.e. we dont care about
     # that for the purposes of func set ID generation). Note that down
@@ -80,6 +88,7 @@ def get_func_set_id(funcs, deck_root_str):
         # don't put a duplicate into funcs
         if deck_root_str not in set(funcs):
             funcs.append(deck_root_str)
+
     key = ','.join(sorted(funcs))
     if key not in funcs_to_func_set_id:
         funcs_to_func_set_id[key] = func_set_id_counter
