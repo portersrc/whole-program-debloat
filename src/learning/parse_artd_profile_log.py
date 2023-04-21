@@ -68,8 +68,18 @@ class LineParts:
 
 
 
-def get_func_set_id(funcs):
+def get_func_set_id(funcs, deck_root_str):
     global func_set_id_counter
+    deck_root = int(deck_root_str)
+    # If the deck root is a loop, don't insert it (i.e. we dont care about
+    # that for the purposes of func set ID generation). Note that down
+    # the line, this matters for identifying RPs. The compiler pass will manage
+    # that question (see build_RPs).
+    if deck_root >= 0:
+        # Not sure if this check is necessary... but whatever. this ensures we
+        # don't put a duplicate into funcs
+        if deck_root_str not in set(funcs):
+            funcs.append(deck_root_str)
     key = ','.join(sorted(funcs))
     if key not in funcs_to_func_set_id:
         funcs_to_func_set_id[key] = func_set_id_counter
@@ -169,7 +179,7 @@ def process_profile_log():
                 s = sample_stack[-1]
                 s_shadow = sample_stack_shadow[-1]
                 assert s.func_set_id == None
-                s.func_set_id = get_func_set_id(line_parts.data_part)
+                s.func_set_id = get_func_set_id(line_parts.data_part, s.features[0])
                 _ = sample_stack.pop()
                 _ = sample_stack_shadow.pop()
                 samples.append(s)
@@ -299,7 +309,10 @@ def ensure_pred_sets_are_within_deck():
                 set_outside_of_deck = pred_set - intersect_set
                 print('elements not in intersect (i.e. in pred set but not the deck) (len {}) (sorted)'.format(len(set_outside_of_deck)))
                 print(sorted(set_outside_of_deck))
-                new_func_set_id = get_func_set_id(list(intersect_set))
+                # get_func_set_id will generate a new func set id (or use an
+                # old one, if there is one to use). (also, pass '-1' as a hack
+                # so we dont insert anything extra into the intersect_set
+                new_func_set_id = get_func_set_id(list(intersect_set), '-1')
                 assert func_set_id != new_func_set_id
                 if func_set_id not in changes_to_make:
                     changes_to_make[func_set_id] = {}
