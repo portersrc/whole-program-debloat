@@ -2470,30 +2470,11 @@ int _release_predict(int *feature_buf)
     pred_sets.push_back(pred_set_p);
     pred_set_complements.push_back(pred_set_complement_p);
 
-    // if this is a func_id (not a loop_id) and this function isn't in our pred set...
-    if((func_or_loop_id >= 0)
-       && (pred_set_p->find(func_or_loop_id) == pred_set_p->end())){
-        fprintf(fp_out, "WARNING: pred_set does not include upcoming function. func_set_id == %d, upcoming func_id == %d\n", func_set_id, func_or_loop_id);
-        fprintf(fp_out, "FIXME Exiting. This case shouldn't happen, and it would take work to implement a fix\n");
-        // TODO how do you actually add this function into that pred set?
-        // The pred sets are predefined. I think it requires a deep copy of the
-        // set, and then we can add it.
-        // This would also have to be handled gracefully during deck teardown
-        // and could affect rectification stuff depending on how it's implemented
-        // maybe one FIXME could be to do something like this here:
-        //   rv += update_page_counts(pred_func_id, addend);
-        // it avoid having to muck with pred-set-p. just have to remember
-        // to unmap it later
-        exit(1);
-    }
 
     // Map predicted set
     for(int pred_func_id : (*pred_set_p)){
         rv += update_page_counts(pred_func_id, 1);
     }
-
-
-
 
     // Update rectification flags
     //printf("complement_sets size: %lu\n", complement_sets.size());
@@ -2502,6 +2483,18 @@ int _release_predict(int *feature_buf)
     //printf("complements size: %lu\n", complements.size());
     for(int complement_func_id : complements){
         debrt_rectification_flags[complement_func_id] = 1;
+    }
+
+    // If this is a func_id (not a loop_id) and this function isn't in our pred
+    // set, then we actually mispredicted the deck root, as well, so we
+    // will just trigger rectify here for now.
+    if((func_or_loop_id >= 0)
+       && (pred_set_p->find(func_or_loop_id) == pred_set_p->end())){
+        // FIXME maybe replace this warning with some metric/counter.
+        DEBRT_PRINTF("WARNING: deck root wasnt part of the prediction. " \
+                     "Triggering debrt_release_rectify immediately.\n");
+        int debrt_release_rectify(int func_id);
+        return debrt_release_rectify(func_or_loop_id);
     }
 
     return rv;
