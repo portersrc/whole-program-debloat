@@ -1592,7 +1592,7 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     if(ENV_DEBRT_ENABLE_RELEASE){
         _read_func_sets(); // also initializes complement_set with empty sets.
         _read_complement_sets();
-        debrt_rectification_flags = (int *) malloc(sizeof(int) * func_id_to_name.size());
+        debrt_rectification_flags = (int *) calloc(func_id_to_name.size(), sizeof(int));
     }
 
 
