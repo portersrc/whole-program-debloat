@@ -1818,19 +1818,23 @@ int debrt_protect_reachable_end(int callee_func_id)
     _WARN_RETURN_IF_NOT_INITIALIZED();
 
     if(ENV_DEBRT_ENABLE_RELEASE && !default_prediction_flag){
+        DEBRT_PRINTF("case: release build and default_prediction_flag not set\n");
         rv = 0;
-        // Map predicted set
+        // Unmap predicted set
+        DEBRT_PRINTF("Unmapping predicted set\n");
         for(set<int> *pred_set_p_tmp : pred_sets){
             for(int pred_func_id : (*pred_set_p_tmp)){
                 rv += update_page_counts(pred_func_id, -1);
             }
         }
         if(rectification_happened){
+            DEBRT_PRINTF("Rectification happened\n");
             // Case: we're tearing down a reachable deck, and we
             // also had to deal with rectification while servicing that deck.
             // reset the rectification-happened flag, and unmap all the
             // complement functions.
             rectification_happened = 0;
+            DEBRT_PRINTF("Unmapping complement set\n");
             for(set<int> *complement_set_p_tmp : pred_set_complements){
                 for(int complement_func_id : (*complement_set_p_tmp)){
                     rv += update_page_counts(complement_func_id, -1);
@@ -1840,6 +1844,7 @@ int debrt_protect_reachable_end(int callee_func_id)
         pred_sets.clear();
         pred_set_complements.clear();
     }else{
+        DEBRT_PRINTF("case: not release build, or default_prediction_flag is set\n");
         default_prediction_flag = 0;
         // need to clear pred sets for TEST_PREDICTION, but should be fine to
         // do always, even for RELEASE, which shouldn't have any element
