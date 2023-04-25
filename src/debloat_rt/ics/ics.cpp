@@ -423,6 +423,25 @@ int ics_release_map_indirect_call(long long argc, ...)
     x = fp_addr;
     HASH_ADDR(x);
 
+    // FIXME future work possibly. There's a "bug" here (in test-predict, too,
+    // presumably). It's not a correctness issue but could hurt prediction
+    // accuracy, security, maybe performance. The same func pointer/address
+    // that gets invoked inside of a loop but at 2 different callsites may
+    // necessitate 2 different predictions (because it would descend in two
+    // different directions down the callgraph, depending on the callsite). But
+    // our code is currently too stupid for this. We just see the function
+    // pointer is already mapped and return early. For the static approach in
+    // Decker, this problem doesn't exist, but for prediction, the nuance of
+    // mapping a subdeck complicates this. In fact, trying to "overlay" one
+    // prediction of an indirect deck on top of another (in terms of which
+    // pages need to be mapped for the same deck but based on two different
+    // active predictions) is non-trivial -- or at least not really thought out
+    // or supported in the current runtime. In terms of just the caching
+    // problem inside of ics (i.e. the code just below), maybe one idea here is
+    // to use the deck ID as the key to the cache rather than the function
+    // address. This way you don't return early here; rather, you still make
+    // a new prediction even for the same fp-addr, etc. But runtime would need
+    // to support all of this.
     if(cached_fp_addrs[x].fp_addr == fp_addr){
         va_end(ap);
         return 0;
