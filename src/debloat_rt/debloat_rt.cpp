@@ -132,32 +132,38 @@ const char *PROFILE_CSV_COLUMNS = "deck_id," \
 
 vector<set<int> > func_sets;
 vector<set<int> > complement_sets;
-//set<int> *pred_set_p;
-//set<int> *pred_set_complement_p;
 vector<set<int> *> pred_sets;
 vector<set<int> *> pred_set_complements;
+set<int> empty_set;
+set<int> extras_set;
 unsigned long long num_func_calls = 0; // XXX only counts func calls if pred-sets.size > 0
 unsigned long long num_func_calls_wrap = 0;
 unsigned long long num_mispredictions = 0;
 int pred_set_initialized = 0;
 int rectification_happened = 0;
-int default_prediction_flag = 0;
 
 // A vector, indexed by function IDs.
 // An element is 1 if the function ID should trigger rectification, i.e.
 // the complement of the predicted set should be mapped. Else, it's 0.
 int *debrt_rectification_flags;
 
-
-// deprecated prediction stuff
-//vector<set<int> > func_sets;
-set<int> *pred_set_p_old;
-int next_prediction_func_set_id;
-//int num_mispredictions;
-int total_predictions;
-stack<set<int> *> pred_set_stack;
-vector<int> single_stack;
+// Using c++ hashmap support in ics code was causing problems, so for now, ics
+// code uses a cheap vector and hash function. Only profiling mode
+// has hashmap collision (a basic linear scan) in ics code, and it'll even
+// assert(0) if it has issues. Thus, for original Decker support, and now for
+// test-predict and release mode, we need to handle hashmap collision cases
+// that aren't caught in the ics code. This is what ics-set is for. It's
+// basically a hack so we can rely on c++ support for hashmaps/sets. If
+// execution ever reaches the debrt runtime with a function ID that's already
+// part of ics-set, we short-circuit and return early from the runtime. This
+// is for performance reasons but also correctness: We don't want to map
+// a function that's already been mapped.
 set<int> ics_set;
+unsigned long long ics_set_short_circuit_count = 0;
+
+
+// Deprecated? --for stack cleaning approach
+vector<int> single_stack;
 
 
 
@@ -219,7 +225,6 @@ vector<set<int> *> recorded_funcs_stack;
 
 
 int *stats_hist;
-unsigned long long ics_set_short_circuit_count = 0;
 
 
 template<typename Out>
@@ -1441,7 +1446,6 @@ void _debrt_protect_destroy(void)
     //}
     //fprintf(fp_out, "\n");
 
-    //fprintf(fp_out, "total_predictions:  %d\n", total_predictions);
     fprintf(fp_out, "num_mispredictions:    %llu\n", num_mispredictions);
     fprintf(fp_out, "num_func_calls:        %llu\n", num_func_calls);
     fprintf(fp_out, "num_func_calls_wrap:   %llu\n", num_func_calls_wrap);
@@ -1649,6 +1653,7 @@ int debrt_init(int main_func_id, int sink_is_enabled)
 }
 }
 
+
 extern "C" {
 int debrt_destroy(int notused)
 {
@@ -1659,6 +1664,43 @@ int debrt_destroy(int notused)
     return 0;
 }
 }
+
+
+static inline
+void _release_end(void)
+{
+    int rv;
+    rv = 0;
+    // Unmap predicted set
+    DEBRT_PRINTF("Unmapping predicted set\n");
+    for(set<int> *pred_set_p_tmp : pred_sets){
+        for(int pred_func_id : (*pred_set_p_tmp)){
+            rv += update_page_counts(pred_func_id, -1);
+        }
+    }
+    for(int func_id : extras_set){
+        rv += update_page_counts(func_id, -1);
+    }
+    if(rectification_happened){
+        DEBRT_PRINTF("Rectification happened. Unmapping complement set.\n");
+        // Case: We're tearing down a deck, and we also had to deal with
+        // rectification while servicing that deck. Reset the
+        // rectification-happened flag, and unmap all the complement
+        // functions.
+        rectification_happened = 0;
+        for(set<int> *complement_set_p_tmp : pred_set_complements){
+            for(int complement_func_id : (*complement_set_p_tmp)){
+                rv += update_page_counts(complement_func_id, -1);
+            }
+        }
+    }
+    ics_set.clear();
+    pred_sets.clear();
+    pred_set_complements.clear();
+    extras_set.clear();
+    memset(debrt_rectification_flags, 0, sizeof(int) * func_id_to_name.size());
+}
+
 
 extern "C" {
 int debrt_profile_update_recorded_funcs(int new_pop_popanddump)
@@ -1817,39 +1859,10 @@ int debrt_protect_reachable_end(int callee_func_id)
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
 
-    if(ENV_DEBRT_ENABLE_RELEASE && !default_prediction_flag){
-        DEBRT_PRINTF("case: release build and default_prediction_flag not set\n");
-        rv = 0;
-        // Unmap predicted set
-        DEBRT_PRINTF("Unmapping predicted set\n");
-        for(set<int> *pred_set_p_tmp : pred_sets){
-            for(int pred_func_id : (*pred_set_p_tmp)){
-                rv += update_page_counts(pred_func_id, -1);
-            }
-        }
-        if(rectification_happened){
-            DEBRT_PRINTF("Rectification happened\n");
-            // Case: we're tearing down a reachable deck, and we
-            // also had to deal with rectification while servicing that deck.
-            // reset the rectification-happened flag, and unmap all the
-            // complement functions.
-            rectification_happened = 0;
-            DEBRT_PRINTF("Unmapping complement set\n");
-            for(set<int> *complement_set_p_tmp : pred_set_complements){
-                for(int complement_func_id : (*complement_set_p_tmp)){
-                    rv += update_page_counts(complement_func_id, -1);
-                }
-            }
-        }
-        pred_sets.clear();
-        pred_set_complements.clear();
+    if(ENV_DEBRT_ENABLE_RELEASE){
+        _release_end();
     }else{
-        DEBRT_PRINTF("case: not release build, or default_prediction_flag is set\n");
-        default_prediction_flag = 0;
-        // need to clear pred sets for TEST_PREDICTION, but should be fine to
-        // do always, even for RELEASE, which shouldn't have any element
-        // in the stack along this else branch anyway.
-        pred_sets.clear();
+        pred_sets.clear(); // need to clear pred sets for TEST_PREDICTION
         //DEBUG_predicted_func_set_ids.clear();
         rv = _protect_reachable(callee_func_id, -1, "reachable");
     }
@@ -1902,29 +1915,8 @@ int debrt_protect_loop_end(int loop_id)
     // that's happening for release builds relates to predictions inside of
     // loops (and growing those prediction sets). See pred_sets as a starting
     // point for how this is handled.
-    if(ENV_DEBRT_ENABLE_RELEASE && !default_prediction_flag){
-        rv = 0;
-        // Map predicted set
-        for(set<int> *pred_set_p_tmp : pred_sets){
-            for(int pred_func_id : (*pred_set_p_tmp)){
-                rv += update_page_counts(pred_func_id, -1);
-            }
-        }
-        if(rectification_happened){
-            // Case: we're tearing down a loop deck, and we
-            // also had to deal with rectification while servicing that deck.
-            // reset the rectification-happened flag, and unmap all the
-            // complement functions.
-            rectification_happened = 0;
-            for(set<int> *complement_set_p_tmp : pred_set_complements){
-                for(int complement_func_id : (*complement_set_p_tmp)){
-                    rv += update_page_counts(complement_func_id, -1);
-                }
-            }
-        }
-        ics_set.clear();
-        pred_sets.clear();
-        pred_set_complements.clear();
+    if(ENV_DEBRT_ENABLE_RELEASE){
+        _release_end();
     }else{
         // Hijack the loop-end call to turn off any functions that were enabled
         // inside of a loop due to ICS. Note that ics-set will always have a size
@@ -1949,11 +1941,7 @@ int debrt_protect_loop_end(int loop_id)
             }
         }
         ics_set.clear();
-        default_prediction_flag = 0;
-        // need to clear pred sets for TEST_PREDICTION, but should be fine to
-        // do always, even for RELEASE, which shouldn't have any element
-        // in the stack along this else branch anyway.
-        pred_sets.clear();
+        pred_sets.clear(); // need to clear pred sets for TEST_PREDICTION
         //DEBUG_predicted_func_set_ids.clear();
         rv = _protect_loop_reachable(loop_id, -1);
     }
@@ -1963,7 +1951,31 @@ int debrt_protect_loop_end(int loop_id)
 }
 
 
+static inline
+int _ics_short_circuit(int func_id)
+{
+    // This short-circuit is kind of a hack. The inlined C code is a fast
+    // hash and mod. It's a cheap set that can't handle collision. Thus, it
+    // might invoke the debrt library unnecessarily, and we don't want to
+    // update a page count for a function multiple times in a loop if it's
+    // already been seen. So here we have this proper stl set that we can
+    // short-circuit: If we have already seen this func-id within this loop
+    // (i.e. within this ics-set), just return early.
+    if(ics_set.find(func_id) != ics_set.end()){
+        ics_set_short_circuit_count++;
+        return 1;
+    }
+    // We reach this point if this is a new indirectly called func-id within
+    // some loop. Insert it into our set so we can clear it at loop exit.
+    // This function may be called in different runtime modes (e.g. static vs.
+    // release), so we also do this on any normal indirect call outside of a
+    // loop; in that case, it has to be cleared by the indirect's end call
+    // (e.g. debrt_protect_indirect_end, which is the same end call for both
+    // static and release).
+    ics_set.insert(func_id);
 
+    return 0;
+}
 
 
 extern "C" {
@@ -1983,8 +1995,6 @@ int debrt_protect_indirect(long long callee_addr)
     int func_id = func_addr_to_id[callee_addr];
     DEBRT_PRINTF("func_id is: %d\n", func_id);
 
-    //
-    //
     // Hijack the protect-indirect call for indirect call sinking (i.e.
     // instrumented indirect calls inside of loops).
     // Checking that ICS is enabled probably makes no difference here.
@@ -1994,27 +2004,9 @@ int debrt_protect_indirect(long long callee_addr)
     // though it unnecessarily inserts it into the set, protect-indirect-end
     // now clears the set regardless. So this is a little unnecessary overhead
     // in those cases, but the code is shared and simpler.
-
-    // This short-circuit is kind of a hack. The inlined C code is a fast
-    // hash and mod. It's a cheap set that can't handle collision. Thus, it
-    // might invoke protect-indirect unnecessarily, and we
-    // don't want to update a page count for a function multiple times in a
-    // loop if it's already been seen. So here we have this proper stl set that
-    // we can short-circuit: If we have already seen this func-id within this
-    // loop (i.e. within this ics-set), just return early.
-    if(ics_set.find(func_id) != ics_set.end()){
-        ics_set_short_circuit_count++;
+    if(_ics_short_circuit(func_id)){
         return 0;
     }
-    // We reach this point if this is a new indirectly called func-id within
-    // some loop. Insert it into our set so we can clear it at loop exit.
-    // (As pointed out, this code is shared, so we also do this on any normal
-    // indirect call outside of a loop; in that case, it's cleared by
-    // protect-indirect-end.)
-    ics_set.insert(func_id);
-    //
-    //
-
 
     if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
         // encompassed function
@@ -2048,10 +2040,24 @@ int _protect_indirect_end(long long callee_addr)
 extern "C" {
 int debrt_protect_indirect_end(long long callee_addr)
 {
+    int rv;
+
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
     DEBRT_PRINTF("end callee_addr is: 0x%llx\n", callee_addr);
-    return _protect_indirect_end(callee_addr);
+
+    if(ENV_DEBRT_ENABLE_RELEASE){
+        _release_end();
+    }else{
+        // need to clear pred sets for TEST_PREDICTION, but should be fine to
+        // do always, even for RELEASE, which shouldn't have any element
+        // in the stack along this else branch anyway.
+        pred_sets.clear();
+        //DEBUG_predicted_func_set_ids.clear();
+        rv = _protect_indirect_end(callee_addr);
+    }
+
+    return rv;
 }
 }
 
@@ -2410,11 +2416,6 @@ int debrt_test_predict_indirect_predict_ics(long long *varargs)
     int func_id = func_addr_to_id[fp_addr];
 
     // gather features into a buffer
-    //for(i = 1; i < num_args; i++){
-    //    // FIXME see profile print args functions (normal and ics) which
-    //    // also cast to int and drop info.
-    //    feature_buf[i-1] = (int) varargs[i+1];
-    //}
     feature_buf[0] = func_id;
     for(i = 1; i < num_args; i++){
         // FIXME see profile print args functions (normal and ics) which
@@ -2464,6 +2465,28 @@ int debrt_release_rectify(int func_id)
 }
 
 
+// When we map a full deck, we are in two cases: function or loop.
+//
+// Function case: Map the whole reachable deck as active.
+// Note that func-id-to-reachable-funcs will yield a set of statically
+// reachable funcs for some func_id, but it doesn't include
+// the func_id itself in that set. As a hack, we track it in extras_set.
+//
+// Loop case: Map the whole loop deck as active. No "extras" needed here
+// because this is a loop, not a function.
+#define _RELEASE_MAP_FULL_DECK() \
+    do { \
+        if(func_or_loop_id >= 0){ \
+            pred_set_p = &func_id_to_reachable_funcs[func_or_loop_id]; \
+            extras_set.insert(func_or_loop_id); \
+        }else{ \
+            func_or_loop_id = (func_or_loop_id * -1) -1; \
+            pred_set_p = &loop_id_to_reachable_funcs[func_or_loop_id]; \
+        } \
+        pred_set_complement_p = &empty_set; \
+    } while(0);
+
+
 static inline
 int _release_predict(int *feature_buf)
 {
@@ -2473,36 +2496,30 @@ int _release_predict(int *feature_buf)
     set<int> *pred_set_p;
     set<int> *pred_set_complement_p;
 
+
     func_or_loop_id = feature_buf[0];
+
+    if(rectification_happened){
+        _RELEASE_MAP_FULL_DECK();
+    }
 
     // Get a new prediction
     func_set_id = debrt_decision_tree(feature_buf);
     if(func_set_id == -1){
-        default_prediction_flag = 1;
-        // No prediction available: map everything.
-        if(func_or_loop_id >= 0){
-            // Case: We're mapping for a function call (reachable subdeck)
-            // Map the whole reachable deck as active
-            return _protect_reachable(func_or_loop_id, 1, "notused");
-        }else{
-            // Case: We're mapping for a loop (loop subdeck)
-            // Map the whole loop deck as active
-            func_or_loop_id = (func_or_loop_id * -1) -1;
-            return _protect_loop_reachable(func_or_loop_id, 1);
-        }
+        // No prediction available: map the full deck.
+        _RELEASE_MAP_FULL_DECK();
+    }else{
+        //printf("pred_set_p before: %p\n", pred_set_p);
+        pred_set_p = &func_sets[func_set_id];
+        pred_set_complement_p = &complement_sets[func_set_id];
+        //printf("pred_set_p after:  %p\n", pred_set_p);
+        //printf("pred_set_p:  %p\n", pred_set_p);
     }
-
-    //printf("pred_set_p before: %p\n", pred_set_p);
-    pred_set_p = &func_sets[func_set_id];
-    pred_set_complement_p = &complement_sets[func_set_id];
-    //printf("pred_set_p after:  %p\n", pred_set_p);
-    //printf("pred_set_p:  %p\n", pred_set_p);
 
     assert(ENV_DEBRT_ENABLE_RELEASE);
 
     pred_sets.push_back(pred_set_p);
     pred_set_complements.push_back(pred_set_complement_p);
-
 
     // Map predicted set
     for(int pred_func_id : (*pred_set_p)){
@@ -2510,12 +2527,15 @@ int _release_predict(int *feature_buf)
     }
 
     // Update rectification flags
-    //printf("complement_sets size: %lu\n", complement_sets.size());
-    //printf("checking for func_set_id: %d\n", func_set_id);
-    set<int> &complements = complement_sets[func_set_id];
-    //printf("complements size: %lu\n", complements.size());
-    for(int complement_func_id : complements){
-        debrt_rectification_flags[complement_func_id] = 1;
+    if(!rectification_happened){
+        //printf("complement_sets size: %lu\n", complement_sets.size());
+        //printf("checking for func_set_id: %d\n", func_set_id);
+        set<int> &complements = complement_sets[func_set_id];
+        //printf("complements size: %lu\n", complements.size());
+        for(int complement_func_id : complements){
+            debrt_rectification_flags[complement_func_id] = 1;
+        }
+
     }
 
     // If this is a func_id (not a loop_id) and this function isn't in our pred
@@ -2523,6 +2543,7 @@ int _release_predict(int *feature_buf)
     // will just trigger rectify here for now.
     if((func_or_loop_id >= 0)
        && (pred_set_p->find(func_or_loop_id) == pred_set_p->end())){
+        assert(0 && "ERROR Unexpected. Mispredicted the deck root This should never happen now.");
         // FIXME maybe replace this warning with some metric/counter.
         DEBRT_PRINTF("WARNING: deck root wasnt part of the prediction. " \
                      "Triggering debrt_release_rectify immediately.\n");
@@ -2591,12 +2612,21 @@ int debrt_release_indirect_predict(long long argc, ...)
     }
     int func_id = func_addr_to_id[fp_addr];
 
+    if(_ics_short_circuit(func_id)){ // not needed...but doing anyway
+        return 0;
+    }
+
     feature_buf[0] = func_id;
 
     for(i = 1; i < argc; i++){
         feature_buf[i] = (int) va_arg(ap, long long);
     }
     va_end(ap);
+
+    // TODO short-circuit if the func-id should be a single deck. Make sure
+    // that I look at the test-predict stuff so we're not miscounting this
+    // case, too. Profiling can maintain this case, i guess? It could drop
+    // all training data where the func id is a single deck, actually.
 
     return _release_predict(feature_buf);
 }
@@ -2631,6 +2661,10 @@ int debrt_release_indirect_predict_ics(long long *varargs)
         return 0;
     }
     int func_id = func_addr_to_id[fp_addr];
+
+    if(_ics_short_circuit(func_id)){
+        return 0;
+    }
 
     // gather features into a buffer
     feature_buf[0] = func_id;
