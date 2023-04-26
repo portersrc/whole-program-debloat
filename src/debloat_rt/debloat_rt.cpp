@@ -392,17 +392,17 @@ void _remap_permissions(long long addr, long long size, int perm)
     aligned_addr_end  = (char *) ((addr+size) & ~(PAGE_SIZE - 1));
     size_to_remap = PAGE_SIZE + (aligned_addr_end - aligned_addr_base);
 
-    DEBRT_PRINTF("remap_permissions():\n");
-    DEBRT_PRINTF("  aligned_addr_base: %p\n", aligned_addr_base);
-    DEBRT_PRINTF("  aligned_addr_end:  %p\n", aligned_addr_end);
-    DEBRT_PRINTF("  size_to_remap:     0x%x\n", size_to_remap);
-    DEBRT_PRINTF("  permissions:       ");
-    switch(perm){
-    case RX_PERM: DEBRT_PRINTF("RX_PERM\n"); break;
-    case RO_PERM: DEBRT_PRINTF("RO_PERM\n"); break;
-    case NO_PERM: DEBRT_PRINTF("NO_PERM\n"); break;
-    default: assert(0); break;
-    }
+    //DEBRT_PRINTF("remap_permissions():\n");
+    //DEBRT_PRINTF("  aligned_addr_base: %p\n", aligned_addr_base);
+    //DEBRT_PRINTF("  aligned_addr_end:  %p\n", aligned_addr_end);
+    //DEBRT_PRINTF("  size_to_remap:     0x%x\n", size_to_remap);
+    //DEBRT_PRINTF("  permissions:       ");
+    //switch(perm){
+    //case RX_PERM: DEBRT_PRINTF("RX_PERM\n"); break;
+    //case RO_PERM: DEBRT_PRINTF("RO_PERM\n"); break;
+    //case NO_PERM: DEBRT_PRINTF("NO_PERM\n"); break;
+    //default: assert(0); break;
+    //}
 
     //perm = RX_PERM; // FIXME DEBUG ONLY
     //perm = RX_PERM; // FIXME DEBUG ONLY
@@ -415,7 +415,7 @@ void _remap_permissions(long long addr, long long size, int perm)
         DEBRT_PRINTF("mprotect error (%d): %s\n", e, strerror(e));
         assert(0 && "mprotect error");
     }
-    DEBRT_PRINTF("  mprotect succeeded\n");
+    //DEBRT_PRINTF("  mprotect succeeded\n");
 }
 
 
@@ -542,10 +542,8 @@ int update_page_counts(int func_id, int addend)
     // as individual pages.
     //
 
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
-    DEBRT_PRINTF("update_page_counts func_id is %d\n", func_id);
-    DEBRT_PRINTF("addend is %d\n", addend);
-    DEBRT_PRINTF("pages.size(): %lu\n", pages.size());
+    DEBRT_PRINTF("%s: func_id=%d, addend=%d, pages.size()=%lu\n",
+      __FUNCTION__, func_id, addend, pages.size());
     for(i = 0; i < pages.size(); i++){
         addr = pages[i];
         DEBRT_PRINTF("updating addr 0x%llx\n", addr);
@@ -570,7 +568,6 @@ int update_page_counts(int func_id, int addend)
         if((page_to_count[addr] == 1) && (addend == 1)){
             DEBRT_PRINTF("went from 0 to 1, remap RX\n");
             _remap_permissions(addr, 1, RX_PERM);
-            DEBRT_PRINTF("done RX\n");
 
             if(DEBRT_INDIRECT_CALL_SINKING
             || ENV_DEBRT_ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS){
@@ -624,7 +621,6 @@ int update_page_counts(int func_id, int addend)
                     }
                 }
             }
-            DEBRT_PRINTF("done RO\n");
         }
     }
     return yes_stats_got_updated;
@@ -1678,6 +1674,7 @@ void _release_end(void)
             rv += update_page_counts(pred_func_id, -1);
         }
     }
+    DEBRT_PRINTF("Unmapping extras set\n");
     for(int func_id : extras_set){
         rv += update_page_counts(func_id, -1);
     }
@@ -1856,7 +1853,7 @@ extern "C" {
 int debrt_protect_reachable_end(int callee_func_id)
 {
     int rv;
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("======================%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
 
     if(ENV_DEBRT_ENABLE_RELEASE){
@@ -1867,6 +1864,7 @@ int debrt_protect_reachable_end(int callee_func_id)
         rv = _protect_reachable(callee_func_id, -1, "reachable");
     }
 
+    DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__);
     return rv;
 }
 }
@@ -2441,7 +2439,7 @@ extern "C" {
 int debrt_release_rectify(int func_id)
 {
     int rv = 0;
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("======================%s for func_id %d\n", __FUNCTION__, func_id);
     _WARN_RETURN_IF_NOT_INITIALIZED();
 
     // Map the complement set
@@ -2474,17 +2472,17 @@ int debrt_release_rectify(int func_id)
 //
 // Loop case: Map the whole loop deck as active. No "extras" needed here
 // because this is a loop, not a function.
-#define _RELEASE_MAP_FULL_DECK() \
-    do { \
-        if(func_or_loop_id >= 0){ \
-            pred_set_p = &func_id_to_reachable_funcs[func_or_loop_id]; \
-            extras_set.insert(func_or_loop_id); \
-        }else{ \
-            func_or_loop_id = (func_or_loop_id * -1) -1; \
-            pred_set_p = &loop_id_to_reachable_funcs[func_or_loop_id]; \
-        } \
-        pred_set_complement_p = &empty_set; \
-    } while(0);
+//#define _RELEASE_MAP_FULL_DECK() \
+//    do { \
+//        if(func_or_loop_id >= 0){ \
+//            pred_set_p = &func_id_to_reachable_funcs[func_or_loop_id]; \
+//            extras_set.insert(func_or_loop_id); \
+//        }else{ \
+//            func_or_loop_id = (func_or_loop_id * -1) -1; \
+//            pred_set_p = &loop_id_to_reachable_funcs[func_or_loop_id]; \
+//        } \
+//        pred_set_complement_p = &empty_set; \
+//    } while(0);
 
 
 static inline
@@ -2496,27 +2494,47 @@ int _release_predict(int *feature_buf)
     set<int> *pred_set_p;
     set<int> *pred_set_complement_p;
 
+    DEBRT_PRINTF("======================%s\n", __FUNCTION__);
+
 
     func_or_loop_id = feature_buf[0];
 
     if(rectification_happened){
-        _RELEASE_MAP_FULL_DECK();
-    }
-
-    // Get a new prediction
-    func_set_id = debrt_decision_tree(feature_buf);
-    if(func_set_id == -1){
-        // No prediction available: map the full deck.
-        _RELEASE_MAP_FULL_DECK();
+        //_RELEASE_MAP_FULL_DECK();
+        DEBRT_PRINTF("Rectification happened: Grab the full deck for func-or-loop-id %d\n",
+          func_or_loop_id);
+        if(func_or_loop_id >= 0){
+            pred_set_p = &func_id_to_reachable_funcs[func_or_loop_id];
+            extras_set.insert(func_or_loop_id);
+            rv += update_page_counts(func_or_loop_id, 1);
+        }else{
+            func_or_loop_id = (func_or_loop_id * -1) -1;
+            pred_set_p = &loop_id_to_reachable_funcs[func_or_loop_id];
+        }
+        pred_set_complement_p = &empty_set;
     }else{
-        //printf("pred_set_p before: %p\n", pred_set_p);
-        pred_set_p = &func_sets[func_set_id];
-        pred_set_complement_p = &complement_sets[func_set_id];
-        //printf("pred_set_p after:  %p\n", pred_set_p);
-        //printf("pred_set_p:  %p\n", pred_set_p);
+        // Get a new prediction
+        func_set_id = debrt_decision_tree(feature_buf);
+        if(func_set_id == -1){
+            //_RELEASE_MAP_FULL_DECK();
+            DEBRT_PRINTF("No prediction available: Grab the full deck for func-or-loop-id %d\n",
+              func_or_loop_id);
+            if(func_or_loop_id >= 0){
+                pred_set_p = &func_id_to_reachable_funcs[func_or_loop_id];
+                extras_set.insert(func_or_loop_id);
+                rv += update_page_counts(func_or_loop_id, 1);
+            }else{
+                func_or_loop_id = (func_or_loop_id * -1) -1;
+                pred_set_p = &loop_id_to_reachable_funcs[func_or_loop_id];
+            }
+            pred_set_complement_p = &empty_set;
+        }else{
+            DEBRT_PRINTF("Normal prediction. func-set-id is %d\n",
+              func_set_id);
+            pred_set_p = &func_sets[func_set_id];
+            pred_set_complement_p = &complement_sets[func_set_id];
+        }
     }
-
-    assert(ENV_DEBRT_ENABLE_RELEASE);
 
     pred_sets.push_back(pred_set_p);
     pred_set_complements.push_back(pred_set_complement_p);
@@ -2526,29 +2544,30 @@ int _release_predict(int *feature_buf)
         rv += update_page_counts(pred_func_id, 1);
     }
 
-    // Update rectification flags
+    // Update rectification flags.
+    // (If rectification_happened or prediction was -1, pred_set_complement_p
+    // will be empty, so nothing happens here, as desired.)
+    for(int complement_func_id : (*pred_set_complement_p)){
+        debrt_rectification_flags[complement_func_id] = 1;
+    }
+
+    // FIXME: probably remove all this? i put assert(0). shouldn't happen.
     if(!rectification_happened){
-        //printf("complement_sets size: %lu\n", complement_sets.size());
-        //printf("checking for func_set_id: %d\n", func_set_id);
-        set<int> &complements = complement_sets[func_set_id];
-        //printf("complements size: %lu\n", complements.size());
-        for(int complement_func_id : complements){
-            debrt_rectification_flags[complement_func_id] = 1;
+        // If this is a func_id (not a loop_id) and this function isn't in our pred
+        // set, then we actually mispredicted the deck root, as well, so we
+        // will just trigger rectify here for now.
+        if((func_or_loop_id >= 0)
+           && (pred_set_p->find(func_or_loop_id) == pred_set_p->end())){
+
+            assert(0 && "ERROR Unexpected. Mispredicted the deck root This should never happen now.");
+
+            // FIXME maybe replace this warning with some metric/counter.
+            DEBRT_PRINTF("WARNING: deck root wasnt part of the prediction. " \
+                         "Triggering debrt_release_rectify immediately.\n");
+            return debrt_release_rectify(func_or_loop_id);
         }
-
     }
 
-    // If this is a func_id (not a loop_id) and this function isn't in our pred
-    // set, then we actually mispredicted the deck root, as well, so we
-    // will just trigger rectify here for now.
-    if((func_or_loop_id >= 0)
-       && (pred_set_p->find(func_or_loop_id) == pred_set_p->end())){
-        assert(0 && "ERROR Unexpected. Mispredicted the deck root This should never happen now.");
-        // FIXME maybe replace this warning with some metric/counter.
-        DEBRT_PRINTF("WARNING: deck root wasnt part of the prediction. " \
-                     "Triggering debrt_release_rectify immediately.\n");
-        return debrt_release_rectify(func_or_loop_id);
-    }
 
     return rv;
 }
@@ -2564,7 +2583,7 @@ int _release_predict(int *feature_buf)
 extern "C" {
 int debrt_release_predict(int argc, ...)
 {
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("======================%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
     int i;
     va_list ap;
@@ -2580,7 +2599,9 @@ int debrt_release_predict(int argc, ...)
     }
     va_end(ap);
 
-    return _release_predict(feature_buf);
+    int rv = _release_predict(feature_buf);
+    DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__);
+    return rv;
 }
 }
 
@@ -2588,7 +2609,7 @@ int debrt_release_predict(int argc, ...)
 extern "C" {
 int debrt_release_indirect_predict(long long argc, ...)
 {
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("======================%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
 
     int i;
@@ -2607,12 +2628,13 @@ int debrt_release_indirect_predict(long long argc, ...)
     if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){
         // See debrt_protect_indirect() for how this can happen.
         // Should be fine to ignore
-        DEBRT_PRINTF("WARNING: release-indirect-predict fp_addr not found.\n");
+        DEBRT_PRINTF("----------------------WARNING: release-indirect-predict fp_addr not found.\n");
         return 0;
     }
     int func_id = func_addr_to_id[fp_addr];
 
     if(_ics_short_circuit(func_id)){ // not needed...but doing anyway
+        DEBRT_PRINTF("----------------------%s short circuit\n", __FUNCTION__);
         return 0;
     }
 
@@ -2628,7 +2650,9 @@ int debrt_release_indirect_predict(long long argc, ...)
     // case, too. Profiling can maintain this case, i guess? It could drop
     // all training data where the func id is a single deck, actually.
 
-    return _release_predict(feature_buf);
+    int rv = _release_predict(feature_buf);
+    DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__);
+    return rv;
 }
 }
 
@@ -2640,7 +2664,7 @@ int debrt_release_indirect_predict(long long argc, ...)
 extern "C" {
 int debrt_release_indirect_predict_ics(long long *varargs)
 {
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("======================%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
 
     int feature_buf[MAX_NUM_FEATURES];
@@ -2657,12 +2681,13 @@ int debrt_release_indirect_predict_ics(long long *varargs)
 
     if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){
         // See debrt_profile_indirect_print_args() for details on this case.
-        DEBRT_PRINTF("WARNING: release-indirect-predict-ics fp_addr not found.\n");
+        DEBRT_PRINTF("----------------------WARNING: release-indirect-predict-ics fp_addr not found.\n");
         return 0;
     }
     int func_id = func_addr_to_id[fp_addr];
 
     if(_ics_short_circuit(func_id)){
+        DEBRT_PRINTF("----------------------%s short circuit\n", __FUNCTION__);
         return 0;
     }
 
@@ -2674,6 +2699,8 @@ int debrt_release_indirect_predict_ics(long long *varargs)
         feature_buf[i] = (int) varargs[i+1];
     }
 
-    return _release_predict(feature_buf);
+    int rv = _release_predict(feature_buf);
+    DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__);
+    return rv;
 }
 }
