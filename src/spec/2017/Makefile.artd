@@ -454,8 +454,8 @@ artd_ics_inline_profile_sed:
       's/declare extern_weak i32 @debrt_profile_update_recorded_funcs(i32)//w sed_changes_2.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	#sed -i \
-      's/debrt_profile_update_recorded_funcs.2/debrt_profile_update_recorded_funcs/w sed_changes_3.txt' \
-      $(NUMBER).$(NAME)_artd.ll
+    #  's/debrt_profile_update_recorded_funcs.2/debrt_profile_update_recorded_funcs/w sed_changes_3.txt' \
+    #  $(NUMBER).$(NAME)_artd.ll
 	sed -i \
       's/declare extern_weak i32 @ics_profile_map_indirect_call.6(i64, ...)//w sed_changes_4.txt' \
       $(NUMBER).$(NAME)_artd.ll
