@@ -12,6 +12,7 @@
 
 extern "C" {int debrt_protect_indirect(long long);}
 extern "C" {int debrt_protect_loop_end(int);}
+extern "C" {int debrt_protect_reachable_end(int);}
 extern "C" {int debrt_profile_indirect_print_args_ics(long long *);}
 extern "C" {int debrt_profile_update_recorded_funcs(int);}
 extern "C" {int debrt_test_predict_indirect_predict_ics(long long *);}
@@ -443,6 +444,7 @@ int ics_release_map_indirect_call(long long argc, ...)
     // a new prediction even for the same fp-addr, etc. But runtime would need
     // to support all of this.
     if(cached_fp_addrs[x].fp_addr == fp_addr){
+        //printf("--ics_release_map_indirect_call returning early due to cache hit\n");
         va_end(ap);
         return 0;
     }
@@ -496,6 +498,16 @@ __attribute__((always_inline))
 int ics_release_wrapper_debrt_protect_loop_end(int loop_id)
 {
     debrt_protect_loop_end(loop_id);
+    memset(cached_fp_addrs, 0, sizeof(fp_addr_recorded_t) * MAX_CACHED_FP_ADDRS_SZ);
+    return 0;
+}
+}
+
+extern "C" {
+__attribute__((always_inline))
+int ics_release_wrapper_debrt_protect_reachable_end(int callee_func_id)
+{
+    debrt_protect_reachable_end(callee_func_id);
     memset(cached_fp_addrs, 0, sizeof(fp_addr_recorded_t) * MAX_CACHED_FP_ADDRS_SZ);
     return 0;
 }
