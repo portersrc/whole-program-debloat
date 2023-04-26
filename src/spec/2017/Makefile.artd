@@ -425,74 +425,74 @@ artd_ics_inline_post:
 artd_ics_inline_static_sed:
 	# these sed commands have to change if prototypes change, we add more, etc.
 	sed -i \
-      's/debrt_protect_indirect.1/debrt_protect_indirect/w sed_changes_0.txt' \
+      's/debrt_protect_indirect.2/debrt_protect_indirect/w sed_changes_0.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
       's/declare i32 @debrt_protect_indirect(i64)$$//w sed_changes_1.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/declare extern_weak i32 @ics_static_map_indirect_call.3(i64)//w sed_changes_2.txt' \
+      's/declare extern_weak i32 @ics_static_map_indirect_call.4(i64)//w sed_changes_2.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/declare extern_weak i32 @ics_static_wrapper_debrt_protect_loop_end.4(i32)//w sed_changes_3.txt' \
+      's/declare extern_weak i32 @ics_static_wrapper_debrt_protect_loop_end.5(i32)//w sed_changes_3.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/ics_static_map_indirect_call.3/ics_static_map_indirect_call/w sed_changes_4.txt' \
+      's/ics_static_map_indirect_call.4/ics_static_map_indirect_call/w sed_changes_4.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/ics_static_wrapper_debrt_protect_loop_end.4/ics_static_wrapper_debrt_protect_loop_end/w sed_changes_5.txt' \
+      's/ics_static_wrapper_debrt_protect_loop_end.5/ics_static_wrapper_debrt_protect_loop_end/w sed_changes_5.txt' \
       $(NUMBER).$(NAME)_artd.ll
 artd_ics_inline_profile_sed:
 	# these sed commands have to change if prototypes change, we add more, etc.
 	sed -i \
-      's/debrt_protect_indirect.1/debrt_protect_indirect/w sed_changes_0.txt' \
+      's/debrt_protect_indirect.2/debrt_protect_indirect/w sed_changes_0.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
       's/declare i32 @debrt_protect_indirect(i64)$$//w sed_changes_1.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/declare extern_weak i32 @debrt_profile_update_recorded_funcs.2(i32)//w sed_changes_2.txt' \
+      's/declare extern_weak i32 @debrt_profile_update_recorded_funcs(i32)//w sed_changes_2.txt' \
       $(NUMBER).$(NAME)_artd.ll
-	sed -i \
+	#sed -i \
       's/debrt_profile_update_recorded_funcs.2/debrt_profile_update_recorded_funcs/w sed_changes_3.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/declare extern_weak i32 @ics_profile_map_indirect_call.5(i64, ...)//w sed_changes_4.txt' \
+      's/declare extern_weak i32 @ics_profile_map_indirect_call.6(i64, ...)//w sed_changes_4.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/ics_profile_map_indirect_call.5/ics_profile_map_indirect_call/w sed_changes_5.txt' \
+      's/ics_profile_map_indirect_call.6/ics_profile_map_indirect_call/w sed_changes_5.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/declare extern_weak i32 @ics_profile_end_indirect_call.6(i64)//w sed_changes_6.txt' \
+      's/declare extern_weak i32 @ics_profile_end_indirect_call.7(i64)//w sed_changes_6.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/ics_profile_end_indirect_call.6/ics_profile_end_indirect_call/w sed_changes_7.txt' \
+      's/ics_profile_end_indirect_call.7/ics_profile_end_indirect_call/w sed_changes_7.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/declare extern_weak i32 @ics_profile_wrapper_debrt_protect_loop_end.7(i32)//w sed_changes_8.txt' \
+      's/declare extern_weak i32 @ics_profile_wrapper_debrt_protect_loop_end.8(i32)//w sed_changes_8.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/ics_profile_wrapper_debrt_protect_loop_end.7/ics_profile_wrapper_debrt_protect_loop_end/w sed_changes_9.txt' \
+      's/ics_profile_wrapper_debrt_protect_loop_end.8/ics_profile_wrapper_debrt_protect_loop_end/w sed_changes_9.txt' \
       $(NUMBER).$(NAME)_artd.ll
 artd_ics_inline_test_predict_sed:
 	# these sed commands have to change if prototypes change, we add more, etc.
 	sed -i \
-      's/debrt_protect_indirect.1/debrt_protect_indirect/w sed_changes_0.txt' \
+      's/debrt_protect_indirect.2/debrt_protect_indirect/w sed_changes_0.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
       's/declare i32 @debrt_protect_indirect(i64)$$//w sed_changes_1.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/declare extern_weak i32 @ics_test_predict_map_indirect_call.8(i64, ...)//w sed_changes_2.txt' \
+      's/declare extern_weak i32 @ics_test_predict_map_indirect_call.9(i64, ...)//w sed_changes_2.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/ics_test_predict_map_indirect_call.8/ics_test_predict_map_indirect_call/w sed_changes_3.txt' \
+      's/ics_test_predict_map_indirect_call.9/ics_test_predict_map_indirect_call/w sed_changes_3.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/declare extern_weak i32 @ics_test_predict_wrapper_debrt_protect_loop_end.9(i32)//w sed_changes_4.txt' \
+      's/declare extern_weak i32 @ics_test_predict_wrapper_debrt_protect_loop_end.10(i32)//w sed_changes_4.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/ics_test_predict_wrapper_debrt_protect_loop_end.9/ics_test_predict_wrapper_debrt_protect_loop_end/w sed_changes_5.txt' \
+      's/ics_test_predict_wrapper_debrt_protect_loop_end.10/ics_test_predict_wrapper_debrt_protect_loop_end/w sed_changes_5.txt' \
       $(NUMBER).$(NAME)_artd.ll
 artd_ics_inline_release_sed:
 	# these sed commands have to change if prototypes change, we add more, etc.
@@ -503,22 +503,28 @@ artd_ics_inline_release_sed:
       's/declare i32 @debrt_protect_indirect(i64)$$//w sed_changes_1.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/declare extern_weak i32 @ics_release_map_indirect_call.10(i64, ...)//w sed_changes_2.txt' \
+      's/declare extern_weak i32 @ics_release_map_indirect_call.11(i64, ...)//w sed_changes_2.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/ics_release_map_indirect_call.10/ics_release_map_indirect_call/w sed_changes_3.txt' \
+      's/ics_release_map_indirect_call.11/ics_release_map_indirect_call/w sed_changes_3.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/declare extern_weak i32 @ics_release_wrapper_debrt_protect_loop_end.11(i32)//w sed_changes_4.txt' \
+      's/declare extern_weak i32 @ics_release_wrapper_debrt_protect_loop_end.12(i32)//w sed_changes_4.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/ics_release_wrapper_debrt_protect_loop_end.11/ics_release_wrapper_debrt_protect_loop_end/w sed_changes_5.txt' \
+      's/ics_release_wrapper_debrt_protect_loop_end.12/ics_release_wrapper_debrt_protect_loop_end/w sed_changes_5.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/declare extern_weak i32 @ics_release_rectify.12(i32)//w sed_changes_6.txt' \
+      's/declare extern_weak i32 @ics_release_wrapper_debrt_protect_reachable_end.13(i32)//w sed_changes_6.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/ics_release_rectify.12/ics_release_rectify/w sed_changes_7.txt' \
+      's/ics_release_wrapper_debrt_protect_reachable_end.13/ics_release_wrapper_debrt_protect_reachable_end/w sed_changes_7.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/declare extern_weak i32 @ics_release_rectify.14(i32)//w sed_changes_8.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/ics_release_rectify.14/ics_release_rectify/w sed_changes_9.txt' \
       $(NUMBER).$(NAME)_artd.ll
 artd_ics_inline_static:  artd_ics_inline_pre artd_ics_inline_static_sed  artd_ics_inline_post
 artd_ics_inline_profile: artd_ics_inline_pre artd_ics_inline_profile_sed artd_ics_inline_post
