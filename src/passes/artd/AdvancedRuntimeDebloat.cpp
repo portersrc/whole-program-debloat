@@ -101,6 +101,7 @@ namespace {
         Function *ics_test_predict_wrapper_debrt_protect_loop_end_func;
         Function *ics_release_map_indirect_call_func;
         Function *ics_release_wrapper_debrt_protect_loop_end_func;
+        Function *ics_release_wrapper_debrt_protect_reachable_end_func;
         Function *ics_release_rectify_func;
         map<Function *, int> func_to_id;
         map<int, Function *> func_id_to_func;
@@ -1594,10 +1595,18 @@ void AdvancedRuntimeDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
                             if(CI){
                                 IRBuilder<> builder_end(CI);
                                 builder_end.SetInsertPoint(CI->getNextNode());
-                                builder_end.CreateCall(debrt_protect_reachable_end_func, ArgsV);
+                                if(ARTD_BUILD == ARTD_BUILD_RELEASE_E){
+                                    builder_end.CreateCall(ics_release_wrapper_debrt_protect_reachable_end_func, ArgsV);
+                                }else{
+                                    builder_end.CreateCall(debrt_protect_reachable_end_func, ArgsV);
+                                }
                             }else if(II){
                                 //errs() << "no-instrument invoke case\n";
-                                instrument_after_invoke(II, ArgsV, debrt_protect_reachable_end_func);
+                                if(ARTD_BUILD == ARTD_BUILD_RELEASE_E){
+                                    instrument_after_invoke(II, ArgsV, ics_release_wrapper_debrt_protect_reachable_end_func);
+                                }else{
+                                    instrument_after_invoke(II, ArgsV, debrt_protect_reachable_end_func);
+                                }
                             }else{
                                 assert(0);
                             }
@@ -1746,11 +1755,12 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
                 }else{
                     assert(ARTD_BUILD == ARTD_BUILD_STATIC_E);
                 }
+                end_call = debrt_protect_reachable_end_func;
             }else{
                 assert(ARTD_BUILD == ARTD_BUILD_RELEASE_E);
                 instrument_feature_pass(CB_external_call, NULL, CB_external_call, debrt_release_predict_func, func_to_id[callback]);
+                end_call = ics_release_wrapper_debrt_protect_reachable_end_func;
             }
-            end_call = debrt_protect_reachable_end_func;
         }else{
             // single
             builder.CreateCall(debrt_protect_single_func, ArgsV);
@@ -2496,6 +2506,11 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
       = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
             Function::ExternalWeakLinkage,
             "ics_release_wrapper_debrt_protect_loop_end",
+            M);
+    ics_release_wrapper_debrt_protect_reachable_end_func
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+            Function::ExternalWeakLinkage,
+            "ics_release_wrapper_debrt_protect_reachable_end",
             M);
     ics_release_rectify_func
       = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
