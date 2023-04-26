@@ -442,6 +442,12 @@ artd_ics_inline_static_sed:
 	sed -i \
       's/ics_static_wrapper_debrt_protect_loop_end.5/ics_static_wrapper_debrt_protect_loop_end/w sed_changes_5.txt' \
       $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/debrt_protect_reachable_end.1/debrt_protect_reachable_end/w sed_changes_6.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/declare i32 @debrt_protect_reachable_end(i32)$$//w sed_changes_7.txt' \
+      $(NUMBER).$(NAME)_artd.ll
 artd_ics_inline_profile_sed:
 	# these sed commands have to change if prototypes change, we add more, etc.
 	sed -i \
@@ -474,6 +480,12 @@ artd_ics_inline_profile_sed:
 	sed -i \
       's/ics_profile_wrapper_debrt_protect_loop_end.8/ics_profile_wrapper_debrt_protect_loop_end/w sed_changes_9.txt' \
       $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/debrt_protect_reachable_end.1/debrt_protect_reachable_end/w sed_changes_10.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/declare i32 @debrt_protect_reachable_end(i32)$$//w sed_changes_11.txt' \
+      $(NUMBER).$(NAME)_artd.ll
 artd_ics_inline_test_predict_sed:
 	# these sed commands have to change if prototypes change, we add more, etc.
 	sed -i \
@@ -493,6 +505,12 @@ artd_ics_inline_test_predict_sed:
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
       's/ics_test_predict_wrapper_debrt_protect_loop_end.10/ics_test_predict_wrapper_debrt_protect_loop_end/w sed_changes_5.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/debrt_protect_reachable_end.1/debrt_protect_reachable_end/w sed_changes_6.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/declare i32 @debrt_protect_reachable_end(i32)$$//w sed_changes_7.txt' \
       $(NUMBER).$(NAME)_artd.ll
 artd_ics_inline_release_sed:
 	# these sed commands have to change if prototypes change, we add more, etc.
