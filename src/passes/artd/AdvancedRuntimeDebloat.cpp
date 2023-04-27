@@ -389,7 +389,7 @@ void AdvancedRuntimeDebloat::build_RPs(void)
         if(is_loop_deck){
             //
             // XXX Edge case (and a bit of a hack): This is to ensure we insert
-            // RPs the loop's host function.  When deciding whether to insert
+            // RPs in the loop's host function. When deciding whether to insert
             // into the RPs map further down below, we just look at the callees
             // of the pred-set functions. But because of that, the callees from
             // the loop's /host/ function might get missed. To correct for
