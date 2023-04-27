@@ -25,7 +25,7 @@
 
 using namespace std;
 
-//#define DEBRT_DEBUG
+#define DEBRT_DEBUG
 // Adding DEBUG2 as a quick debug hack that doens't flood stdout
 //#define DEBRT_DEBUG2
 //#define DEBRT_ABSOLUTE_ELF_ADDRS
@@ -1799,9 +1799,12 @@ int _protect_single_end(int callee_func_id, const string deck_type)
 extern "C" {
 int debrt_protect_single(int callee_func_id)
 {
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    int rv;
+    DEBRT_PRINTF("======================%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
-    return _protect_single(callee_func_id, "single");
+    rv = _protect_single(callee_func_id, "single");
+    DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__);
+    return rv;
 }
 }
 
@@ -1809,9 +1812,12 @@ int debrt_protect_single(int callee_func_id)
 extern "C" {
 int debrt_protect_single_end(int callee_func_id)
 {
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    int rv;
+    DEBRT_PRINTF("======================%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
-    return _protect_single_end(callee_func_id, "single");
+    rv = _protect_single_end(callee_func_id, "single");
+    DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__);
+    return rv;
 }
 }
 
@@ -2529,8 +2535,8 @@ int _release_predict(int *feature_buf)
             }
             pred_set_complement_p = &empty_set;
         }else{
-            DEBRT_PRINTF("Normal prediction. func-set-id is %d\n",
-              func_set_id);
+            DEBRT_PRINTF("Normal prediction. func-set-id=%d, func_or_loop_id=%d\n",
+              func_set_id, func_or_loop_id);
             pred_set_p = &func_sets[func_set_id];
             pred_set_complement_p = &complement_sets[func_set_id];
         }
