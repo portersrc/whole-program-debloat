@@ -25,7 +25,7 @@
 
 using namespace std;
 
-#define DEBRT_DEBUG
+//#define DEBRT_DEBUG
 // Adding DEBUG2 as a quick debug hack that doens't flood stdout
 //#define DEBRT_DEBUG2
 //#define DEBRT_ABSOLUTE_ELF_ADDRS
