@@ -756,7 +756,7 @@ void _read_complement_sets(void)
     int func_set_id;
     int deck_root_id;
 
-    printf("reading complement sets\n");
+    DEBRT_PRINTF("reading complement sets\n");
 
     // XXX Assumption: _read_func_sets is called first. It initializes
     // func_sets and we use its size when creating complement_sets
