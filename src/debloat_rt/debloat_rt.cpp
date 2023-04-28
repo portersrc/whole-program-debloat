@@ -131,7 +131,7 @@ const char *PROFILE_CSV_COLUMNS = "deck_id," \
 
 
 vector<set<int> > func_sets;
-vector<set<int> > complement_sets;
+vector<map<int, set<int> > > complement_sets;
 vector<set<int> *> pred_sets;
 vector<set<int> *> pred_set_complements;
 set<int> empty_set;
@@ -740,15 +740,12 @@ void _read_func_sets(void)
         }
         set<int> func_id_set(func_ids.begin(), func_ids.end());
         func_sets.push_back(func_id_set);
-        complement_sets.push_back(set<int>());
         i++;
     }
 
     ifs.close();
 }
 
-// ASSUMPTION: _read_func_sets is called first. It initializes complement_sets
-// with empty sets.
 void _read_complement_sets(void)
 {
     int i;
@@ -757,8 +754,13 @@ void _read_complement_sets(void)
     ifstream ifs;
     vector<string> elems;
     int func_set_id;
+    int deck_root_id;
 
     printf("reading complement sets\n");
+
+    // XXX Assumption: _read_func_sets is called first. It initializes
+    // func_sets and we use its size when creating complement_sets
+    complement_sets = std::vector<map<int, set<int> > >(func_sets.size());
 
     ifs.open("func-set-id-to-complements.out");
     if(!ifs.is_open()) {
@@ -772,18 +774,15 @@ void _read_complement_sets(void)
     getline(ifs, line); // parse out the header
 
     while(getline(ifs, line)){
-        vector<int> func_ids;
+        set<int> func_ids;
         elems = split(line, ',');
-        func_set_id = atoi(elems[0].c_str());
-        assert(func_set_id == i);
-        //for(k = 1; k < elems.size(); k++){
-        //    func_ids.push_back(atoi(elems[k].c_str()));
-        //}
-        //set<int> func_id_set(func_ids.begin(), func_ids.end());
-        //complement_sets.push_back(func_id_set);
-        for(k = 1; k < elems.size(); k++){
-            complement_sets[i].insert(atoi(elems[k].c_str()));
+        func_set_id  = atoi(elems[0].c_str());
+        deck_root_id = atoi(elems[1].c_str());
+        for(k = 2; k < elems.size(); k++){
+            func_ids.insert(atoi(elems[k].c_str()));
         }
+        assert(complement_sets[func_set_id].find(deck_root_id) == complement_sets[func_set_id].end());
+        complement_sets[func_set_id][deck_root_id] = func_ids;
         i++;
     }
 
@@ -1590,8 +1589,8 @@ int debrt_init(int main_func_id, int sink_is_enabled)
         _read_func_sets();
     }
     if(ENV_DEBRT_ENABLE_RELEASE){
-        _read_func_sets(); // also initializes complement_set with empty sets.
-        _read_complement_sets();
+        _read_func_sets();
+        _read_complement_sets(); // XXX should be called AFTER _read_func_sets()
         debrt_rectification_flags = (int *) calloc(func_id_to_name.size(), sizeof(int));
     }
 
@@ -2538,7 +2537,7 @@ int _release_predict(int *feature_buf)
             DEBRT_PRINTF("Normal prediction. func-set-id=%d, func_or_loop_id=%d\n",
               func_set_id, func_or_loop_id);
             pred_set_p = &func_sets[func_set_id];
-            pred_set_complement_p = &complement_sets[func_set_id];
+            pred_set_complement_p = &complement_sets[func_set_id][func_or_loop_id];
         }
     }
 
