@@ -13,6 +13,7 @@
 extern "C" {int debrt_protect_indirect(long long);}
 extern "C" {int debrt_protect_loop_end(int);}
 extern "C" {int debrt_protect_reachable_end(int);}
+extern "C" {int debrt_protect_indirect_end(long long);}
 extern "C" {int debrt_profile_indirect_print_args_ics(long long *);}
 extern "C" {int debrt_profile_update_recorded_funcs(int);}
 extern "C" {int debrt_test_predict_indirect_predict_ics(long long *);}
@@ -508,6 +509,16 @@ __attribute__((always_inline))
 int ics_release_wrapper_debrt_protect_reachable_end(int callee_func_id)
 {
     debrt_protect_reachable_end(callee_func_id);
+    memset(cached_fp_addrs, 0, sizeof(fp_addr_recorded_t) * MAX_CACHED_FP_ADDRS_SZ);
+    return 0;
+}
+}
+
+extern "C" {
+__attribute__((always_inline))
+int ics_release_wrapper_debrt_protect_indirect_end(long long callee_addr)
+{
+    debrt_protect_indirect_end(callee_addr);
     memset(cached_fp_addrs, 0, sizeof(fp_addr_recorded_t) * MAX_CACHED_FP_ADDRS_SZ);
     return 0;
 }
