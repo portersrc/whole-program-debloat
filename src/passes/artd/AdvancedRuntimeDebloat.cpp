@@ -141,10 +141,19 @@ namespace {
         set<string> libc_nonstatic_func_names;
         map<int, pair<Function *, Function *> > deck_id_to_caller_callee;
         map<int, set<int> > RPs; // caller -> set of callees that need RP
-        vector<set<int> > func_set_id_to_funcs; // not a map. index by func set id.
-        vector<set<Function *> > func_set_id_to_complements; // not a map. complements to func_set_id_to_funcs
-        vector<pair<int, int> > func_set_id_deck_root_pairs;
 
+        // Not a map. Index by func set id.
+        vector<set<int> > func_set_id_to_funcs;
+
+        // Vector of maps. Vector is indexed by func-set-id. Map is indexed by
+        // deck-id. The resulting set holds the complements to
+        // func_set_id_to_funcs for that same func-set-id (and corresponding
+        // to that particular deck ID).
+        vector<map<int, set<Function *> > > func_set_id_to_complements;
+
+        // A vector of func set IDs and deck root pairs that occurred together
+        // during profiling.
+        vector<pair<int, int> > func_set_id_deck_root_pairs;
 
         void getAnalysisUsage(AnalysisUsage &AU) const
         {
@@ -313,6 +322,7 @@ void AdvancedRuntimeDebloat::build_RPs(void)
 {
     read_func_set_id_to_funcs();
     read_func_set_id_deck_root_pairs();
+
     // May have a func set ID that occurs at multiple deck roots, hence its
     // size is >= func-set-id-to-funcs
     // --update: no longer a safe assumption/assertion. See the parser for the
@@ -322,7 +332,8 @@ void AdvancedRuntimeDebloat::build_RPs(void)
     //assert(func_set_id_deck_root_pairs.size() >= func_set_id_to_funcs.size());
     //print_func_set_id_to_funcs();
     //print_func_set_id_deck_root_pairs();
-    func_set_id_to_complements = std::vector<set<Function *> >(func_set_id_to_funcs.size());
+
+    func_set_id_to_complements = std::vector<map<int, set<Function *> > >(func_set_id_to_funcs.size());
 
     for(pair<int, int> func_set_id_deck_root : func_set_id_deck_root_pairs) {
 
@@ -333,11 +344,13 @@ void AdvancedRuntimeDebloat::build_RPs(void)
         set<Function *> intersect_set;
         int func_set_id;
         int deck_root_id;
+        int deck_root_id_maybe_negative;
         int is_loop_deck;
 
         // Grab the full deck. It's based off the deck's root
         func_set_id  = func_set_id_deck_root.first;
         deck_root_id = func_set_id_deck_root.second;
+        deck_root_id_maybe_negative = deck_root_id;
 
         is_loop_deck = 0;
         if(deck_root_id < 0){
@@ -382,12 +395,35 @@ void AdvancedRuntimeDebloat::build_RPs(void)
         //errs() << "pred_set size: " << pred_set.size() << "\n";
         //errs() << "intersect_set size: " << intersect_set.size() << "\n";
         //errs() << "\n";
+
         assert(intersect_set == pred_set);
 
-        func_set_id_to_complements[func_set_id] = complement_set;
+        // If this is a loop, we want the negative value of the deck-root-id
+        // so its key doesn't collide with the one for functions. Runtime will
+        // also be using this negative value at prediction time, which is
+        // what we want.
+        func_set_id_to_complements[func_set_id][deck_root_id_maybe_negative] = complement_set;
+
+        //if(func_set_id == 120){
+        //    errs() << "Seeing func_set_id 120\n";
+        //    errs() << "  deck root id: " << deck_root_id << "\n";
+        //    errs() << "  is loop deck? " << is_loop_deck << "\n";
+        //    errs() << "  full_deck:\n    ";
+        //    for(auto it = full_deck.begin(); it != full_deck.end(); it++){
+        //        errs() << func_to_id[*it] << ",";
+        //    }
+        //    errs() << "  pred_set:\n    ";
+        //    for(auto it = pred_set.begin(); it != pred_set.end(); it++){
+        //        errs() << func_to_id[*it] << ",";
+        //    }
+        //    errs() << "  complements:\n    ";
+        //    for(auto it = complement_set.begin(); it != complement_set.end(); it++){
+        //        errs() << func_to_id[*it] << ",";
+        //    }
+        //    errs() << "\n";
+        //}
 
         if(is_loop_deck){
-            //
             // XXX Edge case (and a bit of a hack): This is to ensure we insert
             // RPs in the loop's host function. When deciding whether to insert
             // into the RPs map further down below, we just look at the callees
@@ -398,35 +434,34 @@ void AdvancedRuntimeDebloat::build_RPs(void)
             // its adj-list further down below, which catches any calles not in
             // the pred set. This doesn't matter for non-loop decks, because
             // the pred set includes the root of the deck. (Runtime's
-            // _release_predict() will hard fail if we mess this up, too.) I
-            // suppose the adj list of the loop's host function could
-            // include some odd functions outside of our loop. But I think this
-            // is a non-issue -- perhaps accuracy mistake but not a correctness
-            // mistake. (Would need a deeper think for considering how this
-            // could all shake out, e.g. callees in the host function that
-            // aren't in the loop but are encompassed (i.e. within another
-            // loop) vs. callees that just live outside of any loops but are
-            // still called by the host, etc. Should be safe to ignore for
-            // now.)
-            //
-            // FIXME? could be a bug in the runtime, though, b/c not sure if it
-            // is aware of loops and that the function ID of the host of the
-            // loop should also be in the prediction.
-            //
+            // _release_predict() will hard fail if we mess this up, too.) The
+            // adj list of the loop's host function could include function
+            // calls outside of our loop, or in other loops; the same callees
+            // could be in multiple toplevel loops of our host function.
+            // When we instrument_RPs(), we'll at least make sure that when
+            // we instrument a non-encompassed function that the callee
+            // is within a loop. In any case, I think this is a non-issue --
+            // perhaps accuracy mistake but not a correctness mistake. (Would
+            // need a deeper think for considering how this could all shake
+            // out, e.g. callees in the host function that aren't in the loop
+            // but are encompassed (i.e. within another loop) vs. callees that
+            // just live outside of any loops but are still called by the host,
+            // etc. Should be safe to ignore for now.)
             pred_set.insert(func_id_to_func[loop_id_to_func_id[deck_root_id]]);
         }else{
-            // XXX Update: just do it anyway for functions, too. Can't hurt.
-            // It's a set, too, so can't double-insert anyway
+            // Do it anyway for the deck root, too. It should already be in the
+            // pred set, but just in case...
             pred_set.insert(func_id_to_func[deck_root_id]);
         }
 
         for(Function *caller : pred_set){
             int caller_id = func_to_id[caller];
-            // assert that either this caller_id is in the pred-set-ids,
-            // or that it's a loop case and the caller id is actually
-            // the id of the loop's host function,
-            // or that it's a func case and the caller id is actually
-            // the id of the deck root function.
+            // assert that one of the following is true:
+            // 1. this caller_id is in the pred-set-ids, or
+            // 2. that it's a loop case and the caller id is actually
+            //    the id of the loop's host function, or
+            // 3. that it's a func case and the caller id is actually
+            //    the id of the deck root function.
             assert(pred_set_ids->find(caller_id) != pred_set_ids->end()
                 || caller_id == loop_id_to_func_id[deck_root_id]
                 || caller_id == deck_root_id);
@@ -469,20 +504,38 @@ void AdvancedRuntimeDebloat::instrument_RPs(void)
         // be fine for now. Extra RPs is imprecise but not a correctness issue.
         //assert(encompassed_funcs.find(func_id_to_func[caller_func_id]) != encompassed_funcs.end());
 
+        LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>(*caller).getLoopInfo();
+
+        bool caller_is_encompassed = true;
+        if(encompassed_funcs.find(caller) == encompassed_funcs.end()){
+            caller_is_encompassed = false;
+        }
+
         for(auto &b : *caller){
+            bool block_is_inside_loop = false;
+            if(LI && LI->getLoopFor(&b)){
+                block_is_inside_loop = true;
+            }
             for(auto &I : b){
-                CallBase   *CB = dyn_cast<CallBase>(&I);
-                //CallInst   *CI = dyn_cast<CallInst>(&I);
-                //InvokeInst *II = dyn_cast<InvokeInst>(&I);
+                CallBase *CB = dyn_cast<CallBase>(&I);
                 if(CB){
                     Function *callee = CB->getCalledFunction();
                     int callee_func_id = func_to_id[callee];
+
+                    // We only instrument a rectification point if, for this
+                    // caller, we marked this edge/callee as needing it.
                     if(callees_to_rectify.find(callee_func_id) != callees_to_rectify.end()){
-                        // instrument RP before callee
-                        vector<Value *> ArgsV;
-                        ArgsV.push_back(ConstantInt::get(int32Ty, callee_func_id, false));
-                        IRBuilder<> builder(CB);
-                        CallInst *ci = builder.CreateCall(ics_release_rectify_func, ArgsV);
+                        // More subtle check: all rectification points ought
+                        // to be either
+                        // 1. inside encompassed functions, or
+                        // 2. inside of toplevel loops of non-encompassed funcs
+                        if(caller_is_encompassed || block_is_inside_loop){
+                            // instrument RP before callee
+                            vector<Value *> ArgsV;
+                            ArgsV.push_back(ConstantInt::get(int32Ty, callee_func_id, false));
+                            IRBuilder<> builder(CB);
+                            CallInst *ci = builder.CreateCall(ics_release_rectify_func, ArgsV);
+                        }
                     }
                 }
             }
@@ -929,21 +982,33 @@ void AdvancedRuntimeDebloat::instrument_loop(int func_id, Loop *loop)
     // 
 
     int loop_id = loop_id_counter;
+    //if(loop_id == 27){
+    //    errs() << "Seeing loop id 27\n";
+    //}
     bool has_toplevel_indirect_call = false;
 
     // Find preheader
     BasicBlock *preheader = loop->getLoopPreheader();
     assert(preheader); // must run -loop-simplify for this to be OK.
 
+    //if(loop_id == 27){
+    //    errs() << "Starting to prime loop-static-reachability\n";
+    //}
     // Prime loop_static_reachability with any callees in our loops
     for(auto &B : loop->getBlocks()){
         for(auto &I : (*B)){
             CallBase *cb = dyn_cast<CallBase>(&I);
             if(cb){
                 Function *callee = cb->getCalledFunction();
+                //if(loop_id == 27){
+                //    errs() << "Seeing a function call\n";
+                //}
                 // Normal callee: just prime this loop's static reachability
                 // with it.
                 if(func_to_id.count(callee) > 0){
+                    //if(loop_id == 27){
+                    //    errs() << "inserting callee into loop static reachability\n";
+                    //}
                     loop_static_reachability[loop_id].insert(callee);
                 }
                 if(ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS){
@@ -958,12 +1023,18 @@ void AdvancedRuntimeDebloat::instrument_loop(int func_id, Loop *loop)
                 }
                 if(INDIRECT_CALL_SINKING){
                     if(cb->getCalledFunction() == NULL){
+                        //if(loop_id == 27){
+                        //    errs() << "has toplevel indirect call case\n";
+                        //}
                         has_toplevel_indirect_call = true;
                     }
                 }
             }
         }
     }
+    //if(loop_id == 27){
+    //    errs() << "Done priming\n";
+    //}
 
     // If there was at least one function call inside the loop, then we
     // will instrument it.
@@ -2876,15 +2947,27 @@ void AdvancedRuntimeDebloat::dump_RPs(void)
 void AdvancedRuntimeDebloat::dump_func_set_id_to_complements(void)
 {
     FILE *fp = fopen("func-set-id-to-complements.out", "w");
-    fprintf(fp, "predicted_func_set_id,complement_func_id1,complement_func_id2,...\n");
+    fprintf(fp, "predicted_func_set_id,deck_root_id,complement_func_id1,complement_func_id2,...\n");
 
     for(int func_set_id = 0; func_set_id < func_set_id_to_complements.size(); func_set_id++){
-        set<Function *> &pred_set_complement = func_set_id_to_complements[func_set_id];
-        fprintf(fp, "%d", func_set_id);
-        for(auto it = pred_set_complement.begin(); it != pred_set_complement.end(); it++){
-            fprintf(fp, ",%d", func_to_id[*it]);
+        map<int, set<Function *> > &deck_ids_to_complements = func_set_id_to_complements[func_set_id];
+        for(auto deck_id_to_complements : deck_ids_to_complements){
+            int deck_id = deck_id_to_complements.first;
+            set <Function *> &complements = deck_id_to_complements.second;
+
+            // write the func set ID
+            fprintf(fp, "%d", func_set_id);
+
+            // write the deck ID
+            fprintf(fp, ",%d", deck_id);
+
+            // write the pred set's complements for the given func set ID
+            // and deck ID
+            for(auto it = complements.begin(); it != complements.end(); it++){
+                fprintf(fp, ",%d", func_to_id[*it]);
+            }
+            fprintf(fp, "\n");
         }
-        fprintf(fp, "\n");
     }
 
     fclose(fp);
