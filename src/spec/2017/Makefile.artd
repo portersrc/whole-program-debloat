@@ -431,19 +431,19 @@ artd_ics_inline_static_sed:
       's/declare i32 @debrt_protect_indirect(i64)$$//w sed_changes_1.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/declare extern_weak i32 @ics_static_map_indirect_call.4(i64)//w sed_changes_2.txt' \
+      's/declare extern_weak i32 @ics_static_map_indirect_call.5(i64)//w sed_changes_2.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/declare extern_weak i32 @ics_static_wrapper_debrt_protect_loop_end.5(i32)//w sed_changes_3.txt' \
+      's/declare extern_weak i32 @ics_static_wrapper_debrt_protect_loop_end.6(i32)//w sed_changes_3.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/ics_static_map_indirect_call.4/ics_static_map_indirect_call/w sed_changes_4.txt' \
+      's/ics_static_map_indirect_call.5/ics_static_map_indirect_call/w sed_changes_4.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/ics_static_wrapper_debrt_protect_loop_end.5/ics_static_wrapper_debrt_protect_loop_end/w sed_changes_5.txt' \
+      's/ics_static_wrapper_debrt_protect_loop_end.6/ics_static_wrapper_debrt_protect_loop_end/w sed_changes_5.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/debrt_protect_reachable_end.1/debrt_protect_reachable_end/w sed_changes_6.txt' \
+      's/debrt_protect_reachable_end.3/debrt_protect_reachable_end/w sed_changes_6.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
       's/declare i32 @debrt_protect_reachable_end(i32)$$//w sed_changes_7.txt' \
