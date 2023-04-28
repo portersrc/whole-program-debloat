@@ -568,6 +568,12 @@ artd_ics_inline_release_sed:
 	sed -i \
       's/declare i32 @debrt_protect_indirect_end.3(i64)$$//w sed_changes_11.txt' \
       $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/declare extern_weak i32 @ics_release_wrapper_debrt_protect_indirect_end.15(i64)//w sed_changes_12.txt' \
+      $(NUMBER).$(NAME)_artd.ll
+	sed -i \
+      's/ics_release_wrapper_debrt_protect_indirect_end.15/ics_release_wrapper_debrt_protect_indirect_end/w sed_changes_13.txt' \
+      $(NUMBER).$(NAME)_artd.ll
 artd_ics_inline_static:  artd_ics_inline_pre artd_ics_inline_static_sed  artd_ics_inline_post
 artd_ics_inline_profile: artd_ics_inline_pre artd_ics_inline_profile_sed artd_ics_inline_post
 artd_ics_inline_test_predict: artd_ics_inline_pre artd_ics_inline_test_predict_sed artd_ics_inline_post
