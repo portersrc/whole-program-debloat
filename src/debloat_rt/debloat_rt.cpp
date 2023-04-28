@@ -1667,18 +1667,19 @@ void _release_end(void)
     int rv;
     rv = 0;
     // Unmap predicted set
-    DEBRT_PRINTF("Unmapping predicted set\n");
+    DEBRT_PRINTF("___Unmapping predicted set\n");
     for(set<int> *pred_set_p_tmp : pred_sets){
         for(int pred_func_id : (*pred_set_p_tmp)){
             rv += update_page_counts(pred_func_id, -1);
         }
     }
-    DEBRT_PRINTF("Unmapping extras set\n");
+    DEBRT_PRINTF("___Unmapping extras set\n");
     for(int func_id : extras_set){
         rv += update_page_counts(func_id, -1);
     }
+    DEBRT_PRINTF("___Done unmapping extras set\n");
     if(rectification_happened){
-        DEBRT_PRINTF("Rectification happened. Unmapping complement set.\n");
+        DEBRT_PRINTF("___Rectification happened. Unmapping complement set.\n");
         // Case: We're tearing down a deck, and we also had to deal with
         // rectification while servicing that deck. Reset the
         // rectification-happened flag, and unmap all the complement
@@ -2045,7 +2046,7 @@ int debrt_protect_indirect_end(long long callee_addr)
 {
     int rv;
 
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    DEBRT_PRINTF("======================%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
     DEBRT_PRINTF("end callee_addr is: 0x%llx\n", callee_addr);
 
@@ -2060,6 +2061,7 @@ int debrt_protect_indirect_end(long long callee_addr)
         rv = _protect_indirect_end(callee_addr);
     }
 
+    DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__);
     return rv;
 }
 }
@@ -2506,7 +2508,7 @@ int _release_predict(int *feature_buf)
 
     if(rectification_happened){
         //_RELEASE_MAP_FULL_DECK();
-        DEBRT_PRINTF("Rectification happened: Grab the full deck for func-or-loop-id %d\n",
+        DEBRT_PRINTF("Rectification has already happened: Grab the full deck for func-or-loop-id %d\n",
           func_or_loop_id);
         if(func_or_loop_id >= 0){
             pred_set_p = &func_id_to_reachable_funcs[func_or_loop_id];
