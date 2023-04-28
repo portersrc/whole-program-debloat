@@ -102,6 +102,7 @@ namespace {
         Function *ics_release_map_indirect_call_func;
         Function *ics_release_wrapper_debrt_protect_loop_end_func;
         Function *ics_release_wrapper_debrt_protect_reachable_end_func;
+        Function *ics_release_wrapper_debrt_protect_indirect_end_func;
         Function *ics_release_rectify_func;
         map<Function *, int> func_to_id;
         map<int, Function *> func_id_to_func;
@@ -1397,10 +1398,18 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                             if(CI){
                                 IRBuilder<> builder_end(CI);
                                 builder_end.SetInsertPoint(CI->getNextNode());
-                                builder_end.CreateCall(debrt_protect_indirect_end_func, ArgsV);
+                                if(ARTD_BUILD == ARTD_BUILD_RELEASE_E){
+                                    builder_end.CreateCall(ics_release_wrapper_debrt_protect_indirect_end_func, ArgsV);
+                                }else{
+                                    builder_end.CreateCall(debrt_protect_indirect_end_func, ArgsV);
+                                }
                             }else if(II){
                                 //errs() << "indirect func invoke case\n";
-                                instrument_after_invoke(II, ArgsV, debrt_protect_indirect_end_func);
+                                if(ARTD_BUILD == ARTD_BUILD_RELEASE_E){
+                                    instrument_after_invoke(II, ArgsV, ics_release_wrapper_debrt_protect_indirect_end_func);
+                                }else{
+                                    instrument_after_invoke(II, ArgsV, debrt_protect_indirect_end_func);
+                                }
                             }else{
                                 assert(0);
                             }
@@ -2583,6 +2592,12 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
             Function::ExternalWeakLinkage,
             "ics_release_wrapper_debrt_protect_reachable_end",
             M);
+    ics_release_wrapper_debrt_protect_indirect_end_func
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
+            Function::ExternalWeakLinkage,
+            "ics_release_wrapper_debrt_protect_indirect_end",
+            M);
+
     ics_release_rectify_func
       = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
             Function::ExternalWeakLinkage,
