@@ -2613,6 +2613,8 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
     ics_func_names.insert("ics_test_predict_wrapper_debrt_protect_loop_end");
     ics_func_names.insert("ics_release_map_indirect_call");
     ics_func_names.insert("ics_release_wrapper_debrt_protect_loop_end");
+    ics_func_names.insert("ics_release_wrapper_debrt_protect_reachable_end");
+    ics_func_names.insert("ics_release_wrapper_debrt_protect_indirect_end");
     ics_func_names.insert("ics_release_rectify");
 
 
