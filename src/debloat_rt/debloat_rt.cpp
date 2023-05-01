@@ -25,6 +25,12 @@
 
 using namespace std;
 
+// FIXME DEBUG ONLY
+// FIXME DEBUG ONLY
+// FIXME DEBUG ONLY
+// FIXME DEBUG ONLY
+//#define DEBUG_WITH_RX_PAGES
+
 //#define DEBRT_DEBUG
 // Adding DEBUG2 as a quick debug hack that doens't flood stdout
 //#define DEBRT_DEBUG2
@@ -404,12 +410,9 @@ void _remap_permissions(long long addr, long long size, int perm)
     //default: assert(0); break;
     //}
 
-    //perm = RX_PERM; // FIXME DEBUG ONLY
-    //perm = RX_PERM; // FIXME DEBUG ONLY
-    //perm = RX_PERM; // FIXME DEBUG ONLY
-    //perm = RX_PERM; // FIXME DEBUG ONLY
-    //perm = RX_PERM; // FIXME DEBUG ONLY
-    //perm = RX_PERM; // FIXME DEBUG ONLY
+#ifdef DEBUG_WITH_RX_PAGES
+    perm = RX_PERM; // DEBUG ONLY
+#endif
     if(mprotect(aligned_addr_base, size_to_remap, perm) == -1){
         int e = errno;
         DEBRT_PRINTF("mprotect error (%d): %s\n", e, strerror(e));
@@ -1305,12 +1308,9 @@ void _read_sinks(void)
 void _debrt_protect_all_pages(int perm)
 {
     DEBRT_PRINTF("PROTECTING ALL PAGES\n");
-    //perm = RX_PERM; // FIXME DEBUG ONLY
-    //perm = RX_PERM; // FIXME DEBUG ONLY
-    //perm = RX_PERM; // FIXME DEBUG ONLY
-    //perm = RX_PERM; // FIXME DEBUG ONLY
-    //perm = RX_PERM; // FIXME DEBUG ONLY
-    //perm = RX_PERM; // FIXME DEBUG ONLY
+#ifdef DEBUG_WITH_RX_PAGES
+    perm = RX_PERM; // DEBUG ONLY
+#endif
     long long text_start = executable_addr_base + text_offset;
     long long text_end   = text_start + text_size;
     text_start_aligned = text_start & ~(0x1000-1);
