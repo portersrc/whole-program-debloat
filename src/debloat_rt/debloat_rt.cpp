@@ -76,7 +76,7 @@ int ENV_DEBRT_ENABLE_RELEASE = 0;
 
 
 #define _WARN_RETURN_IF_NOT_INITIALIZED() \
-    if(!lib_initialized){ \
+    if(!debrt_initialized){ \
         fprintf(stderr, "WARNING: debrt-protect called before lib was initialized. " \
                         "Ignoring debrt-protect call. (This may be OK if this " \
                         "happens at start-up due to an instrumented C++ " \
@@ -91,7 +91,7 @@ int ENV_DEBRT_ENABLE_RELEASE = 0;
 #define RO_PERM   (PROT_READ)
 
 
-int lib_initialized = 0;
+int debrt_initialized = 0;
 int lib_destroyed = 0;
 
 
@@ -1641,7 +1641,7 @@ int debrt_init(int main_func_id, int sink_is_enabled)
         _profile_init();
     }
 
-    lib_initialized = 1;
+    debrt_initialized = 1;
 
 
     return 0;
