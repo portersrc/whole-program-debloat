@@ -20,6 +20,7 @@ extern "C" {int debrt_test_predict_indirect_predict_ics(long long *);}
 extern "C" {int debrt_release_rectify(int);}
 extern "C" {int debrt_release_indirect_predict_ics(long long *);}
 extern "C" {int *debrt_rectification_flags;}
+extern "C" {int debrt_initialized;}
 
 
 typedef struct{
@@ -528,7 +529,17 @@ extern "C" {
 __attribute__((always_inline))
 int ics_release_rectify(int func_id)
 {
-    if(debrt_rectification_flags[func_id]){
+    // FIXME
+    // FIXME
+    // debrt-initialized should probably be checked everywhere in ics
+    // code, not just ics-release-rectify. For example, if you invoke an
+    // ics-map call, you could prime the cached-fp-addrs even though debrt
+    // short-circuits and returns early; the effect could be an ics cache that
+    // thinks the page is mapped when in fact when main eventually starts,
+    // it's marked RO.
+    // FIXME
+    // FIXME
+    if(debrt_initialized && debrt_rectification_flags[func_id]){
         debrt_release_rectify(func_id);
     }
     return 0;
