@@ -3135,6 +3135,7 @@ bool AdvancedRuntimeDebloat::doFinalization(Module &M)
     dump_deck_id_to_caller_callee();
     dump_RPs();
     dump_func_set_id_to_complements();
+    //errs() << "deck id counter: " << deck_id_counter << "\n";
     return false;
 }
 bool AdvancedRuntimeDebloat::doInitialization(Module &M)
