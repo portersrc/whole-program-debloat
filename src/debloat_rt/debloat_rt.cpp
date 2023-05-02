@@ -2508,8 +2508,9 @@ int _release_predict(int *feature_buf)
 
     if(rectification_happened){
         //_RELEASE_MAP_FULL_DECK();
-        DEBRT_PRINTF("Rectification has already happened: Grab the full deck for func-or-loop-id %d\n",
-          func_or_loop_id);
+        DEBRT_PRINTF("Rectification has already happened: Grab the full deck " \
+                     "for func_or_loop_id=%d, deck_id=%d\n",
+                     func_or_loop_id, feature_buf[1]);
         if(func_or_loop_id >= 0){
             pred_set_p = &func_id_to_reachable_funcs[func_or_loop_id];
             extras_set.insert(func_or_loop_id);
@@ -2524,8 +2525,9 @@ int _release_predict(int *feature_buf)
         func_set_id = debrt_decision_tree(feature_buf);
         if(func_set_id == -1){
             //_RELEASE_MAP_FULL_DECK();
-            DEBRT_PRINTF("No prediction available: Grab the full deck for func-or-loop-id %d\n",
-              func_or_loop_id);
+            DEBRT_PRINTF("No prediction available: Grab the full deck for " \
+                         "func_or_loop_id=%d, deck_id=%d\n",
+                         func_or_loop_id, feature_buf[1]);
             if(func_or_loop_id >= 0){
                 pred_set_p = &func_id_to_reachable_funcs[func_or_loop_id];
                 extras_set.insert(func_or_loop_id);
@@ -2536,8 +2538,8 @@ int _release_predict(int *feature_buf)
             }
             pred_set_complement_p = &empty_set;
         }else{
-            DEBRT_PRINTF("Normal prediction. func-set-id=%d, func_or_loop_id=%d\n",
-              func_set_id, func_or_loop_id);
+            DEBRT_PRINTF("Normal prediction. func-set-id=%d, func_or_loop_id=%d, deck_id: %d\n",
+              func_set_id, func_or_loop_id, feature_buf[1]);
             pred_set_p = &func_sets[func_set_id];
             pred_set_complement_p = &complement_sets[func_set_id][func_or_loop_id];
         }
