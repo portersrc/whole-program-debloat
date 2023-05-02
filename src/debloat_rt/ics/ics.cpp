@@ -19,8 +19,8 @@ extern "C" {int debrt_profile_update_recorded_funcs(int);}
 extern "C" {int debrt_test_predict_indirect_predict_ics(long long *);}
 extern "C" {int debrt_release_rectify(int);}
 extern "C" {int debrt_release_indirect_predict_ics(long long *);}
-extern "C" {int *debrt_rectification_flags;}
-extern "C" {int debrt_initialized;}
+extern "C" {extern int *debrt_rectification_flags;}
+extern "C" {extern int debrt_initialized;}
 
 
 typedef struct{
@@ -419,6 +419,9 @@ int ics_release_map_indirect_call(long long argc, ...)
     long long fp_addr;
     //printf("ics_release_map_indirect_call\n");
 
+    if(!debrt_initialized){
+        return 0;
+    }
 
     va_start(ap, argc);
     fp_addr = va_arg(ap, long long);
@@ -499,6 +502,9 @@ extern "C" {
 __attribute__((always_inline))
 int ics_release_wrapper_debrt_protect_loop_end(int loop_id)
 {
+    if(!debrt_initialized){
+        return 0;
+    }
     debrt_protect_loop_end(loop_id);
     memset(cached_fp_addrs, 0, sizeof(fp_addr_recorded_t) * MAX_CACHED_FP_ADDRS_SZ);
     return 0;
@@ -509,6 +515,9 @@ extern "C" {
 __attribute__((always_inline))
 int ics_release_wrapper_debrt_protect_reachable_end(int callee_func_id)
 {
+    if(!debrt_initialized){
+        return 0;
+    }
     debrt_protect_reachable_end(callee_func_id);
     memset(cached_fp_addrs, 0, sizeof(fp_addr_recorded_t) * MAX_CACHED_FP_ADDRS_SZ);
     return 0;
@@ -519,6 +528,9 @@ extern "C" {
 __attribute__((always_inline))
 int ics_release_wrapper_debrt_protect_indirect_end(long long callee_addr)
 {
+    if(!debrt_initialized){
+        return 0;
+    }
     debrt_protect_indirect_end(callee_addr);
     memset(cached_fp_addrs, 0, sizeof(fp_addr_recorded_t) * MAX_CACHED_FP_ADDRS_SZ);
     return 0;
