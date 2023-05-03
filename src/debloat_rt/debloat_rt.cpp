@@ -2493,7 +2493,7 @@ int debrt_release_rectify(int func_id)
 
 
 static inline
-int _release_predict(int *feature_buf)
+int _release_predict(int *feature_buf, int is_from_indirect_call)
 {
     int rv = 0;
     int func_set_id;
@@ -2540,8 +2540,29 @@ int _release_predict(int *feature_buf)
         }else{
             DEBRT_PRINTF("Normal prediction. func-set-id=%d, func_or_loop_id=%d, deck_id: %d\n",
               func_set_id, func_or_loop_id, feature_buf[1]);
-            pred_set_p = &func_sets[func_set_id];
-            pred_set_complement_p = &complement_sets[func_set_id][func_or_loop_id];
+            if(complement_sets[func_set_id].find(func_or_loop_id)
+               == complement_sets[func_set_id].end()){
+                DEBRT_PRINTF("...but no corresponding func_or_loop_id for " \
+                             "this func-set-id. Grab the full deck.\n");
+                assert(is_from_indirect_call && "ERROR Unexpected. is-from-indirect-call should be 1 but it is 0. Implies the func-or-loop-id was not found in complment-set[func-set-id] for a direct call (or loop), which should never happen.");
+                assert(func_or_loop_id >= 0 && "See above assert.... this would be even more unexpected if the above assert passes b/c it implies this is an indirect call and yet a loop id is being passed");
+                //if(func_or_loop_id >= 0){
+                    pred_set_p = &func_id_to_reachable_funcs[func_or_loop_id];
+                    extras_set.insert(func_or_loop_id);
+                    rv += update_page_counts(func_or_loop_id, 1);
+                //}else{
+                //    func_or_loop_id = (func_or_loop_id * -1) -1;
+                //    pred_set_p = &loop_id_to_reachable_funcs[func_or_loop_id];
+                //}
+                pred_set_complement_p = &empty_set;
+            }else{
+                pred_set_p = &func_sets[func_set_id];
+                pred_set_complement_p = &complement_sets[func_set_id][func_or_loop_id];
+                if((func_or_loop_id >= 0)
+                   && (pred_set_p->find(func_or_loop_id) == pred_set_p->end())){
+                    assert(0 && "ERROR Unexpected. Mispredicted the deck root. This should never happen now.");
+                }
+            }
         }
     }
 
@@ -2560,30 +2581,21 @@ int _release_predict(int *feature_buf)
         debrt_rectification_flags[complement_func_id] = 1;
     }
 
-    // FIXME: probably remove all this? i put assert(0). shouldn't happen.
-    // FIXME
-    // FIXME
-    // FIXME
-    // FIXME: commenting out the assert for now 2023.04.28 which gets perlbench
-    // passing
-    // FIXME
-    // FIXME
-    // FIXME
-    if(!rectification_happened){
-        // If this is a func_id (not a loop_id) and this function isn't in our pred
-        // set, then we actually mispredicted the deck root, as well, so we
-        // will just trigger rectify here for now.
-        if((func_or_loop_id >= 0)
-           && (pred_set_p->find(func_or_loop_id) == pred_set_p->end())){
+    //if(!rectification_happened){
+    //    // If this is a func_id (not a loop_id) and this function isn't in our pred
+    //    // set, then we actually mispredicted the deck root, as well, so we
+    //    // will just trigger rectify here for now.
+    //    if((func_or_loop_id >= 0)
+    //       && (pred_set_p->find(func_or_loop_id) == pred_set_p->end())){
 
-            //assert(0 && "ERROR Unexpected. Mispredicted the deck root This should never happen now.");
+    //        //assert(0 && "ERROR Unexpected. Mispredicted the deck root This should never happen now.");
 
-            // FIXME maybe replace this warning with some metric/counter.
-            DEBRT_PRINTF("WARNING: deck root wasnt part of the prediction. " \
-                         "Triggering debrt_release_rectify immediately.\n");
-            return debrt_release_rectify(func_or_loop_id);
-        }
-    }
+    //        // FIXME maybe replace this warning with some metric/counter.
+    //        DEBRT_PRINTF("WARNING: deck root wasnt part of the prediction. " \
+    //                     "Triggering debrt_release_rectify immediately.\n");
+    //        return debrt_release_rectify(func_or_loop_id);
+    //    }
+    //}
 
 
     return rv;
@@ -2616,7 +2628,7 @@ int debrt_release_predict(int argc, ...)
     }
     va_end(ap);
 
-    int rv = _release_predict(feature_buf);
+    int rv = _release_predict(feature_buf, 0 /* is-from-indirect-call */);
     DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__);
     return rv;
 }
@@ -2667,7 +2679,7 @@ int debrt_release_indirect_predict(long long argc, ...)
     // case, too. Profiling can maintain this case, i guess? It could drop
     // all training data where the func id is a single deck, actually.
 
-    int rv = _release_predict(feature_buf);
+    int rv = _release_predict(feature_buf, 1 /* is-from-indirect-call */);
     DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__);
     return rv;
 }
@@ -2716,7 +2728,7 @@ int debrt_release_indirect_predict_ics(long long *varargs)
         feature_buf[i] = (int) varargs[i+1];
     }
 
-    int rv = _release_predict(feature_buf);
+    int rv = _release_predict(feature_buf, 1 /* is-from-indirect-call */);
     DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__);
     return rv;
 }
