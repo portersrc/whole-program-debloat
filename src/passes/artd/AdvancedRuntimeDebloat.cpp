@@ -156,6 +156,15 @@ namespace {
         // during profiling.
         vector<pair<int, int> > func_set_id_deck_root_pairs;
 
+        // Support for datalog relations
+        map<CallBase *, int> callsite_to_id; // unique IDs for each callsite
+        map<int, set<int> > head; // a map from func ID to a set of callsite IDs
+        map<int, set<int> > tail; // a map from func ID to a set of callsite IDs
+        map<int, set<pair<int, int> > > next; // a map from func ID to a set of callsite ID pairs
+        set<int> leaf; // a set of func IDs
+        map<int, int> belong; // a map from callsite ID to func ID
+        map<BasicBlock *, vector<CallBase *> > block_to_callsites;
+
         void getAnalysisUsage(AnalysisUsage &AU) const
         {
             AU.addRequired<LoopInfoWrapperPass>();
@@ -242,6 +251,8 @@ namespace {
         void print_func_set_id_to_funcs(void);
         void dump_RPs(void);
         void dump_func_set_id_to_complements(void);
+        void dump_callsite_to_id(void);
+        void dump_head(void);
 
         void instrument_feature_pass(CallBase *callsite,
                                      Function *parent_func,
@@ -253,6 +264,10 @@ namespace {
                                        vector<Value *> &ArgsV,
                                        IRBuilder<> &builder);
         void update_deck_id_to_caller_callee(int deck_id, CallBase *CB, Function *parent);
+
+
+        void figure_out_datalog(Module &M);
+        void figure_out_datalog_func(Function &F);
 
 
     };
@@ -2040,6 +2055,7 @@ void AdvancedRuntimeDebloat::instrument_debrt_destroy(Instruction *I)
 
 void AdvancedRuntimeDebloat::build_basic_structs(Module &M)
 {
+    int callsite_counter = 0;
     LoopInfo *li;
     CallBase *cb;
     for(auto &F : M){
@@ -2061,6 +2077,15 @@ void AdvancedRuntimeDebloat::build_basic_structs(Module &M)
                     if(cb){
                         Function *callee = cb->getCalledFunction();
                         if(func_to_id.count(callee) > 0){
+                            // FIXME ? I haven't paid close attention to details
+                            // but this looks right. I don't think this assigns
+                            // an ID to indirect calls. I don't think it assigns
+                            // and ID to external calls either. This seems
+                            // to be what I want, though.
+                            callsite_to_id[cb] = callsite_counter;
+                            belong[callsite_counter] = func_to_id[callee];
+                            block_to_callsites[&B].push_back(cb);
+                            callsite_counter++;
                             // update adj_list
                             adj_list[&F].insert(callee);
                             if(li && li->getLoopFor(&B)){
@@ -2632,6 +2657,11 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
     // Paritlally build encompassed_funcs
     build_basic_structs(M);
 
+    figure_out_datalog(M);
+    dump_callsite_to_id();
+    dump_head();
+    exit(42);
+
     if(ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS){
         // Build a map of func -> set of parents that can reach it.
         build_func_to_parents();
@@ -2682,6 +2712,129 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
         instrument_RPs();
     }
 }
+
+
+void AdvancedRuntimeDebloat::figure_out_datalog_func(Function &F)
+{
+    map<BasicBlock *, set<CallBase *> > in_head;
+    map<BasicBlock *, set<CallBase *> > in_tail;
+    map<BasicBlock *, set<CallBase *> > in_next;
+    map<BasicBlock *, set<CallBase *> > out_head;
+    map<BasicBlock *, set<CallBase *> > out_tail;
+    map<BasicBlock *, set<CallBase *> > out_next;
+
+    errs() << "Processing " << F.getName() << "\n";
+    //BasicBlock *entry_block = &F.getEntryBlock();
+
+    //out_head[entry_block] = set<CallBase *>();
+    for(BasicBlock &B : F){
+        //if(&B != entry_block){
+            out_head[&B] = set<CallBase *>();
+        //}
+    }
+
+    // Head (forward)
+    // IN[B] = U_{P pred of B} OUT[P]
+    // OUT[B] = IN[B] || Callsite_B
+    //
+    // Tail (backward)
+    // OUT[B] = U_{S succ of B} IN[S]
+    // IN[B] = OUT[B] || Callsite_B
+    //
+    // Next (forward)
+    // IN[B] = U_{P pred of B} OUT[P]
+    // OUT[B] = Callsite_B || IN[B]
+
+
+    bool changed = true;
+    while(changed){
+        changed = false;
+        for(BasicBlock &B : F){
+            //if(&B != entry_block){
+
+                //IN[B]  = ...;
+                //OUT[B] = ...;
+
+                set<CallBase *> old_out_head = out_head[&B];
+
+
+                // attempt 2
+                int num_preds = 0;
+                int num_preds_contributing = 0;
+                for(BasicBlock *pred : predecessors(&B)){
+                    num_preds++;
+                    for(CallBase *h : out_head[pred]){
+                        in_head[&B].insert(h);
+                    }
+                    if(out_head[pred].size() > 0){
+                        num_preds_contributing++;
+                    }
+                }
+
+                // Case: there are no predecessors, so the OUT is just the
+                // first callsite in the block, if it exists.
+                if(num_preds == 0){
+                    if(block_to_callsites[&B].size() > 0){
+                        out_head[&B].insert(block_to_callsites[&B][0]);
+                    }
+
+                // Case: There's at least 1 predecessor and all predecessors
+                // are contributing callsites from their OUT sets. The OUT of
+                // our block is simply the IN (just use all that flowed into
+                // our block).
+                }else if(num_preds == num_preds_contributing){
+                    out_head[&B] = in_head[&B];
+
+                // Case: There's at least 1 predecessor but not all predecessors
+                // are contributing callsites from their OUT sets. We do
+                // not "re-export" anything that was not dominating us. The OUT
+                // of our block is the first callsite in our block, if it
+                // exists.
+                }else{
+                    if(block_to_callsites[&B].size() > 0){
+                        out_head[&B].insert(block_to_callsites[&B][0]);
+                    }
+                }
+
+
+                if(out_head[&B] != old_out_head){
+                    changed = true;
+                }
+            //}
+        }
+    }
+
+    // update head
+    // The head set for a function is all unique callsite_ids among the OUT
+    // sets.
+    int func_id = func_to_id[&F];
+    assert(head.find(func_id) == head.end());
+    head[func_id] = set<int>();
+    for(BasicBlock &B : F){
+        for(CallBase *h : out_head[&B]){
+            int callsite_id = callsite_to_id[h];
+            head[func_id].insert(callsite_id);
+        }
+    }
+
+    // update tail
+
+    // update next
+
+}
+
+
+void AdvancedRuntimeDebloat::figure_out_datalog(Module &M)
+{
+    errs() << "Hello world\n";
+
+    for(Function &F : M){
+        if(F.hasName() && !F.isDeclaration()){
+            figure_out_datalog_func(F);
+        }
+    }
+}
+
 
 bool AdvancedRuntimeDebloat::runOnModule(Module &M)
 {
@@ -2989,6 +3142,39 @@ void AdvancedRuntimeDebloat::dump_func_set_id_to_complements(void)
 
     fclose(fp);
 }
+void AdvancedRuntimeDebloat::dump_callsite_to_id(void)
+{
+    errs() << "Dumping callsite_to_id\n";
+    errs() << "callsite-id,caller-func-id,callee-func-id,callerName->calleeName\n";
+    for(auto it = callsite_to_id.begin(); it != callsite_to_id.end(); it++){
+        CallBase *CB     = it->first;
+        int callsite_id  = it->second;
+        Function *caller = CB->getCaller();
+        Function *callee = CB->getCalledFunction();
+        int caller_id    = func_to_id[caller];
+        int callee_id    = func_to_id[callee];
+        errs() << callsite_id << ","
+               << caller_id << ","
+               << callee_id << ","
+               << caller->getName() << "->" << callee->getName() << "\n";
+    }
+}
+
+void AdvancedRuntimeDebloat::dump_head(void)
+{
+    // TODO write this to file. (and add to doFinalization
+    errs() << "Dumping head\n";
+    for(auto it = head.begin(); it != head.end(); it++){
+        int func_id = it->first;
+        errs() << "  " << func_id_to_name[func_id] << " (func-id " << func_id << "):\n    ";
+        set<int> &callsite_ids = it->second;
+        for(int callsite_id : callsite_ids){
+            errs() << callsite_id << ",";
+        }
+        errs() << "\n";
+    }
+}
+
 string AdvancedRuntimeDebloat::get_demangled_name(const Function &F)
 {
     ItaniumPartialDemangler IPD;
