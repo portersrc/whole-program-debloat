@@ -253,6 +253,7 @@ namespace {
         void dump_func_set_id_to_complements(void);
         void dump_callsite_to_id(void);
         void dump_head(void);
+        void dump_tail(void);
 
         void instrument_feature_pass(CallBase *callsite,
                                      Function *parent_func,
@@ -2660,6 +2661,7 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
     figure_out_datalog(M);
     dump_callsite_to_id();
     dump_head();
+    dump_tail();
     exit(42);
 
     if(ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS){
@@ -2719,109 +2721,99 @@ void AdvancedRuntimeDebloat::figure_out_datalog_func(Function &F)
     map<BasicBlock *, set<CallBase *> > in_head;
     map<BasicBlock *, set<CallBase *> > in_tail;
     map<BasicBlock *, set<CallBase *> > in_next;
+    map<BasicBlock *, set<CallBase *> > in_prev;
     map<BasicBlock *, set<CallBase *> > out_head;
     map<BasicBlock *, set<CallBase *> > out_tail;
     map<BasicBlock *, set<CallBase *> > out_next;
+    map<BasicBlock *, set<CallBase *> > out_prev;
 
     errs() << "Processing " << F.getName() << "\n";
-    //BasicBlock *entry_block = &F.getEntryBlock();
+    int func_id = func_to_id[&F];
 
-    //out_head[entry_block] = set<CallBase *>();
     for(BasicBlock &B : F){
-        //if(&B != entry_block){
-            out_head[&B] = set<CallBase *>();
-        //}
+        out_head[&B] = set<CallBase *>();
     }
 
-    // Head (forward)
-    // IN[B] = U_{P pred of B} OUT[P]
-    // OUT[B] = IN[B] || Callsite_B
+    // next (backward):
+    // OUT_NEXT[B] = U_{S succ of B} OUT[S]
+    // IN_NEXT[B]  = Callsites_B.first() || OUT_NEXT[B]
     //
-    // Tail (backward)
-    // OUT[B] = U_{S succ of B} IN[S]
-    // IN[B] = OUT[B] || Callsite_B
-    //
-    // Next (forward)
-    // IN[B] = U_{P pred of B} OUT[P]
-    // OUT[B] = Callsite_B || IN[B]
-
+    // prev (forward):
+    // IN_PREV[B]  = U_{P pred of B} OUT[P]
+    // OUT_PREV[B] = Callsites_B.last() || IN_PREV[B]
 
     bool changed = true;
     while(changed){
         changed = false;
         for(BasicBlock &B : F){
-            //if(&B != entry_block){
 
-                //IN[B]  = ...;
-                //OUT[B] = ...;
+            set<CallBase *> old_out_prev = out_prev[&B];
+            set<CallBase *> old_in_next = in_next[&B];
 
-                set<CallBase *> old_out_head = out_head[&B];
-
-
-                // attempt 2
-                int num_preds = 0;
-                int num_preds_contributing = 0;
-                for(BasicBlock *pred : predecessors(&B)){
-                    num_preds++;
-                    for(CallBase *h : out_head[pred]){
-                        in_head[&B].insert(h);
-                    }
-                    if(out_head[pred].size() > 0){
-                        num_preds_contributing++;
-                    }
+            for(BasicBlock *pred : predecessors(&B)){
+                for(CallBase *h : out_prev[pred]){
+                    in_prev[&B].insert(h);
                 }
-
-                // Case: there are no predecessors, so the OUT is just the
-                // first callsite in the block, if it exists.
-                if(num_preds == 0){
-                    if(block_to_callsites[&B].size() > 0){
-                        out_head[&B].insert(block_to_callsites[&B][0]);
-                    }
-
-                // Case: There's at least 1 predecessor and all predecessors
-                // are contributing callsites from their OUT sets. The OUT of
-                // our block is simply the IN (just use all that flowed into
-                // our block).
-                }else if(num_preds == num_preds_contributing){
-                    out_head[&B] = in_head[&B];
-
-                // Case: There's at least 1 predecessor but not all predecessors
-                // are contributing callsites from their OUT sets. We do
-                // not "re-export" anything that was not dominating us. The OUT
-                // of our block is the first callsite in our block, if it
-                // exists.
-                }else{
-                    if(block_to_callsites[&B].size() > 0){
-                        out_head[&B].insert(block_to_callsites[&B][0]);
-                    }
+            }
+            for(BasicBlock *succ : successors(&B)){
+                for(CallBase *n : in_next[succ]){
+                    out_next[&B].insert(n);
                 }
+            }
 
+            if(block_to_callsites[&B].size() > 0){
+                out_prev[&B].insert(block_to_callsites[&B].back());
+                in_next[&B].insert(block_to_callsites[&B].front());
+            }else{
+                out_prev[&B] = in_prev[&B];
+                in_next[&B] = out_next[&B];
+            }
 
-                if(out_head[&B] != old_out_head){
-                    changed = true;
-                }
-            //}
+            if(out_prev[&B] != old_out_prev || in_next[&B] != old_in_next){
+                changed = true;
+            }
+
         }
     }
 
+    BasicBlock &entry_block = F.getEntryBlock();
+
     // update head
-    // The head set for a function is all unique callsite_ids among the OUT
-    // sets.
-    int func_id = func_to_id[&F];
     assert(head.find(func_id) == head.end());
-    head[func_id] = set<int>();
-    for(BasicBlock &B : F){
-        for(CallBase *h : out_head[&B]){
-            int callsite_id = callsite_to_id[h];
-            head[func_id].insert(callsite_id);
-        }
+    for(CallBase *n : in_next[&entry_block]){
+        int callsite_id = callsite_to_id[n];
+        head[func_id].insert(callsite_id);
     }
 
     // update tail
+    assert(tail.find(func_id) == tail.end());
+    vector<BasicBlock *> s;
+    set<BasicBlock *> visited;
+    s.push_back(&entry_block);
+    while(!s.empty()){
+        BasicBlock *B = s.back();
+        s.pop_back();
+        if(visited.find(B) == visited.end()){
+            auto succs = successors(B);
+            int num_succs = distance(succs.begin(), succs.end());
+            if(num_succs == 0){
+                for(CallBase *t : out_prev[B]){
+                    int callsite_id = callsite_to_id[t];
+                    tail[func_id].insert(callsite_id);
+                }
+            }else{
+                for(BasicBlock *succ : succs){
+                    s.push_back(succ);
+                }
+            }
+            visited.insert(B);
+        }
+    }
 
     // update next
 
 }
+
 
 
 void AdvancedRuntimeDebloat::figure_out_datalog(Module &M)
@@ -3159,7 +3151,6 @@ void AdvancedRuntimeDebloat::dump_callsite_to_id(void)
                << caller->getName() << "->" << callee->getName() << "\n";
     }
 }
-
 void AdvancedRuntimeDebloat::dump_head(void)
 {
     // TODO write this to file. (and add to doFinalization
@@ -3174,6 +3165,21 @@ void AdvancedRuntimeDebloat::dump_head(void)
         errs() << "\n";
     }
 }
+void AdvancedRuntimeDebloat::dump_tail(void)
+{
+    // TODO write this to file. (and add to doFinalization
+    errs() << "Dumping tail\n";
+    for(auto it = tail.begin(); it != tail.end(); it++){
+        int func_id = it->first;
+        errs() << "  " << func_id_to_name[func_id] << " (func-id " << func_id << "):\n    ";
+        set<int> &callsite_ids = it->second;
+        for(int callsite_id : callsite_ids){
+            errs() << callsite_id << ",";
+        }
+        errs() << "\n";
+    }
+}
+
 
 string AdvancedRuntimeDebloat::get_demangled_name(const Function &F)
 {
