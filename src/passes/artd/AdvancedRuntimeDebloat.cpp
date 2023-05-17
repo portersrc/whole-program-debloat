@@ -3281,14 +3281,14 @@ void AdvancedRuntimeDebloat::dump_belong(FILE *fp)
 }
 void AdvancedRuntimeDebloat::dump_last(FILE *fp)
 {
-    fprintf(fp, "last(f, i) :- tail(f, i), belong(i, g), leaf(g).\n");
-    fprintf(fp, "last(f, i) :- tail(f, j), belong(j, g), last(g, i).\n");
+    fprintf(fp, "last(F, I) :- tail(F, I), belong(I, G), leaf(G).\n");
+    fprintf(fp, "last(F, I) :- tail(F, J), belong(J, G), last(G, I).\n");
 }
 void AdvancedRuntimeDebloat::dump_ensue(FILE *fp)
 {
-    fprintf(fp, "ensue(i, j) :- head(f, j), belong(i, f).\n");
-    fprintf(fp, "ensue(i, j) :- next(g, i, j), belong(i, f), leaf(f).\n");
-    fprintf(fp, "ensue(i, j) :- next(g, k, j), belong(k, f), last(f, i).\n");
+    fprintf(fp, "ensue(I, J) :- head(F, J), belong(I, F).\n");
+    fprintf(fp, "ensue(I, J) :- next(G, I, J), belong(I, F), leaf(F).\n");
+    fprintf(fp, "ensue(I, J) :- next(G, K, J), belong(K, F), last(F, I).\n");
 }
 
 
