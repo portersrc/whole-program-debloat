@@ -2718,14 +2718,10 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
 
 void AdvancedRuntimeDebloat::figure_out_datalog_func(Function &F)
 {
-    map<BasicBlock *, set<CallBase *> > in_head;
-    map<BasicBlock *, set<CallBase *> > in_tail;
-    map<BasicBlock *, set<CallBase *> > in_next;
     map<BasicBlock *, set<CallBase *> > in_prev;
-    map<BasicBlock *, set<CallBase *> > out_head;
-    map<BasicBlock *, set<CallBase *> > out_tail;
-    map<BasicBlock *, set<CallBase *> > out_next;
+    map<BasicBlock *, set<CallBase *> > in_next;
     map<BasicBlock *, set<CallBase *> > out_prev;
+    map<BasicBlock *, set<CallBase *> > out_next;
 
     errs() << "Processing " << F.getName() << "\n";
     int func_id = func_to_id[&F];
