@@ -252,9 +252,14 @@ namespace {
         void dump_RPs(void);
         void dump_func_set_id_to_complements(void);
         void dump_callsite_to_id(void);
-        void dump_head(void);
-        void dump_tail(void);
-        void dump_next(void);
+        void dump_datalog(void);
+        void dump_head(FILE *fp);
+        void dump_tail(FILE *fp);
+        void dump_next(FILE *fp);
+        void dump_leaf(FILE *fp);
+        void dump_belong(FILE *fp);
+        void dump_last(FILE *fp);
+        void dump_ensue(FILE *fp);
 
         void instrument_feature_pass(CallBase *callsite,
                                      Function *parent_func,
@@ -2665,10 +2670,7 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
     build_basic_structs(M);
 
     figure_out_datalog(M);
-    dump_callsite_to_id();
-    //dump_head();
-    //dump_tail();
-    dump_next();
+    dump_datalog();
     exit(42);
 
     if(ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS){
@@ -3153,8 +3155,10 @@ void AdvancedRuntimeDebloat::dump_func_set_id_to_complements(void)
 }
 void AdvancedRuntimeDebloat::dump_callsite_to_id(void)
 {
-    errs() << "Dumping callsite_to_id\n";
-    errs() << "callsite-id,caller-func-id,callee-func-id,callerName->calleeName\n";
+    FILE *fp = fopen("artd-callsite-to-id.out", "w");
+    //errs() << "Dumping callsite_to_id\n";
+    //errs() << "callsite-id,caller-func-id,callee-func-id,callerName->calleeName\n";
+    fprintf(fp, "callsite-id,caller-func-id,callee-func-id,callerName->calleeName\n");
     for(auto it = callsite_to_id.begin(); it != callsite_to_id.end(); it++){
         CallBase *CB     = it->first;
         int callsite_id  = it->second;
@@ -3162,56 +3166,129 @@ void AdvancedRuntimeDebloat::dump_callsite_to_id(void)
         Function *callee = CB->getCalledFunction();
         int caller_id    = func_to_id[caller];
         int callee_id    = func_to_id[callee];
-        errs() << callsite_id << ","
-               << caller_id << ","
-               << callee_id << ","
-               << caller->getName() << "->" << callee->getName() << "\n";
+        //errs() << callsite_id << ","
+        //       << caller_id << ","
+        //       << callee_id << ","
+        //       << caller->getName() << "->" << callee->getName() << "\n";
+        fprintf(fp, "%d,%d,%d,%s->%s\n", callsite_id, caller_id, callee_id,
+                caller->getName().str().c_str(), callee->getName().str().c_str());
     }
+    fclose(fp);
 }
-void AdvancedRuntimeDebloat::dump_head(void)
+void AdvancedRuntimeDebloat::dump_datalog(void)
 {
-    // TODO write this to file. (and add to doFinalization
-    errs() << "Dumping head\n";
+    FILE *fp = fopen("artd-datalog.out", "w");
+    dump_head(fp);
+    dump_tail(fp);
+    dump_next(fp);
+    dump_leaf(fp);
+    dump_belong(fp);
+    dump_last(fp);
+    dump_ensue(fp);
+    fclose(fp);
+}
+void AdvancedRuntimeDebloat::dump_head(FILE *fp)
+{
+    //errs() << "Dumping head\n";
+    //for(auto it = head.begin(); it != head.end(); it++){
+    //    int func_id = it->first;
+    //    errs() << "  " << func_id_to_name[func_id] << " (func-id " << func_id << "):\n    ";
+    //    set<int> &callsite_ids = it->second;
+    //    for(int callsite_id : callsite_ids){
+    //        errs() << callsite_id << ",";
+    //    }
+    //    errs() << "\n";
+    //}
     for(auto it = head.begin(); it != head.end(); it++){
         int func_id = it->first;
-        errs() << "  " << func_id_to_name[func_id] << " (func-id " << func_id << "):\n    ";
         set<int> &callsite_ids = it->second;
         for(int callsite_id : callsite_ids){
-            errs() << callsite_id << ",";
+            fprintf(fp, "head(%d,%d).\n", func_id, callsite_id);
         }
-        errs() << "\n";
     }
 }
-void AdvancedRuntimeDebloat::dump_tail(void)
+void AdvancedRuntimeDebloat::dump_tail(FILE *fp)
 {
-    // TODO write this to file. (and add to doFinalization
-    errs() << "Dumping tail\n";
+    //errs() << "Dumping tail\n";
+    //for(auto it = tail.begin(); it != tail.end(); it++){
+    //    int func_id = it->first;
+    //    errs() << "  " << func_id_to_name[func_id] << " (func-id " << func_id << "):\n    ";
+    //    set<int> &callsite_ids = it->second;
+    //    for(int callsite_id : callsite_ids){
+    //        errs() << callsite_id << ",";
+    //    }
+    //    errs() << "\n";
+    //}
     for(auto it = tail.begin(); it != tail.end(); it++){
         int func_id = it->first;
-        errs() << "  " << func_id_to_name[func_id] << " (func-id " << func_id << "):\n    ";
         set<int> &callsite_ids = it->second;
         for(int callsite_id : callsite_ids){
-            errs() << callsite_id << ",";
+            fprintf(fp, "tail(%d,%d).\n", func_id, callsite_id);
         }
-        errs() << "\n";
     }
 }
-void AdvancedRuntimeDebloat::dump_next(void)
+void AdvancedRuntimeDebloat::dump_next(FILE *fp)
 {
-    // TODO write this to file. (and add to doFinalization
-    errs() << "Dumping next\n";
+    //errs() << "Dumping next\n";
+    //for(auto it = next.begin(); it != next.end(); it++){
+    //    int func_id = it->first;
+    //    errs() << "  " << func_id_to_name[func_id] << " (func-id " << func_id << "):\n    ";
+    //    set<pair<int, int> > &callsite_id_pairs = it->second;
+    //    for(auto callsite_id_pair : callsite_id_pairs){
+    //        int callsite_id_a = callsite_id_pair.first;
+    //        int callsite_id_b = callsite_id_pair.second;
+    //        errs() << callsite_id_a << "-" << callsite_id_b << ",";
+    //    }
+    //    errs() << "\n";
+    //}
     for(auto it = next.begin(); it != next.end(); it++){
         int func_id = it->first;
-        errs() << "  " << func_id_to_name[func_id] << " (func-id " << func_id << "):\n    ";
         set<pair<int, int> > &callsite_id_pairs = it->second;
         for(auto callsite_id_pair : callsite_id_pairs){
             int callsite_id_a = callsite_id_pair.first;
             int callsite_id_b = callsite_id_pair.second;
-            //errs() << "(" << callsite_id_a << "-" << callsite_id_b << "),";
-            errs() << callsite_id_a << "-" << callsite_id_b << ",";
+            fprintf(fp, "next(%d,%d,%d).\n", func_id, callsite_id_a, callsite_id_b);
         }
-        errs() << "\n";
     }
+}
+void AdvancedRuntimeDebloat::dump_leaf(FILE *fp)
+{
+    //errs() << "Dumping leaf\n  ";
+    //for(auto it = leaf.begin(); it != leaf.end(); it++){
+    //    int func_id = *it;
+    //    errs() << func_id_to_name[func_id] << "(" << func_id << "),";
+    //}
+    //errs() << "\n";
+    for(auto it = leaf.begin(); it != leaf.end(); it++){
+        int func_id = *it;
+        fprintf(fp, "leaf(%d).\n", func_id);
+    }
+}
+void AdvancedRuntimeDebloat::dump_belong(FILE *fp)
+{
+    //errs() << "Dumping belong\n";
+    //for(auto it = belong.begin(); it != belong.end(); it++){
+    //    int callsite_id = it->first;
+    //    int func_id     = it->second;
+    //    errs() << callsite_id << "@" << func_id << "(" << func_id_to_name[func_id] << "),";
+    //}
+    //errs() << "\n";
+    for(auto it = belong.begin(); it != belong.end(); it++){
+        int callsite_id = it->first;
+        int func_id     = it->second;
+        fprintf(fp, "belong(%d,%d).\n", callsite_id, func_id);
+    }
+}
+void AdvancedRuntimeDebloat::dump_last(FILE *fp)
+{
+    fprintf(fp, "last(f, i) :- tail(f, i), belong(i, g), leaf(g).\n");
+    fprintf(fp, "last(f, i) :- tail(f, j), belong(j, g), last(g, i).\n");
+}
+void AdvancedRuntimeDebloat::dump_ensue(FILE *fp)
+{
+    fprintf(fp, "ensue(i, j) :- head(f, j), belong(i, f).\n");
+    fprintf(fp, "ensue(i, j) :- next(g, i, j), belong(i, f), leaf(f).\n");
+    fprintf(fp, "ensue(i, j) :- next(g, k, j), belong(k, f), last(f, i).\n");
 }
 
 
@@ -3361,6 +3438,8 @@ bool AdvancedRuntimeDebloat::doFinalization(Module &M)
     dump_deck_id_to_caller_callee();
     dump_RPs();
     dump_func_set_id_to_complements();
+    dump_callsite_to_id();
+    dump_datalog();
     //errs() << "deck id counter: " << deck_id_counter << "\n";
     return false;
 }
