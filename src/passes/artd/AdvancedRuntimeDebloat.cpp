@@ -2073,12 +2073,14 @@ void AdvancedRuntimeDebloat::build_basic_structs(Module &M)
             // update all_funcs
             all_funcs.insert(&F);
             li = &getAnalysis<LoopInfoWrapperPass>(F).getLoopInfo();
+            bool has_no_callsites = true;
             for(auto &B : F){
                 for(auto &I : B){
                     cb = dyn_cast<CallBase>(&I);
                     if(cb){
                         Function *callee = cb->getCalledFunction();
                         if(func_to_id.count(callee) > 0){
+                            has_no_callsites = false;
                             // FIXME ? I haven't paid close attention to details
                             // but this looks right. I don't think this assigns
                             // an ID to indirect calls. I don't think it assigns
@@ -2111,6 +2113,9 @@ void AdvancedRuntimeDebloat::build_basic_structs(Module &M)
                         // about it.
                     }
                 }
+            }
+            if(has_no_callsites){
+                leaf.insert(func_to_id[&F]);
             }
         }else if(F.hasName() && (libc_nonstatic_func_names.count(F.getName().str()) > 0)){
             // XXX This is sufficient for atexit(), which is currently the only
