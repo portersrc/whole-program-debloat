@@ -254,6 +254,7 @@ namespace {
         void dump_callsite_to_id(void);
         void dump_head(void);
         void dump_tail(void);
+        void dump_next(void);
 
         void instrument_feature_pass(CallBase *callsite,
                                      Function *parent_func,
@@ -2660,8 +2661,9 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
 
     figure_out_datalog(M);
     dump_callsite_to_id();
-    dump_head();
-    dump_tail();
+    //dump_head();
+    //dump_tail();
+    dump_next();
     exit(42);
 
     if(ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS){
@@ -2718,17 +2720,14 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
 
 void AdvancedRuntimeDebloat::figure_out_datalog_func(Function &F)
 {
+    errs() << "Processing " << F.getName() << "\n";
+
     map<BasicBlock *, set<CallBase *> > in_prev;
     map<BasicBlock *, set<CallBase *> > in_next;
     map<BasicBlock *, set<CallBase *> > out_prev;
     map<BasicBlock *, set<CallBase *> > out_next;
 
-    errs() << "Processing " << F.getName() << "\n";
     int func_id = func_to_id[&F];
-
-    for(BasicBlock &B : F){
-        out_head[&B] = set<CallBase *>();
-    }
 
     // next (backward):
     // OUT_NEXT[B] = U_{S succ of B} OUT[S]
@@ -2781,7 +2780,7 @@ void AdvancedRuntimeDebloat::figure_out_datalog_func(Function &F)
         head[func_id].insert(callsite_id);
     }
 
-    // update tail
+    // update tail and next
     assert(tail.find(func_id) == tail.end());
     vector<BasicBlock *> s;
     set<BasicBlock *> visited;
@@ -2790,6 +2789,8 @@ void AdvancedRuntimeDebloat::figure_out_datalog_func(Function &F)
         BasicBlock *B = s.back();
         s.pop_back();
         if(visited.find(B) == visited.end()){
+
+            // visit tail
             auto succs = successors(B);
             int num_succs = distance(succs.begin(), succs.end());
             if(num_succs == 0){
@@ -2802,11 +2803,26 @@ void AdvancedRuntimeDebloat::figure_out_datalog_func(Function &F)
                     s.push_back(succ);
                 }
             }
+
+            // visit next
+            if(block_to_callsites[B].size() > 0){
+                int back_callsite_id = callsite_to_id[block_to_callsites[B].back()];
+                for(CallBase *n : out_next[B]){
+                    int next_callsite_id = callsite_to_id[n];
+                    next[func_id].insert(make_pair(back_callsite_id, next_callsite_id));
+                }
+            }
+            if(block_to_callsites[B].size() > 1){
+                for(int i = 0; i < (block_to_callsites[B].size() - 1); i++){
+                    int callsite_id_a = callsite_to_id[block_to_callsites[B][i]];
+                    int callsite_id_b = callsite_to_id[block_to_callsites[B][i+1]];
+                    next[func_id].insert(make_pair(callsite_id_a, callsite_id_b));
+                }
+            }
+
             visited.insert(B);
         }
     }
-
-    // update next
 
 }
 
@@ -3171,6 +3187,23 @@ void AdvancedRuntimeDebloat::dump_tail(void)
         set<int> &callsite_ids = it->second;
         for(int callsite_id : callsite_ids){
             errs() << callsite_id << ",";
+        }
+        errs() << "\n";
+    }
+}
+void AdvancedRuntimeDebloat::dump_next(void)
+{
+    // TODO write this to file. (and add to doFinalization
+    errs() << "Dumping next\n";
+    for(auto it = next.begin(); it != next.end(); it++){
+        int func_id = it->first;
+        errs() << "  " << func_id_to_name[func_id] << " (func-id " << func_id << "):\n    ";
+        set<pair<int, int> > &callsite_id_pairs = it->second;
+        for(auto callsite_id_pair : callsite_id_pairs){
+            int callsite_id_a = callsite_id_pair.first;
+            int callsite_id_b = callsite_id_pair.second;
+            //errs() << "(" << callsite_id_a << "-" << callsite_id_b << "),";
+            errs() << callsite_id_a << "-" << callsite_id_b << ",";
         }
         errs() << "\n";
     }
