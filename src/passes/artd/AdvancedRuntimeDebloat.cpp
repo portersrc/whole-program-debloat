@@ -2737,11 +2737,11 @@ void AdvancedRuntimeDebloat::figure_out_datalog_func(Function &F)
     int func_id = func_to_id[&F];
 
     // next (backward):
-    // OUT_NEXT[B] = U_{S succ of B} OUT[S]
+    // OUT_NEXT[B] = U_{S succ of B} IN_NEXT[S]
     // IN_NEXT[B]  = Callsites_B.first() || OUT_NEXT[B]
     //
     // prev (forward):
-    // IN_PREV[B]  = U_{P pred of B} OUT[P]
+    // IN_PREV[B]  = U_{P pred of B} OUT_PREV[P]
     // OUT_PREV[B] = Callsites_B.last() || IN_PREV[B]
 
     bool changed = true;
