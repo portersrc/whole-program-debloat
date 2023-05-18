@@ -1679,7 +1679,7 @@ int debrt_destroy(int notused)
 
 
 static inline
-void _release_end(void)
+int _release_end(void)
 {
     int rv;
     rv = 0;
@@ -1713,6 +1713,7 @@ void _release_end(void)
     pred_set_complements.clear();
     extras_set.clear();
     memset(debrt_rectification_flags, 0, sizeof(int) * func_id_to_name.size());
+    return rv;
 }
 
 
@@ -1880,7 +1881,9 @@ int debrt_protect_reachable_end(int callee_func_id)
     _WARN_RETURN_IF_NOT_INITIALIZED();
 
     if(ENV_DEBRT_ENABLE_RELEASE){
-        _release_end();
+        rv = _release_end();
+        _write_mapped_pages_to_file(rv, false, "reachable-end");
+        rv = 0;
     }else{
         pred_sets.clear(); // need to clear pred sets for TEST_PREDICTION
         //DEBUG_predicted_func_set_ids.clear();
@@ -1937,7 +1940,9 @@ int debrt_protect_loop_end(int loop_id)
     // loops (and growing those prediction sets). See pred_sets as a starting
     // point for how this is handled.
     if(ENV_DEBRT_ENABLE_RELEASE){
-        _release_end();
+        rv = _release_end();
+        _write_mapped_pages_to_file(rv, false, "loop-end");
+        rv = 0;
     }else{
         // Hijack the loop-end call to turn off any functions that were enabled
         // inside of a loop due to ICS. Note that ics-set will always have a size
@@ -2068,7 +2073,9 @@ int debrt_protect_indirect_end(long long callee_addr)
     DEBRT_PRINTF("end callee_addr is: 0x%llx\n", callee_addr);
 
     if(ENV_DEBRT_ENABLE_RELEASE){
-        _release_end();
+        rv = _release_end();
+        _write_mapped_pages_to_file(rv, false, "indirect-end");
+        rv = 0;
     }else{
         // need to clear pred sets for TEST_PREDICTION, but should be fine to
         // do always, even for RELEASE, which shouldn't have any element
@@ -2482,6 +2489,8 @@ int debrt_release_rectify(int func_id)
     // It will get reset to 0 when the deck completes (a protect-end call)
     rectification_happened = 1;
 
+    _write_mapped_pages_to_file(rv, true, "rectify");
+
     return 0;
 }
 }
@@ -2646,8 +2655,9 @@ int debrt_release_predict(int argc, ...)
     va_end(ap);
 
     int rv = _release_predict(feature_buf, 0 /* is-from-indirect-call */);
+    _write_mapped_pages_to_file(rv, true, "predict");
     DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__);
-    return rv;
+    return 0;
 }
 }
 
@@ -2697,8 +2707,9 @@ int debrt_release_indirect_predict(long long argc, ...)
     // all training data where the func id is a single deck, actually.
 
     int rv = _release_predict(feature_buf, 1 /* is-from-indirect-call */);
+    _write_mapped_pages_to_file(rv, true, "indirect-predict");
     DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__);
-    return rv;
+    return 0;
 }
 }
 
@@ -2746,7 +2757,8 @@ int debrt_release_indirect_predict_ics(long long *varargs)
     }
 
     int rv = _release_predict(feature_buf, 1 /* is-from-indirect-call */);
+    _write_mapped_pages_to_file(rv, true, "indirect-predict-ics");
     DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__);
-    return rv;
+    return 0;
 }
 }
