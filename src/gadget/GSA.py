@@ -42,7 +42,10 @@ sets = []
 with open(args.set_file,"r") as f:
     line = f.readline()
     while(line):
-        line_split = line.strip().split()
+        line_split = line.strip().split()[1:]
+        if line_split[0] == "X":
+            line = f.readline()
+            continue
         line_list = [int(i) for i in line_split]
         if(line_list[0] == -1):
             line_list = line_list[1:]
