@@ -28,7 +28,8 @@ groupB = ["500.perlbench_r", "508.namd_r", "511.povray_r", "520.omnetpp_r", "523
 #groupB = ["500.perlbench_r", "511.povray_r", "520.omnetpp_r", "523.xalancbmk_r", "525.x264_r"]
 groupC = ["510.parest_r", "526.blender_r", "538.imagick_r"]
 groupD = ["502.gcc_r"]
-groupE = ["502.gcc_r","520.omnetpp_r"]
+#groupE = ["502.gcc_r","520.omnetpp_r"]
+groupE = ["500.perlbench_r"]
 maxROP = {}
 maxCOP = {}
 maxJOP = {}
@@ -857,10 +858,10 @@ first = {}
 
 if(args.ics_linker):
     for bench in curr_benchs:
-        if(not os.path.exists("resultswpd_cl_ics/"+bench+"/GadgetCounts_Reduction.csv")):
+        if(not os.path.exists("resultsartd_release/"+bench+"/GadgetCounts_Reduction.csv")):
             continue
         print(bench + " - ics_linker")
-        f = open("resultswpd_cl_ics/"+bench+"/GadgetCounts_Reduction.csv", 'r')
+        f = open("resultsartd_release/"+bench+"/GadgetCounts_Reduction.csv", 'r')
         line = f.readline()
         line = f.readline().strip()
         split = line.split(",")[1:]
