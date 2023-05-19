@@ -6,10 +6,13 @@ import re
 import subprocess
 
 
-PROJ_BASE = '/root/decker/whole-program-debloat'
-SPEC_BASE = '/root/decker/spec2017/benchspec/CPU'
-COREUTILS_BASE = '/root/decker/security-bench'
-NGINX_BASE = '/root/decker/nginx'
+#PROJ_BASE = '/root/decker/whole-program-debloat'
+#SPEC_BASE = '/root/decker/spec2017/benchspec/CPU'
+#COREUTILS_BASE = '/root/decker/security-bench'
+#NGINX_BASE = '/root/decker/nginx'
+#SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+PROJ_BASE = '/home/rudy/wo/advanced-rtd/whole-program-debloat'
+SPEC_BASE = '/home/rudy/wo/spec/spec2017/benchspec/CPU'
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
@@ -149,19 +152,19 @@ def parse_du(du_output):
     return int(du_output[0])
 
 
-def section_5_1():
+def spec_performance():
     print()
-    print('=====================================')
-    print('Results from Section 5.1 of the paper')
-    print('=====================================')
+    print('================')
+    print('SPEC performance')
+    print('================')
     print()
     #
     # Slowdown on SPEC 2017
     #
     slowdowns = []
     for bmark in BMARKS_SPEC:
-        decker_time = parse_runtime(bmark, 'large-wpd_cl_ics.out')
-        base_time = parse_runtime(bmark, 'large-base_ls.out')
+        decker_time = parse_runtime(bmark, 'large-artd_release.out')
+        base_time = parse_runtime(bmark, 'large-base.out')
         slowdown = decker_time / base_time
         slowdowns.append((bmark, slowdown))
 
@@ -176,11 +179,16 @@ def section_5_1():
     print()
 
 
-
+def spec_security():
     #
     # Gadget reduction on SPEC 2017
     #
-    os.chdir('/root/decker/whole-program-debloat/src/gadget-spec/')
+    print()
+    print('=============')
+    print('SPEC security')
+    print('=============')
+    print()
+    os.chdir(PROJ_BASE+'src/gadget')
 
     _, rv =run_cmd('./spec.sh')
     print('Total gadget reduction for SPEC 2017')
@@ -206,93 +214,18 @@ def section_5_1():
 
 
 
-def section_5_2():
+
+def spec_size():
     print()
-    print('=====================================')
-    print('Results from Section 5.2 of the paper')
-    print('=====================================')
-    print()
-    #
-    # Gadget reduction on coreutils
-    #
-    os.chdir('/root/decker/whole-program-debloat/src/gadget-core/')
-
-    _, rv =run_cmd('./security.sh')
-    print('Total gadget reduction for GNU coreutils')
-    print('----------------------------------------')
-    print('Application Min Max Avg')
-    print(rv)
-
-    some_min = 0
-    some_max = 0
-    some_avg = 0
-    count = 0
-    for line in rv.splitlines():
-        line_vec = line.strip().split()
-        some_min += float(line_vec[1])
-        some_max += float(line_vec[2])
-        some_avg += float(line_vec[3])
-        count += 1
-    print('AVERAGE {} {} {}'.format(round(some_min/count,1), round(some_max/count,1), round(some_avg/count,1)))
-    print()
-
-    os.chdir(SCRIPT_DIR)
-
-
-
-
-
-
-def section_5_3():
-    print()
-    print('=====================================')
-    print('Results from Section 5.3 of the paper')
-    print('=====================================')
-    print()
-    #
-    # Slowdown on nginx
-    #
-    print('Transfer/sec degradation for nginx')
-    print('----------------------------------')
-    print('Test-case Slowdown')
-    os.chdir('/root/decker/whole-program-debloat/src/nginx/performance/size-variation')
-    _, rv = run_cmd('./run_results.sh')
-    print(rv)
-    os.chdir('/root/decker/whole-program-debloat/src/nginx/performance/time-variation')
-    _, rv = run_cmd('./run_results.sh')
-    print(rv)
-    print()
-
-
-    #
-    # Gadget reduction on nginx
-    #
-    os.chdir('/root/decker/whole-program-debloat/src/gadget-core/')
-
-    _, rv = run_cmd('./nginx.sh')
-    print('Total gadget reduction for nginx')
-    print('--------------------------------')
-    print('Min Max Avg')
-    print(rv)
-    print()
-
-
-
-    os.chdir(SCRIPT_DIR)
-
-
-
-def section_5_4():
-    print()
-    print('=====================================')
-    print('Results from Section 5.4 of the paper')
-    print('=====================================')
+    print('=========');
+    print('SPEC size')
+    print('=========');
     print()
     size_increases = []
     for bmark in BMARKS_SPEC:
         bin_name_prefix = SPEC_BASE + '/' + SPEC_BMARK_TO_FOLDER[bmark] + '/' + bmark
-        bin_name_base   = bin_name_prefix + '_r_baseline_ls'
-        bin_name_decker = bin_name_prefix + '_r_wpd_custlink_ics'
+        bin_name_base   = bin_name_prefix + '_r_base'
+        bin_name_decker = bin_name_prefix + '_r_artd_release'
         _, rv = run_cmd('du -sb '+bin_name_base)
         base_size   = parse_du(rv)
         _, rv = run_cmd('du -sb '+bin_name_decker)
@@ -309,40 +242,6 @@ def section_5_4():
     print()
 
 
-    size_increases = []
-    for bmark in BMARKS_COREUTILS:
-        bin_name_prefix = COREUTILS_BASE + '/' + bmark + '/' + bmark
-        bin_name_base   = bin_name_prefix + '_nostatic'
-        bin_name_decker = bin_name_prefix + '_wpd_custlink_ics_nostatic'
-        _, rv = run_cmd('du -sb '+bin_name_base)
-        base_size   = parse_du(rv)
-        _, rv = run_cmd('du -sb '+bin_name_decker)
-        decker_size = parse_du(rv)
-        size_increase = decker_size / base_size
-        size_increases.append((bmark, size_increase))
-    print('Binary size increase for GNU coreutils')
-    print('--------------------------------------')
-    some = 0
-    for bmark, size_increase in size_increases:
-        print('{} {}'.format(bmark, round(size_increase,1)))
-        some += size_increase
-    print('Avg-size-increase {}'.format(round(some / len(size_increases),1)))
-    print()
-
-
-    bmark = 'nginx'
-    bin_name_prefix = NGINX_BASE + '/objs/' + bmark
-    bin_name_base   = bin_name_prefix + '_baseline_ls'
-    bin_name_decker = bin_name_prefix + '_wpd_custlink_ics'
-    _, rv = run_cmd('du -sb '+bin_name_base)
-    base_size   = parse_du(rv)
-    _, rv = run_cmd('du -sb '+bin_name_decker)
-    decker_size = parse_du(rv)
-    size_increase = decker_size / base_size
-    print('Binary size increase for nginx')
-    print('------------------------------')
-    print('{}'.format(round(size_increase,1)))
-    print()
 
 
 
@@ -350,9 +249,9 @@ def section_5_4():
 
 
 def main():
-    section_5_1()
-    section_5_2()
-    section_5_3()
-    section_5_4()
+    spec_performance()
+    #spec_security()
+    #spec_size()
+
 
 main()
