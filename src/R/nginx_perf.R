@@ -5,7 +5,8 @@ library(ggplot2)
 
 
 df <- data.frame(
-  legend=rep(c("Baseline", "Decker"), each=6),
+  # legend=rep(c("Baseline", "Decker"), each=6),
+  legend=rep(c("Decker"), each=6),
   bmark=rep(c(
     "3s-wiki",
     "30s-wiki",
@@ -13,16 +14,17 @@ df <- data.frame(
     "1MB-30s",
     "10MB-30s",
     "100MB-300s"
-  ), 2),
+  # ), 2),
+  ), 1),
   slowdown=
     c(
-      # base_ls
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
+      # # base_ls
+      # 1,
+      # 1,
+      # 1,
+      # 1,
+      # 1,
+      # 1,
 
       # wpd_cl_ics + sc
       1.048034934,
@@ -45,7 +47,8 @@ df$bmark <- as.character(df$bmark)
 df$bmark <- factor(df$bmark, levels=unique(df$bmark))
 
 ggplot(data=df, aes(x=bmark, y=slowdown, fill=legend)) +
-  geom_bar(stat="identity", position=position_dodge()) +
+  geom_bar(stat="identity", position=position_dodge(), fill="#00BFC4") +
+  geom_hline(yintercept=1, linetype='dotted', col = 'red')+
   theme_minimal() +
   theme(axis.title.y=element_text(size = 15)) +
   theme(legend.text=element_text(size = 15)) +
