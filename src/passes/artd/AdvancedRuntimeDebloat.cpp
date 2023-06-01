@@ -2671,11 +2671,11 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
     build_basic_structs(M);
 
 
-    if(ARTD_BUILD != ARTD_BUILD_DATALOG_E){
+    if(ARTD_BUILD == ARTD_BUILD_DATALOG_E){
         figure_out_datalog(M);
         dump_callsite_to_id();
         dump_datalog();
-        exit(42);
+        return false;
     }
 
     if(ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS){
