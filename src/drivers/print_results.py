@@ -188,7 +188,7 @@ def spec_security():
     print('SPEC security')
     print('=============')
     print()
-    os.chdir(PROJ_BASE+'src/gadget')
+    os.chdir(PROJ_BASE+'/src/gadget')
 
     _, rv =run_cmd('./spec.sh')
     print('Total gadget reduction for SPEC 2017')
@@ -249,8 +249,8 @@ def spec_size():
 
 
 def main():
-    spec_performance()
-    #spec_security()
+    #spec_performance()
+    spec_security()
     #spec_size()
 
 
