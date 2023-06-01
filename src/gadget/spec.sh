@@ -1,7 +1,7 @@
 #!/bin/bash
 
-#THE_LOG=spec.log
-THE_LOG=/dev/stdout
+THE_LOG=spec.log
+#THE_LOG=/dev/stdout
 
 SPEC_PATH=/home/rudy/wo/spec/spec2017
 
