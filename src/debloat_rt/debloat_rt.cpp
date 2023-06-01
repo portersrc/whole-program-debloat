@@ -767,7 +767,7 @@ void _read_complement_sets(void)
 
     ifs.open("func-set-id-to-complements.out");
     if(!ifs.is_open()) {
-        fprintf(stderr, "ERROR: Failed to open func-set-id-to-funcs.out.\n");
+        fprintf(stderr, "ERROR: Failed to open func-set-id-to-complements.out.\n");
         exit(EXIT_FAILURE);
     }
 
