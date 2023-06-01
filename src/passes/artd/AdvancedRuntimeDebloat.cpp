@@ -45,6 +45,7 @@ typedef enum{
     ARTD_BUILD_PROFILE_E,
     ARTD_BUILD_TEST_PREDICT_E,
     ARTD_BUILD_RELEASE_E,
+    ARTD_BUILD_DATALOG_E,
 }artd_build_e;
 
 
@@ -2669,9 +2670,13 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
     // Paritlally build encompassed_funcs
     build_basic_structs(M);
 
-    figure_out_datalog(M);
-    dump_datalog();
-    exit(42);
+
+    if(ARTD_BUILD != ARTD_BUILD_DATALOG_E){
+        figure_out_datalog(M);
+        dump_callsite_to_id();
+        dump_datalog();
+        exit(42);
+    }
 
     if(ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS){
         // Build a map of func -> set of parents that can reach it.
@@ -3438,8 +3443,6 @@ bool AdvancedRuntimeDebloat::doFinalization(Module &M)
     dump_deck_id_to_caller_callee();
     dump_RPs();
     dump_func_set_id_to_complements();
-    dump_callsite_to_id();
-    dump_datalog();
     //errs() << "deck id counter: " << deck_id_counter << "\n";
     return false;
 }
