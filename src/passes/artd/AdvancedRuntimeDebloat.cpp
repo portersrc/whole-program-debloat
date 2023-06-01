@@ -253,7 +253,7 @@ namespace {
         void dump_RPs(void);
         void dump_func_set_id_to_complements(void);
         void dump_callsite_to_id(void);
-        void dump_datalog(void);
+        void dump_datalog_relations(void);
         void dump_head(FILE *fp);
         void dump_tail(FILE *fp);
         void dump_next(FILE *fp);
@@ -274,8 +274,8 @@ namespace {
         void update_deck_id_to_caller_callee(int deck_id, CallBase *CB, Function *parent);
 
 
-        void figure_out_datalog(Module &M);
-        void figure_out_datalog_func(Function &F);
+        void capture_ensue(Module &M);
+        void capture_ensue_aux(Function &F);
 
 
     };
@@ -2672,9 +2672,9 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
 
 
     if(ARTD_BUILD == ARTD_BUILD_DATALOG_E){
-        figure_out_datalog(M);
+        capture_ensue(M);
         dump_callsite_to_id();
-        dump_datalog();
+        dump_datalog_relations();
         return false;
     }
 
@@ -2730,7 +2730,7 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
 }
 
 
-void AdvancedRuntimeDebloat::figure_out_datalog_func(Function &F)
+void AdvancedRuntimeDebloat::capture_ensue_aux(Function &F)
 {
     errs() << "Processing " << F.getName() << "\n";
 
@@ -2840,13 +2840,12 @@ void AdvancedRuntimeDebloat::figure_out_datalog_func(Function &F)
 
 
 
-void AdvancedRuntimeDebloat::figure_out_datalog(Module &M)
+void AdvancedRuntimeDebloat::capture_ensue(Module &M)
 {
-    errs() << "Hello world\n";
-
+    errs() << "Capturing ensue relation\n";
     for(Function &F : M){
         if(F.hasName() && !F.isDeclaration()){
-            figure_out_datalog_func(F);
+            capture_ensue_aux(F);
         }
     }
 }
@@ -3180,7 +3179,7 @@ void AdvancedRuntimeDebloat::dump_callsite_to_id(void)
     }
     fclose(fp);
 }
-void AdvancedRuntimeDebloat::dump_datalog(void)
+void AdvancedRuntimeDebloat::dump_datalog_relations(void)
 {
     FILE *fp = fopen("artd-datalog.out", "w");
     dump_head(fp);
