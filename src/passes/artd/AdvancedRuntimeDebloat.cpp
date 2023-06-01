@@ -615,6 +615,8 @@ void AdvancedRuntimeDebloat::read_func_set_id_deck_root_pairs(void)
 //
 // TODO This is a copy-paste of code from the debloat_rt.cpp (see
 // _read_func_sets()).
+// 2023.06.01 UPDATE: not quite the same anymore. This version has to
+// call update_disjoint_sets().
 //
 // Read the all func set IDs and their corresponding func IDs into an array
 // of sets called "func_sets". func_sets is indexed by the func set ID. Each
@@ -649,14 +651,18 @@ void AdvancedRuntimeDebloat::read_func_set_id_to_funcs(void)
 
     while(getline(ifs, line)){
         vector<int> func_ids;
+        set<Function *> temp;
         elems = split_nonempty(line, ',');
         func_set_id = atoi(elems[0].c_str());
         assert(func_set_id == i);
         for(k = 1; k < elems.size(); k++){
-            func_ids.push_back(atoi(elems[k].c_str()));
+            int func_id = atoi(elems[k].c_str());
+            func_ids.push_back(func_id);
+            temp.insert(func_id_to_func[func_id]);
         }
         set<int> func_id_set(func_ids.begin(), func_ids.end());
         func_set_id_to_funcs.push_back(func_id_set);
+        update_disjoint_sets(temp);
         i++;
     }
 
@@ -2721,6 +2727,9 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
     instrument_main_end(M);
 
     // finalize disjoint sets
+    // XXX 2023.06.01 not "final" anymore. build_RPs will read
+    // func-set-id-to-funcs which will end up whittling down the disjoint
+    // sets further.
     finalize_disjoint_sets();
 
     if(ARTD_BUILD == ARTD_BUILD_RELEASE_E){
