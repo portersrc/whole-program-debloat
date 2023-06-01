@@ -3462,6 +3462,8 @@ artd_build_e AdvancedRuntimeDebloat::parseARTDBuildOpt(void)
         return ARTD_BUILD_TEST_PREDICT_E;
     }else if(ARTDBuild == "release"){
         return ARTD_BUILD_RELEASE_E;
+    }else if(ARTDBuild == "datalog"){
+        return ARTD_BUILD_DATALOG_E;
     }else{
         assert(0 && "ERROR: invalid artd-build option");
     }
