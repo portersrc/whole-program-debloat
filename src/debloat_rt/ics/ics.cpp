@@ -47,6 +47,10 @@ long long indirect_call_static_vararg_stack[INDIRECT_CALL_STATIC_VARARG_STATIC_S
 
 
 
+// TODO move to runtime
+#define TRACE_BUF_SZ (1<<3)
+int ics_trace_buf[TRACE_BUF_SZ];
+int ics_trace_buf_idx = 0;
 
 
 
@@ -554,6 +558,16 @@ int ics_release_rectify(int func_id)
     if(debrt_initialized && debrt_rectification_flags[func_id]){
         debrt_release_rectify(func_id);
     }
+    return 0;
+}
+}
+
+extern "C" {
+__attribute__((always_inline))
+int ics_release_trace(int callsite_id)
+{
+    ics_trace_buf[ics_trace_buf_idx] = callsite_id;
+    ics_trace_buf_idx = (ics_trace_buf_idx+1) & (TRACE_BUF_SZ-1);
     return 0;
 }
 }
