@@ -249,8 +249,8 @@ def spec_size():
 
 
 def main():
-    #spec_performance()
-    spec_security()
+    spec_performance()
+    #spec_security()
     #spec_size()
 
 
