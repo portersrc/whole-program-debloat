@@ -466,14 +466,14 @@ int ics_release_map_indirect_call(long long argc, ...)
     // We should always pass at least the func ptr target addr and
     // the deck ID, so argc should always be >= 2.
     // FIXME... dont assert in a real version of this.
-    assert(argc >= 2);
+    //assert(argc >= 2);
 
     // Make sure we have enough buffer space.
     // We need enough space to hold all the arguments,
     // which would be:
     //   argc <= INDIRECT_CALL_STATIC_VARARG_STATIC_SZ
     // FIXME... dont assert here in a real version of this.
-    assert(argc <= INDIRECT_CALL_STATIC_VARARG_STATIC_SZ);
+    //assert(argc <= INDIRECT_CALL_STATIC_VARARG_STATIC_SZ);
 
     // Element 0 of this vararg_stack will hold the number of elements to
     // follow. It's equivalent to argc.
