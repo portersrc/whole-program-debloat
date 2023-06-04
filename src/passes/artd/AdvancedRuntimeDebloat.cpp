@@ -33,6 +33,7 @@ using namespace std;
 
 
 #define INDIRECT_CALL_SINKING true
+#define ENABLE_RELEASE_TRACE_INSTRUMENTATION false
 
 
 typedef struct{
@@ -105,6 +106,7 @@ namespace {
         Function *ics_release_wrapper_debrt_protect_reachable_end_func;
         Function *ics_release_wrapper_debrt_protect_indirect_end_func;
         Function *ics_release_rectify_func;
+        Function *ics_release_trace_func;
         map<Function *, int> func_to_id;
         map<int, Function *> func_id_to_func;
         map<int, string> func_id_to_name;
@@ -201,7 +203,8 @@ namespace {
                          pair<Function *, CallBase *> parent_func);
         void instrument_after_invoke(InvokeInst *II,
                                      vector<Value *> &ArgsV,
-                                     Function *debrt_func);
+                                     Function *debrt_func,
+                                     bool insert_neg1_to_release_trace);
         void instrument_toplevel_func(Function *f, LoopInfo *LI);
         void instrument_indirect_and_external(Function *f, LoopInfo *LI);
         void instrument_external_call(Instruction &I,
@@ -266,7 +269,8 @@ namespace {
                                      Function *parent_func,
                                      Instruction *inst_to_follow,
                                      Function *func_to_instrument,
-                                     int func_or_loop_id);
+                                     int func_or_loop_id,
+                                     bool insert_neg1_to_release_trace);
         void push_arg(Value *argV, vector<Value *> &ArgsV, IRBuilder<> &builder, bool is_64);
         void fix_up_argsv_for_indirect(CallBase *CB,
                                        vector<Value *> &ArgsV,
@@ -880,7 +884,7 @@ void AdvancedRuntimeDebloat::instrument_sink_point(pair<Function *, CallBase *> 
         builder_end.CreateCall(debrt_protect_sink_end_func, ArgsV);
     }else if(II){
         errs() << "sink-instrument invoke case\n";
-        instrument_after_invoke(II, ArgsV, debrt_protect_sink_end_func);
+        instrument_after_invoke(II, ArgsV, debrt_protect_sink_end_func, false);
     }else{
         assert(0);
     }
@@ -1096,12 +1100,12 @@ void AdvancedRuntimeDebloat::instrument_loop(int func_id, Loop *loop)
             IRBuilder<> builder(TI);
             CallInst *ci = builder.CreateCall(debrt_protect_loop_func, ArgsV);
             if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
-                instrument_feature_pass(NULL, func_id_to_func[func_id], ci, debrt_profile_print_args_func, loop_id);
+                instrument_feature_pass(NULL, func_id_to_func[func_id], ci, debrt_profile_print_args_func, loop_id, false);
             }else if(ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E){
-                instrument_feature_pass(NULL, func_id_to_func[func_id], ci, debrt_test_predict_predict_func, loop_id);
+                instrument_feature_pass(NULL, func_id_to_func[func_id], ci, debrt_test_predict_predict_func, loop_id, false);
             }
         }else{
-            instrument_feature_pass(NULL, func_id_to_func[func_id], TI, debrt_release_predict_func, loop_id);
+            instrument_feature_pass(NULL, func_id_to_func[func_id], TI, debrt_release_predict_func, loop_id, false); // false because this is a loop
         }
 
         //Set of functions debloated within loop (Sharjeel)
@@ -1174,7 +1178,8 @@ void AdvancedRuntimeDebloat::extend_encompassed_funcs(void)
 
 void AdvancedRuntimeDebloat::instrument_after_invoke(InvokeInst *II,
                                                   vector<Value *> &ArgsV,
-                                                  Function *debrt_func)
+                                                  Function *debrt_func,
+                                                  bool insert_neg1_to_release_trace)
 {
     if(II->getCalledFunction()){
         //errs() << "function called: " << II->getCalledFunction()->getName() << "\n";
@@ -1222,7 +1227,13 @@ void AdvancedRuntimeDebloat::instrument_after_invoke(InvokeInst *II,
         // it used to work. Can fix when we do the TODO below
         builder_end.SetInsertPoint(ndi->getNextNode());
     }
-    builder_end.CreateCall(debrt_func, ArgsV);
+    CallInst *ci = builder_end.CreateCall(debrt_func, ArgsV);
+    if(ENABLE_RELEASE_TRACE_INSTRUMENTATION && insert_neg1_to_release_trace){
+        vector<Value *> ArgsV2;
+        IRBuilder<> builder2(ci);
+        ArgsV2.push_back(ConstantInt::get(int32Ty, -1, false));
+        builder2.CreateCall(ics_release_trace_func, ArgsV2);
+    }
 
 
     //
@@ -1420,7 +1431,13 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                                 vector<Value *> VarArgsV;
                                 VarArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
                                 fix_up_argsv_for_indirect(CB, VarArgsV, builder);
-                                builder.CreateCall(debrt_release_indirect_predict_func, VarArgsV);
+                                CallInst *ci = builder.CreateCall(debrt_release_indirect_predict_func, VarArgsV);
+                                if(ENABLE_RELEASE_TRACE_INSTRUMENTATION){
+                                    vector<Value *> ArgsV2;
+                                    IRBuilder<> builder2(ci);
+                                    ArgsV2.push_back(ConstantInt::get(int32Ty, -1, false));
+                                    builder2.CreateCall(ics_release_trace_func, ArgsV2);
+                                }
                             }
 
                             // instrument after indirect func call
@@ -1428,16 +1445,22 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                                 IRBuilder<> builder_end(CI);
                                 builder_end.SetInsertPoint(CI->getNextNode());
                                 if(ARTD_BUILD == ARTD_BUILD_RELEASE_E){
-                                    builder_end.CreateCall(ics_release_wrapper_debrt_protect_indirect_end_func, ArgsV);
+                                    CallInst *ci = builder_end.CreateCall(ics_release_wrapper_debrt_protect_indirect_end_func, ArgsV);
+                                    if(ENABLE_RELEASE_TRACE_INSTRUMENTATION){
+                                        vector<Value *> ArgsV2;
+                                        IRBuilder<> builder2(ci);
+                                        ArgsV2.push_back(ConstantInt::get(int32Ty, -1, false));
+                                        builder2.CreateCall(ics_release_trace_func, ArgsV2);
+                                    }
                                 }else{
                                     builder_end.CreateCall(debrt_protect_indirect_end_func, ArgsV);
                                 }
                             }else if(II){
                                 //errs() << "indirect func invoke case\n";
                                 if(ARTD_BUILD == ARTD_BUILD_RELEASE_E){
-                                    instrument_after_invoke(II, ArgsV, ics_release_wrapper_debrt_protect_indirect_end_func);
+                                    instrument_after_invoke(II, ArgsV, ics_release_wrapper_debrt_protect_indirect_end_func, true);
                                 }else{
-                                    instrument_after_invoke(II, ArgsV, debrt_protect_indirect_end_func);
+                                    instrument_after_invoke(II, ArgsV, debrt_protect_indirect_end_func, false);
                                 }
                             }else{
                                 assert(0);
@@ -1467,7 +1490,13 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                                 vector<Value *> VarArgsV;
                                 VarArgsV.push_back(builder.CreatePtrToInt(v, int64Ty));
                                 fix_up_argsv_for_indirect(CB, VarArgsV, builder);
-                                builder.CreateCall(ics_release_map_indirect_call_func, VarArgsV);
+                                CallInst *ci = builder.CreateCall(ics_release_map_indirect_call_func, VarArgsV);
+                                if(ENABLE_RELEASE_TRACE_INSTRUMENTATION){
+                                    vector<Value *> ArgsV2;
+                                    IRBuilder<> builder2(ci);
+                                    ArgsV2.push_back(ConstantInt::get(int32Ty, -1, false));
+                                    builder2.CreateCall(ics_release_trace_func, ArgsV2);
+                                }
                             }
 
                             // Note: We instrument after the indirect call if
@@ -1487,7 +1516,23 @@ void AdvancedRuntimeDebloat::instrument_indirect_and_external(Function *f, LoopI
                                     builder_end.CreateCall(ics_profile_end_indirect_call_func, ArgsV);
                                 }else if(II){
                                     //errs() << "indirect func invoke case\n";
-                                    instrument_after_invoke(II, ArgsV, ics_profile_end_indirect_call_func);
+                                    instrument_after_invoke(II, ArgsV, ics_profile_end_indirect_call_func, false);
+                                }else{
+                                    assert(0);
+                                }
+                            // UPDATE: not just for profiling. also need to
+                            // trace for release now.
+                            }else if(ENABLE_RELEASE_TRACE_INSTRUMENTATION && ARTD_BUILD == ARTD_BUILD_RELEASE_E){
+                                vector<Value *> ArgsV2;
+                                ArgsV2.push_back(ConstantInt::get(int32Ty, -1, false));
+                                // instrument after ics call
+                                if(CI){
+                                    IRBuilder<> builder_end(CI);
+                                    builder_end.SetInsertPoint(CI->getNextNode());
+                                    builder_end.CreateCall(ics_release_trace_func, ArgsV2);
+                                }else if(II){
+                                    //errs() << "indirect func invoke case\n";
+                                    instrument_after_invoke(II, ArgsV2, ics_release_trace_func, false); // false because here we just need ics-release-trace-func to get instrumented, which we're already providing
                                 }else{
                                     assert(0);
                                 }
@@ -1582,7 +1627,8 @@ void AdvancedRuntimeDebloat::instrument_feature_pass(CallBase *callsite,
                                                      Function *parent_func,
                                                      Instruction *inst_to_follow,
                                                      Function *func_to_instrument,
-                                                     int func_or_loop_id)
+                                                     int func_or_loop_id,
+                                                     bool insert_neg1_to_release_trace)
 {
     ////errs() << "inst to follow: " << inst_to_follow << "\n";
     //if(callsite){
@@ -1636,7 +1682,13 @@ void AdvancedRuntimeDebloat::instrument_feature_pass(CallBase *callsite,
 
     ArgsV[0] = llvm::ConstantInt::get(int32Ty, ArgsV.size() - 1, false);
 
-    builder.CreateCall(func_to_instrument, ArgsV);
+    CallInst *ci = builder.CreateCall(func_to_instrument, ArgsV);
+    if(ENABLE_RELEASE_TRACE_INSTRUMENTATION && insert_neg1_to_release_trace){
+        vector<Value *> ArgsV2;
+        IRBuilder<> builder2(ci);
+        ArgsV2.push_back(ConstantInt::get(int32Ty, -1, false));
+        builder2.CreateCall(ics_release_trace_func, ArgsV2);
+    }
 }
 
 void AdvancedRuntimeDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
@@ -1690,15 +1742,15 @@ void AdvancedRuntimeDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
                                 IRBuilder<> builder(CB);
                                 CallInst *ci = builder.CreateCall(debrt_protect_reachable_func, ArgsV);
                                 if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
-                                    instrument_feature_pass(CB, NULL, ci, debrt_profile_print_args_func, func_to_id[callee]);
+                                    instrument_feature_pass(CB, NULL, ci, debrt_profile_print_args_func, func_to_id[callee], false);
                                 }else if(ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E){
-                                    instrument_feature_pass(CB, NULL, ci, debrt_test_predict_predict_func, func_to_id[callee]);
+                                    instrument_feature_pass(CB, NULL, ci, debrt_test_predict_predict_func, func_to_id[callee], false);
                                 }else{
                                     assert(ARTD_BUILD == ARTD_BUILD_STATIC_E);
                                 }
                             }else{
                                 assert(ARTD_BUILD == ARTD_BUILD_RELEASE_E);
-                                instrument_feature_pass(CB, NULL, CB, debrt_release_predict_func, func_to_id[callee]);
+                                instrument_feature_pass(CB, NULL, CB, debrt_release_predict_func, func_to_id[callee], false); // false because this is a direct call. not adding -1 tracing for this.
                             }
 
                             if(CI){
@@ -1712,9 +1764,9 @@ void AdvancedRuntimeDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
                             }else if(II){
                                 //errs() << "no-instrument invoke case\n";
                                 if(ARTD_BUILD == ARTD_BUILD_RELEASE_E){
-                                    instrument_after_invoke(II, ArgsV, ics_release_wrapper_debrt_protect_reachable_end_func);
+                                    instrument_after_invoke(II, ArgsV, ics_release_wrapper_debrt_protect_reachable_end_func, false); // false because this is a direct call... dont want -1 value in the trace after a direct call.
                                 }else{
-                                    instrument_after_invoke(II, ArgsV, debrt_protect_reachable_end_func);
+                                    instrument_after_invoke(II, ArgsV, debrt_protect_reachable_end_func, false);
                                 }
                             }else{
                                 assert(0);
@@ -1736,7 +1788,7 @@ void AdvancedRuntimeDebloat::instrument_toplevel_func(Function *f, LoopInfo *LI)
                                 builder_end.CreateCall(debrt_protect_single_end_func, ArgsV);
                             }else if(II){
                                 //errs() << "yes-instrument invoke case\n";
-                                instrument_after_invoke(II, ArgsV, debrt_protect_single_end_func);
+                                instrument_after_invoke(II, ArgsV, debrt_protect_single_end_func, false);
                             }else{
                                 assert(0);
                             }
@@ -1858,16 +1910,16 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
             if(ARTD_BUILD != ARTD_BUILD_RELEASE_E){
                 CallInst *ci = builder.CreateCall(debrt_protect_reachable_func, ArgsV);
                 if(ARTD_BUILD == ARTD_BUILD_PROFILE_E){
-                    instrument_feature_pass(CB_external_call, NULL, ci, debrt_profile_print_args_func, func_to_id[callback]);
+                    instrument_feature_pass(CB_external_call, NULL, ci, debrt_profile_print_args_func, func_to_id[callback], false);
                 }else if(ARTD_BUILD == ARTD_BUILD_TEST_PREDICT_E){
-                    instrument_feature_pass(CB_external_call, NULL, ci, debrt_test_predict_predict_func, func_to_id[callback]);
+                    instrument_feature_pass(CB_external_call, NULL, ci, debrt_test_predict_predict_func, func_to_id[callback], false);
                 }else{
                     assert(ARTD_BUILD == ARTD_BUILD_STATIC_E);
                 }
                 end_call = debrt_protect_reachable_end_func;
             }else{
                 assert(ARTD_BUILD == ARTD_BUILD_RELEASE_E);
-                instrument_feature_pass(CB_external_call, NULL, CB_external_call, debrt_release_predict_func, func_to_id[callback]);
+                instrument_feature_pass(CB_external_call, NULL, CB_external_call, debrt_release_predict_func, func_to_id[callback], true); // true because this is an external call, so we need -1 tracing
                 end_call = ics_release_wrapper_debrt_protect_reachable_end_func;
             }
         }else{
@@ -1881,10 +1933,20 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
             //errs() << "call the external function\n";
             IRBuilder<> builder_end(CI_external_call);
             builder_end.SetInsertPoint(CI_external_call->getNextNode());
-            builder_end.CreateCall(end_call, ArgsV);
+            CallInst *ci = builder_end.CreateCall(end_call, ArgsV);
+            if(ENABLE_RELEASE_TRACE_INSTRUMENTATION && ARTD_BUILD == ARTD_BUILD_RELEASE_E){
+                vector<Value *> ArgsV2;
+                IRBuilder<> builder2(ci);
+                ArgsV2.push_back(ConstantInt::get(int32Ty, -1, false));
+                builder2.CreateCall(ics_release_trace_func, ArgsV2);
+            }
         }else if(II_external_call){
             //errs() << "invoke the external function\n";
-            instrument_after_invoke(II_external_call, ArgsV, end_call);
+            if(ARTD_BUILD == ARTD_BUILD_RELEASE_E){
+                instrument_after_invoke(II_external_call, ArgsV, end_call, true);
+            }else{
+                instrument_after_invoke(II_external_call, ArgsV, end_call, false);
+            }
         }else{
             assert(0);
         }
@@ -1975,7 +2037,24 @@ bool AdvancedRuntimeDebloat::instrument_external_with_callback(Instruction &I,
                 builder_end.CreateCall(ics_profile_end_indirect_call_func, ArgsV);
             }else if(II_external_call){
                 //errs() << "invoke the external function\n";
-                instrument_after_invoke(II_external_call, ArgsV, ics_profile_end_indirect_call_func);
+                instrument_after_invoke(II_external_call, ArgsV, ics_profile_end_indirect_call_func, false);
+            }else{
+                assert(0);
+            }
+        }
+        // UPDATE: need to trace for release
+        if(ARTD_BUILD == ARTD_BUILD_RELEASE_E){
+            vector<Value *> ArgsV2;
+            ArgsV2.push_back(ConstantInt::get(int32Ty, -1, false));
+            // instrument after external call
+            if(CI_external_call){
+                //errs() << "call the external function\n";
+                IRBuilder<> builder_end(CI_external_call);
+                builder_end.SetInsertPoint(CI_external_call->getNextNode());
+                builder_end.CreateCall(ics_release_trace_func, ArgsV2);
+            }else if(II_external_call){
+                //errs() << "invoke the external function\n";
+                instrument_after_invoke(II_external_call, ArgsV2, ics_release_trace_func, false); // false because we're passing ics-release-trace-func already here
             }else{
                 assert(0);
             }
@@ -2098,6 +2177,18 @@ void AdvancedRuntimeDebloat::build_basic_structs(Module &M)
                             // an ID to indirect calls. I don't think it assigns
                             // and ID to external calls either. This seems
                             // to be what I want, though.
+                            if(ENABLE_RELEASE_TRACE_INSTRUMENTATION && ARTD_BUILD == ARTD_BUILD_RELEASE_E){
+                                // XXX this is a hack.. shouldn't be doing this
+                                // here but it's saving me work. Basically we
+                                // are instrumenting release builds at all
+                                // direct callsites for tracing. going
+                                // to handle the indirect and external later in
+                                // this pass.
+                                vector<Value *> ArgsV;
+                                IRBuilder<> builder(cb);
+                                ArgsV.push_back(ConstantInt::get(int32Ty, callsite_counter, false));
+                                builder.CreateCall(ics_release_trace_func, ArgsV);
+                            }
                             callsite_to_id[cb] = callsite_counter;
                             belong[callsite_counter] = func_to_id[callee];
                             block_to_callsites[&B].push_back(cb);
@@ -2641,11 +2732,15 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
             Function::ExternalWeakLinkage,
             "ics_release_wrapper_debrt_protect_indirect_end",
             M);
-
     ics_release_rectify_func
       = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
             Function::ExternalWeakLinkage,
             "ics_release_rectify",
+            M);
+    ics_release_trace_func
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
+            Function::ExternalWeakLinkage,
+            "ics_release_trace",
             M);
 
     ics_func_names.insert("ics_static_map_indirect_call");
@@ -2660,6 +2755,7 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
     ics_func_names.insert("ics_release_wrapper_debrt_protect_reachable_end");
     ics_func_names.insert("ics_release_wrapper_debrt_protect_indirect_end");
     ics_func_names.insert("ics_release_rectify");
+    ics_func_names.insert("ics_release_trace");
 
 
 
