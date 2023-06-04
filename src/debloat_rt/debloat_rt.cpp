@@ -526,6 +526,7 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated,
     }
 }
 
+static inline
 int update_page_counts(int func_id, int addend)
 {
     static int debug_i = 0;
