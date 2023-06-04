@@ -423,9 +423,6 @@ int ics_release_map_indirect_call(long long argc, ...)
     long long fp_addr;
     //printf("ics_release_map_indirect_call\n");
 
-    if(!debrt_initialized){
-        return 0;
-    }
 
     va_start(ap, argc);
     fp_addr = va_arg(ap, long long);
@@ -455,6 +452,12 @@ int ics_release_map_indirect_call(long long argc, ...)
     if(cached_fp_addrs[x].fp_addr == fp_addr){
         //printf("--ics_release_map_indirect_call returning early due to cache hit\n");
         va_end(ap);
+        return 0;
+    }
+    // XXX move this after cache check. Don't want to pay the overhead for
+    // this every time.... doing it here means we only pay a little when
+    // we miss in the cache.
+    if(!debrt_initialized){
         return 0;
     }
 
