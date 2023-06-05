@@ -638,6 +638,14 @@ artd_static:  bc_artd artd_opt artd_pass_static  artd_ics_inline_static  artd_as
 artd_profile: bc_artd artd_opt artd_pass_profile artd_ics_inline_profile artd_assemble artd_bin_profile
 artd_test_predict: bc_artd artd_opt artd_pass_test_predict artd_ics_inline_test_predict artd_assemble artd_bin_test_predict
 artd_release: bc_artd artd_opt artd_pass_release artd_ics_inline_release artd_assemble artd_bin_release
+artd_pass_datalog:
+	opt \
+      --function-sections \
+      -load libAdvancedRuntimeDebloat.so \
+      -AdvancedRuntimeDebloat \
+      --artd-build=datalog \
+      < $(NUMBER).$(NAME)_ics_opt.bc \
+      > $(NUMBER).$(NAME)_datalog.bc
 else
 	$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) @$(OBJNAMES) $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
 endif

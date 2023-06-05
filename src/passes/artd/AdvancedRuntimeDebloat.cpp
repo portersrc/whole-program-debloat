@@ -3399,6 +3399,7 @@ void AdvancedRuntimeDebloat::dump_ensue(FILE *fp)
     fprintf(fp, "ensue(I, J) :- head(F, J), belong(I, F).\n");
     fprintf(fp, "ensue(I, J) :- next(G, I, J), belong(I, F), leaf(F).\n");
     fprintf(fp, "ensue(I, J) :- next(G, K, J), belong(K, F), last(F, I).\n");
+    fprintf(fp, "ensue(A, B)?\n");
 }
 
 
