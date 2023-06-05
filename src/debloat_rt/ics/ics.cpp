@@ -425,6 +425,7 @@ int ics_release_map_indirect_call(long long argc, long long fp_addr, ...)
 
     x = fp_addr;
     HASH_ADDR(x);
+    /*
 
     // FIXME future work possibly. There's a "bug" here (in test-predict, too,
     // presumably). It's not a correctness issue but could hurt prediction
@@ -446,6 +447,8 @@ int ics_release_map_indirect_call(long long argc, long long fp_addr, ...)
     // a new prediction even for the same fp-addr, etc. But runtime would need
     // to support all of this.
     if(cached_fp_addrs[x].fp_addr == fp_addr){
+    //if(__builtin_expect(cached_fp_addrs[x].fp_addr == fp_addr, 1)){
+    //if(cached_fp_addrs[x].fp_addr == fp_addr) [[likely]] {
         //printf("--ics_release_map_indirect_call returning early due to cache hit\n");
         return 0;
     }
@@ -483,6 +486,13 @@ int ics_release_map_indirect_call(long long argc, long long fp_addr, ...)
     // release mode will carry out the page-protection stuff.
 
     cached_fp_addrs[x].fp_addr = fp_addr;
+    */
+    if( (cached_fp_addrs[x].fp_addr != fp_addr) && debrt_initialized ){
+        va_start(ap, fp_addr);
+        debrt_release_indirect_predict_ics(argc, fp_addr, ap);
+        va_end(ap);
+        cached_fp_addrs[x].fp_addr = fp_addr;
+    }
 
     return 0;
 }
