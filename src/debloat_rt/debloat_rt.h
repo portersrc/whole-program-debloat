@@ -35,7 +35,7 @@ int debrt_test_predict_indirect_predict_ics(long long *varargs);
 int debrt_release_predict(int argc, ...);
 int debrt_release_rectify(int func_id);
 int debrt_release_indirect_predict(long long argc, ...);
-int debrt_release_indirect_predict_ics(long long *varargs);
+int debrt_release_indirect_predict_ics(long long num_args, long long fp_addr, va_list args);
 
 }
 

@@ -2720,7 +2720,7 @@ int debrt_release_indirect_predict(long long argc, ...)
 // One critical point is that because it comes from ics, it needs to grow the
 // predicted set (not replace it).
 extern "C" {
-int debrt_release_indirect_predict_ics(long long *varargs)
+int debrt_release_indirect_predict_ics(long long num_args, long long fp_addr, va_list args)
 {
     DEBRT_PRINTF("======================%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
@@ -2728,14 +2728,9 @@ int debrt_release_indirect_predict_ics(long long *varargs)
     int feature_buf[MAX_NUM_FEATURES];
     int i;
     int func_set_id;
-    long long num_args;
-    long long fp_addr;
 
     // XXX can we avoid this memset?
     memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
-
-    num_args = varargs[0];
-    fp_addr = varargs[1];
 
     if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){
         // See debrt_profile_indirect_print_args() for details on this case.
@@ -2754,7 +2749,7 @@ int debrt_release_indirect_predict_ics(long long *varargs)
     for(i = 1; i < num_args; i++){
         // FIXME see profile print args functions (normal and ics) which
         // also cast to int and drop info.
-        feature_buf[i] = (int) varargs[i+1];
+        feature_buf[i] = (int) va_arg(args, long long);
     }
 
     int rv = _release_predict(feature_buf, 1 /* is-from-indirect-call */);

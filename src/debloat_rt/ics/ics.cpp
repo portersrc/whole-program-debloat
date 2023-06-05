@@ -18,7 +18,7 @@ extern "C" {int debrt_profile_indirect_print_args_ics(long long *);}
 extern "C" {int debrt_profile_update_recorded_funcs(int);}
 extern "C" {int debrt_test_predict_indirect_predict_ics(long long *);}
 extern "C" {int debrt_release_rectify(int);}
-extern "C" {int debrt_release_indirect_predict_ics(long long *);}
+extern "C" {int debrt_release_indirect_predict_ics(long long, long long, va_list);}
 extern "C" {extern int *debrt_rectification_flags;}
 extern "C" {extern int debrt_initialized;}
 
@@ -415,17 +415,13 @@ int ics_test_predict_wrapper_debrt_protect_loop_end(int loop_id)
 // Element m: function pointer arg n (optional)
 extern "C" {
 __attribute__((always_inline))
-int ics_release_map_indirect_call(long long argc, ...)
+int ics_release_map_indirect_call(long long argc, long long fp_addr, ...)
 {
     long long x;
     int i;
     va_list ap;
-    long long fp_addr;
     //printf("ics_release_map_indirect_call\n");
 
-
-    va_start(ap, argc);
-    fp_addr = va_arg(ap, long long);
 
     x = fp_addr;
     HASH_ADDR(x);
@@ -451,7 +447,6 @@ int ics_release_map_indirect_call(long long argc, ...)
     // to support all of this.
     if(cached_fp_addrs[x].fp_addr == fp_addr){
         //printf("--ics_release_map_indirect_call returning early due to cache hit\n");
-        va_end(ap);
         return 0;
     }
     // XXX move this after cache check. Don't want to pay the overhead for
@@ -475,21 +470,9 @@ int ics_release_map_indirect_call(long long argc, ...)
     // FIXME... dont assert here in a real version of this.
     //assert(argc <= INDIRECT_CALL_STATIC_VARARG_STATIC_SZ);
 
-    // Element 0 of this vararg_stack will hold the number of elements to
-    // follow. It's equivalent to argc.
-    indirect_call_static_vararg_stack[0] = argc;
-    // push the fp-addr in first.
-    indirect_call_static_vararg_stack[1] = fp_addr;
-
-    // Start at i = 1, because we've already "popped" fp_addr from the valist.
-    // Note that on this first iteration, va_arg is going to return to us
-    // the deck ID, and it will go into idx 2 for our vararg_stack (as desired).
-    for(i = 1; i < argc; i++){
-        indirect_call_static_vararg_stack[i+1] = va_arg(ap, long long);
-    }
+    va_start(ap, fp_addr);
+    debrt_release_indirect_predict_ics(argc, fp_addr, ap);
     va_end(ap);
-
-    debrt_release_indirect_predict_ics(indirect_call_static_vararg_stack);
 
     // XXX no need to "reset" or do anything with vararg_stack between calls.
     // Whenever we invoke ics_release_map_indirect_call() again with a non-cached

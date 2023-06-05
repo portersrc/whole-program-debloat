@@ -539,7 +539,7 @@ artd_ics_inline_release_sed:
       's/declare i32 @debrt_protect_indirect.2(i64)$$//w sed_changes_1.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
-      's/declare extern_weak i32 @ics_release_map_indirect_call.12(i64, ...)//w sed_changes_2.txt' \
+      's/declare extern_weak i32 @ics_release_map_indirect_call.12(i64, i64, ...)//w sed_changes_2.txt' \
       $(NUMBER).$(NAME)_artd.ll
 	sed -i \
       's/ics_release_map_indirect_call.12/ics_release_map_indirect_call/w sed_changes_3.txt' \

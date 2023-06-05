@@ -2582,6 +2582,7 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
     Type *ArgTypes[] = { int32Ty };
     Type *ArgTypes2[] = { int32Ty, int32Ty };
     Type *ArgTypes64[] = { int64Ty };
+    Type *ArgTypes2_64[] = { int64Ty, int64Ty };
 
     debrt_init_func = Function::Create(FunctionType::get(int32Ty, ArgTypes2, false),
             Function::ExternalLinkage,
@@ -2713,7 +2714,7 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
             "ics_test_predict_wrapper_debrt_protect_loop_end",
             M);
     ics_release_map_indirect_call_func
-      = Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
+      = Function::Create(FunctionType::get(int32Ty, ArgTypes2_64, true),
             Function::ExternalWeakLinkage,
             "ics_release_map_indirect_call",
             M);
