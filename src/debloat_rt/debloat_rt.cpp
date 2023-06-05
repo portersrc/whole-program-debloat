@@ -2728,21 +2728,24 @@ int debrt_release_indirect_predict_ics(long long num_args, long long fp_addr, va
     int feature_buf[MAX_NUM_FEATURES];
     int i;
     int func_set_id;
+    int func_id;
 
-    // XXX can we avoid this memset?
-    memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
 
     if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){
         // See debrt_profile_indirect_print_args() for details on this case.
         DEBRT_PRINTF("----------------------WARNING: release-indirect-predict-ics fp_addr not found.\n");
         return 0;
     }
-    int func_id = func_addr_to_id[fp_addr];
+
+    func_id = func_addr_to_id[fp_addr];
 
     if(_ics_short_circuit(func_id)){
         DEBRT_PRINTF("----------------------%s short circuit\n", __FUNCTION__);
         return 0;
     }
+
+    // XXX can we avoid this memset?
+    memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
 
     // gather features into a buffer
     feature_buf[0] = func_id;
