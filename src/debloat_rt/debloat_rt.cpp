@@ -2723,7 +2723,7 @@ extern "C" {
 int debrt_release_indirect_predict_ics(long long num_args, long long fp_addr, va_list args)
 {
     DEBRT_PRINTF("======================%s\n", __FUNCTION__);
-    _WARN_RETURN_IF_NOT_INITIALIZED();
+    //_WARN_RETURN_IF_NOT_INITIALIZED(); // XXX ics already checks for initialization
 
     int feature_buf[MAX_NUM_FEATURES];
     int i;
