@@ -6,6 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 
 #include <iostream>
 #include <fstream>
@@ -156,11 +157,25 @@ int rectification_happened = 0;
 unsigned long long num_rectifies = 0;
 unsigned long long num_predicts_skipped_bc_rectified = 0;
 unsigned long long num_predicts = 0;
+unsigned long long num_invalid_ensues = 0;
+unsigned long long num_ensues_w_neg1 = 0;
+long read_ensue_time_ns;
+long debrt_init_time_ns;
 
 // A vector, indexed by function IDs.
 // An element is 1 if the function ID should trigger rectification, i.e.
 // the complement of the predicted set should be mapped. Else, it's 0.
 int *debrt_rectification_flags;
+
+
+// XXX If changing this, also change TRACE_BUF_SZ in ics.cpp
+#define DEBRT_TRACE_BUF_SZ (1<<3)
+map<int, set<int> > ensue;
+int ics_trace_buf[DEBRT_TRACE_BUF_SZ];
+int ics_trace_buf_idx = 0;
+int trace_callsite_id_0 = -1;
+int trace_callsite_id_1 = -1;
+
 
 // Using c++ hashmap support in ics code was causing problems, so for now, ics
 // code uses a cheap vector and hash function. Only profiling mode
@@ -240,6 +255,25 @@ vector<set<int> *> recorded_funcs_stack;
 
 
 int *stats_hist;
+
+
+
+static inline
+long timestamp_ns(void)
+{
+    struct timespec tv = {0};
+    if(clock_gettime(CLOCK_MONOTONIC, &tv) != 0){
+        fprintf(stderr, "ERROR timestamp_ns(): clock_gettime returned non-0\n");
+        exit(1); // FIXME
+        return -1;
+    }
+    return tv.tv_sec * 1000000000 + tv.tv_nsec;
+
+    //struct timeval tv;
+    //gettimeofday(&tv, NULL);
+    //return (tv.tv_sec * 1000000000) + (tv.tv_usec * 1000);
+}
+
 
 
 template<typename Out>
@@ -803,6 +837,39 @@ void _read_complement_sets(void)
 }
 
 
+void _read_ensue(void)
+{
+
+    string line;
+    ifstream ifs;
+    vector<string> elems;
+    long start_time_ns;
+
+    start_time_ns = timestamp_ns();
+
+    ifs.open("artd-datalog-ensue.out");
+    if(!ifs.is_open()) {
+        fprintf(stderr, "ERROR: Failed to open artd-datalog-ensue.out.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    int min_callsite_id = 2147483647;
+    int max_callsite_id = -1;
+    while(getline(ifs, line)){
+        // callsite_a: chop off "ensue("
+        // callsite_b: chop of prefix  " " and suffix  ")."
+        elems = split(line, ',');
+        int callsite_a = atoi(elems[0].substr(6).c_str());
+        int callsite_b = atoi(elems[1].substr(1, elems[1].length()-3).c_str());
+        assert(ensue[callsite_a].find(callsite_b) == ensue[callsite_a].end());
+        ensue[callsite_a].insert(callsite_b);
+        ensue[callsite_a].insert(callsite_b);
+    }
+
+    ifs.close();
+
+    read_ensue_time_ns = timestamp_ns() - start_time_ns;
+}
 
 
 void _read_readelf(void)
@@ -1451,6 +1518,10 @@ void _debrt_protect_destroy(void)
     //}
     //fprintf(fp_out, "\n");
 
+    fprintf(fp_out, "debrt_init_time_ns:    %ld\n",  debrt_init_time_ns);
+    fprintf(fp_out, "read_ensue_time_ns:    %ld\n",  read_ensue_time_ns);
+    fprintf(fp_out, "num_invalid_ensues:    %llu\n", num_invalid_ensues);
+    fprintf(fp_out, "num_ensues_w_neg1:     %llu\n", num_ensues_w_neg1);
     fprintf(fp_out, "num_rectifies:         %llu\n", num_rectifies);
     fprintf(fp_out, "num_predicts:          %llu\n", num_predicts);
     fprintf(fp_out, "num_predicts_skipped_bc_rectified: %llu\n", num_predicts_skipped_bc_rectified);
@@ -1530,6 +1601,10 @@ int debrt_init(int main_func_id, int sink_is_enabled)
 {
     int e;
     const char *output_filename;
+    long start_time_ns;
+
+    start_time_ns = timestamp_ns();
+
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     DEBRT_PRINTF("main_func_id: %d\n", main_func_id);
     DEBRT_PRINTF("sink_is_enabled: %d\n", sink_is_enabled);
@@ -1605,6 +1680,7 @@ int debrt_init(int main_func_id, int sink_is_enabled)
         _read_func_sets();
         _read_complement_sets(); // XXX should be called AFTER _read_func_sets()
         debrt_rectification_flags = (int *) calloc(func_id_to_name.size(), sizeof(int));
+        _read_ensue();
     }
 
 
@@ -1671,8 +1747,12 @@ int debrt_init(int main_func_id, int sink_is_enabled)
         _profile_init();
     }
 
+    // memset -1 still works in 2's complement...
+    memset(ics_trace_buf, -1, sizeof(int) * DEBRT_TRACE_BUF_SZ);
+
     debrt_initialized = 1;
 
+    debrt_init_time_ns = timestamp_ns() - start_time_ns;
 
     return 0;
 }
@@ -2480,6 +2560,32 @@ int debrt_test_predict_indirect_predict_ics(long long *varargs)
 }
 
 
+
+
+void _path_check(void)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    // Approach A: maintain history in hard-coded variables; here we use 2.
+    if(trace_callsite_id_0 >= 0 && trace_callsite_id_1 >= 0){
+        if(ensue[trace_callsite_id_0].find(trace_callsite_id_1) == ensue[trace_callsite_id_0].end()){
+            DEBRT_PRINTF("%s: invalid call sequence (%d, %d)\n", __FUNCTION__,
+              trace_callsite_id_0, trace_callsite_id_1);
+            // invalid call sequence
+            num_invalid_ensues++;
+            //exit(43);
+        }
+    }else{
+        num_ensues_w_neg1++;
+    }
+
+    // Approach B: circular buffer of size DEBRT_TRACE_BUF_SZ
+    //int i;
+    //for(i = 0; i < DEBRT_TRACE_BUF_SZ; i++){
+    //    // TODO
+    //}
+}
+
+
 extern "C" {
 int debrt_release_rectify(int func_id)
 {
@@ -2502,6 +2608,8 @@ int debrt_release_rectify(int func_id)
     // Flag the fact that we had to use rectification for the current deck.
     // It will get reset to 0 when the deck completes (a protect-end call)
     rectification_happened = 1;
+
+    _path_check();
 
     _write_mapped_pages_to_file(rv, true, "rectify");
 
