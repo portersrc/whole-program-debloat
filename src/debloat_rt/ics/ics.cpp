@@ -22,6 +22,17 @@ extern "C" {int debrt_release_indirect_predict_ics(long long, long long, va_list
 extern "C" {extern int *debrt_rectification_flags;}
 extern "C" {extern int debrt_initialized;}
 
+// XXX If changing TRACE_BUF_SZ, then also change DEBRT_TRACE_BUF_SZ in debloat_rt.cpp.
+#define TRACE_BUF_SZ (1<<3)
+//int ics_trace_buf[TRACE_BUF_SZ];
+//int ics_trace_buf_idx = 0;
+//int trace_callsite_id_0 = -1;
+//int trace_callsite_id_1 = -1;
+extern "C" {extern int ics_trace_buf[TRACE_BUF_SZ];}
+extern "C" {extern int ics_trace_buf_idx = 0;}
+extern "C" {extern int trace_callsite_id_0 = -1;}
+extern "C" {extern int trace_callsite_id_1 = -1;}
+
 
 typedef struct{
     long long fp_addr;  // a function pointer address
@@ -47,10 +58,6 @@ long long indirect_call_static_vararg_stack[INDIRECT_CALL_STATIC_VARARG_STATIC_S
 
 
 
-// TODO move to runtime
-#define TRACE_BUF_SZ (1<<3)
-int ics_trace_buf[TRACE_BUF_SZ];
-int ics_trace_buf_idx = 0;
 
 
 
@@ -562,8 +569,13 @@ extern "C" {
 __attribute__((always_inline))
 int ics_release_trace(int callsite_id)
 {
-    ics_trace_buf[ics_trace_buf_idx] = callsite_id;
-    ics_trace_buf_idx = (ics_trace_buf_idx+1) & (TRACE_BUF_SZ-1);
+    // Approach A: circular buffer of size TRACE_BUF_SZ
+    //ics_trace_buf[ics_trace_buf_idx] = callsite_id;
+    //ics_trace_buf_idx = (ics_trace_buf_idx+1) & (TRACE_BUF_SZ-1);
+
+    // Approach B: maintain history in hard-coded variables; here we use 2.
+    trace_callsite_id_0 = trace_callsite_id_1;
+    trace_callsite_id_1 = callsite_id;
     return 0;
 }
 }
