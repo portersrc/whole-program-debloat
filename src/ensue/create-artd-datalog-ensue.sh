@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "See comments in this script and edit to run"
+echo "See comment in this script"
 
 #
 # This is a one-liner script, but I'm checking in for the record.
