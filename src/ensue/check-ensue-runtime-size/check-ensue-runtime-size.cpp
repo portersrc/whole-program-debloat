@@ -86,6 +86,8 @@ void _read_ensue(void)
     i = 0;
     getline(ifs, line); // parse out the header
 
+    int min_callsite_id = 2147483647;
+    int max_callsite_id = -1;
     while(getline(ifs, line)){
         // callsite_a: chop off "ensue("
         // callsite_b: chop of prefix  " " and suffix  ")."
@@ -94,12 +96,27 @@ void _read_ensue(void)
         int callsite_a = atoi(elems[0].substr(6).c_str());
         int callsite_b = atoi(elems[1].substr(1, elems[1].length()-3).c_str());
 
+        if(callsite_a > max_callsite_id){
+            max_callsite_id = callsite_a;
+        }
+        if(callsite_b > max_callsite_id){
+            max_callsite_id = callsite_b;
+        }
+        if(callsite_a < min_callsite_id){
+            min_callsite_id = callsite_a;
+        }
+        if(callsite_b < min_callsite_id){
+            min_callsite_id = callsite_b;
+        }
+
         //cout << callsite_a << " " << callsite_b << "\n";
         assert(ensue[callsite_a].find(callsite_b) == ensue[callsite_a].end());
         ensue[callsite_a].insert(callsite_b);
         ensue[callsite_a].insert(callsite_b);
 
     }
+    printf("\nMin callsite ID: %d\n\n", min_callsite_id);
+    printf("\nMax callsite ID: %d\n\n", max_callsite_id);
 
     ifs.close();
 }
