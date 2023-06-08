@@ -10,15 +10,30 @@
 //   https://ewx.livejournal.com/579283.html
 //
 // At the end of the data, though, the idea is:
-//   Grab the "VmData" field, say, and then rebuild and rerun the program
-//   without _read_ensue(), and do record the "VmData" field again. The
-//   difference is the size of the ensue data structure.
+//   Use the "VmData" field.
+//   Run this program:
+//     ./a.out no
+//   This runs it without reading ensue data.
+//   Use the points above to go into the /proc/<pid> and get VmData.
+//   At the time of this writing, VmData without reading ensue is:
+//     VmData:      224 kB
+//   Rerun this program:
+//     ./a.out yes
+//   Capture the VmData as before (cat /proc/<pid>/status and look at VmData).
+//   The difference between the VmData sizes is the size of the ensue structure in memory.
+//
+//
+// Assumption: In this folder, symlink the artd-datalog-ensue.out file to
+// check, e.g.
+//   $ rm -f artd-datalog-ensue.out
+//   $ ln -s /home/rudy/wo/spec/spec2017/benchspec/CPU/520.omnetpp_r/build/build_peak_mytest-m64.0000/artd-datalog-ensue.out
 //
 //
 
 #include <stdio.h>
 #include <unistd.h>
 #include <assert.h>
+#include <string.h>
 
 #include <iostream>
 #include <string>
@@ -89,10 +104,36 @@ void _read_ensue(void)
     ifs.close();
 }
 
-
-int main(void)
+void err_and_exit(void)
 {
-    _read_ensue();
+    fprintf(stderr, "\nERROR: Incorrect args. Pass \"yes\" or \"no\" to read or not read ensue.\n\n");
+    exit(1);
+}
+
+int parse_args(int argc, char **argv)
+{
+    if(argc != 2){
+        err_and_exit();
+    }
+    if(0 == strncmp("yes", argv[1], 3)){
+        return 1;
+    }else if(0 == strncmp("no", argv[1], 3)){
+        return 0;
+    }
+    err_and_exit();
+    return -1;
+}
+
+int main(int argc, char *argv[])
+{
+    int yes_read_ensue = parse_args(argc, argv);
+    if(yes_read_ensue){
+        printf("\nReading ensue relations from ./artd-data-log-ensue.out\n\n");
+        _read_ensue();
+    }else{
+        printf("\nNot reading any ensue relations\n\n");
+    }
+
     while(1){
         printf("my pid is: %d\n", getpid());
         sleep(3);
