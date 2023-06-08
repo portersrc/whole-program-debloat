@@ -57,6 +57,10 @@ int ENV_DEBRT_ENABLE_TEST_PREDICTION = 0;
 // To enable, set env var DEBRT_ENABLE_RELEASE=1
 int ENV_DEBRT_ENABLE_RELEASE = 0;
 
+// dont want to slow down release runs, so uncomment this and rebuild
+// to enable some extra metrics.
+#define DEBRT_ENABLE_RELEASE_METRICS
+
 #define DEBRT_INDIRECT_CALL_SINKING 1
 
 
@@ -147,6 +151,10 @@ unsigned long long num_func_calls_wrap = 0;
 unsigned long long num_mispredictions = 0;
 int pred_set_initialized = 0;
 int rectification_happened = 0;
+
+unsigned long long num_rectifies = 0;
+unsigned long long num_predicts_skipped_bc_rectified = 0;
+unsigned long long num_predicts = 0;
 
 // A vector, indexed by function IDs.
 // An element is 1 if the function ID should trigger rectification, i.e.
@@ -1442,6 +1450,9 @@ void _debrt_protect_destroy(void)
     //}
     //fprintf(fp_out, "\n");
 
+    fprintf(fp_out, "num_rectifies:         %llu\n", num_rectifies);
+    fprintf(fp_out, "num_predicts:          %llu\n", num_predicts);
+    fprintf(fp_out, "num_predicts_skipped_bc_rectified: %llu\n", num_predicts_skipped_bc_rectified);
     fprintf(fp_out, "num_mispredictions:    %llu\n", num_mispredictions);
     fprintf(fp_out, "num_func_calls:        %llu\n", num_func_calls);
     fprintf(fp_out, "num_func_calls_wrap:   %llu\n", num_func_calls_wrap);
@@ -1703,6 +1714,7 @@ int _release_end(void)
         // rectification-happened flag, and unmap all the complement
         // functions.
         rectification_happened = 0;
+        num_rectifies++;
         for(set<int> *complement_set_p_tmp : pred_set_complements){
             for(int complement_func_id : (*complement_set_p_tmp)){
                 rv += update_page_counts(complement_func_id, -1);
@@ -2535,6 +2547,7 @@ int _release_predict(int *feature_buf, int is_from_indirect_call)
 
     if(rectification_happened){
         //_RELEASE_MAP_FULL_DECK();
+        num_predicts_skipped_bc_rectified++;
         DEBRT_PRINTF("Rectification has already happened: Grab the full deck " \
                      "for func_or_loop_id=%d, deck_id=%d\n",
                      func_or_loop_id, feature_buf[1]);
@@ -2549,6 +2562,7 @@ int _release_predict(int *feature_buf, int is_from_indirect_call)
         pred_set_complement_p = &empty_set;
     }else{
         // Get a new prediction
+        num_predicts++;
         func_set_id = debrt_decision_tree(feature_buf);
         if(func_set_id == -1){
             //_RELEASE_MAP_FULL_DECK();
