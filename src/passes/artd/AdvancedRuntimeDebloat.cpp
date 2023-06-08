@@ -293,6 +293,7 @@ struct artd_stats{
     int sink_fail_no_calles;
     int sink_fail_due_to_visited;
     int sink_fail_thresh_check;
+    int num_RPs;
 }stats;
 
 
@@ -563,6 +564,7 @@ void AdvancedRuntimeDebloat::instrument_RPs(void)
                             ArgsV.push_back(ConstantInt::get(int32Ty, callee_func_id, false));
                             IRBuilder<> builder(CB);
                             CallInst *ci = builder.CreateCall(ics_release_rectify_func, ArgsV);
+                            stats.num_RPs++;
                         }
                     }
                 }
@@ -3177,6 +3179,7 @@ void AdvancedRuntimeDebloat::dump_stats(void)
     fprintf(fp, "  we revisited a function: %d\n", stats.sink_fail_due_to_visited);
     fprintf(fp, "  the union and intersection threshold check failed: %d\n",
                   stats.sink_fail_thresh_check);
+    fprintf(fp, "Number of rectifcation points inserted: %d\n", stats.num_RPs);
     fclose(fp);
 }
 void AdvancedRuntimeDebloat::dump_deck_id_to_caller_callee(void)
