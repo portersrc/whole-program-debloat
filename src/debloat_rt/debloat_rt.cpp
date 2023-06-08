@@ -59,6 +59,7 @@ int ENV_DEBRT_ENABLE_RELEASE = 0;
 
 // dont want to slow down release runs, so uncomment this and rebuild
 // to enable some extra metrics.
+// TODO
 #define DEBRT_ENABLE_RELEASE_METRICS
 
 #define DEBRT_INDIRECT_CALL_SINKING 1
