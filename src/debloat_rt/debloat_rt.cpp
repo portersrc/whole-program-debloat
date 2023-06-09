@@ -26,7 +26,7 @@
 
 using namespace std;
 
-#define DEBRT_ENABLE_RELEASE_PATH_CHECKING
+//#define DEBRT_ENABLE_RELEASE_PATH_CHECKING
 
 
 // FIXME DEBUG ONLY
@@ -2587,8 +2587,8 @@ void _path_check(void)
     // Approach B: circular buffer of size DEBRT_TRACE_BUF_SZ
     int i;
     for(i = 0; i < DEBRT_TRACE_BUF_SZ; i++){
-        prev_b = (ics_trace_buf_idx-1) & (DEBRT_TRACE_BUF_SZ-1);
-        prev_a = (prev_b-1) & (DEBRT_TRACE_BUF_SZ-1);
+        int prev_b = (ics_trace_buf_idx-1) & (DEBRT_TRACE_BUF_SZ-1);
+        int prev_a = (prev_b-1) & (DEBRT_TRACE_BUF_SZ-1);
         if(prev_a >= 0 && prev_b >= 0){
             if(ensue[prev_a].find(prev_b) == ensue[prev_a].end()){
                 DEBRT_PRINTF("%s: invalid call sequence (%d, %d)\n", __FUNCTION__,
