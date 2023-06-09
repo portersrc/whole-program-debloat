@@ -26,6 +26,9 @@
 
 using namespace std;
 
+#define DEBRT_ENABLE_RELEASE_PATH_CHECKING
+
+
 // FIXME DEBUG ONLY
 // FIXME DEBUG ONLY
 // FIXME DEBUG ONLY
@@ -1680,7 +1683,9 @@ int debrt_init(int main_func_id, int sink_is_enabled)
         _read_func_sets();
         _read_complement_sets(); // XXX should be called AFTER _read_func_sets()
         debrt_rectification_flags = (int *) calloc(func_id_to_name.size(), sizeof(int));
+#ifdef DEBRT_ENABLE_RELEASE_PATH_CHECKING
         _read_ensue();
+#endif
     }
 
 
@@ -2565,6 +2570,7 @@ static inline
 void _path_check(void)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
+
     // Approach A: maintain history in hard-coded variables; here we use 2.
     if(trace_callsite_id_0 >= 0 && trace_callsite_id_1 >= 0){
         if(ensue[trace_callsite_id_0].find(trace_callsite_id_1) == ensue[trace_callsite_id_0].end()){
@@ -2609,7 +2615,9 @@ int debrt_release_rectify(int func_id)
     // It will get reset to 0 when the deck completes (a protect-end call)
     rectification_happened = 1;
 
+#ifdef DEBRT_ENABLE_RELEASE_PATH_CHECKING
     _path_check();
+#endif
 
     _write_mapped_pages_to_file(rv, true, "rectify");
 
