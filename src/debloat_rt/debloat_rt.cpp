@@ -2561,7 +2561,7 @@ int debrt_test_predict_indirect_predict_ics(long long *varargs)
 
 
 
-
+static inline
 void _path_check(void)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
