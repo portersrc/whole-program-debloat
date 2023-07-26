@@ -646,6 +646,14 @@ artd_pass_datalog:
       --artd-build=datalog \
       < $(NUMBER).$(NAME)_ics_opt.bc \
       > $(NUMBER).$(NAME)_datalog.bc
+artd_pass_maymust:
+	opt \
+      --function-sections \
+      -load libAdvancedRuntimeDebloat.so \
+      -AdvancedRuntimeDebloat \
+      --artd-build=maymust \
+      < $(NUMBER).$(NAME)_ics_opt.bc \
+      > $(NUMBER).$(NAME)_maymust.bc
 else
 	$(LD) $(LDFLAGS) $(LD$(PRIMARY_BENCHLANG)FLAGS) $(EXTRA_LDFLAGS) $(FDO_LDFLAGS) $(FDO_LD$(PRIMARY_BENCHLANG)FLAGS) $(LDOPTFLAGS) @$(OBJNAMES) $(FINAL_LIBS) $(FINAL_LDOPTIONS) $(LDOUT) $(LDOUT_OPTIONS) $(LDOUT_EXTRA_OPTIONS)
 endif
