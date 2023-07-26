@@ -2572,42 +2572,42 @@ void _path_check(void)
     DEBRT_PRINTF("%s\n", __FUNCTION__);
 
     // Approach A: maintain history in hard-coded variables; here we use 2.
-    //if(trace_callsite_id_0 >= 0 && trace_callsite_id_1 >= 0){
-    //    if(ensue[trace_callsite_id_0].find(trace_callsite_id_1) == ensue[trace_callsite_id_0].end()){
-    //        DEBRT_PRINTF("%s: invalid call sequence (%d, %d)\n", __FUNCTION__,
-    //          trace_callsite_id_0, trace_callsite_id_1);
-    //        // invalid call sequence
-    //        num_invalid_ensues++;
-    //        //exit(43);
-    //    }
-    //}else{
-    //    num_ensues_w_neg1++;
-    //}
+    if(trace_callsite_id_0 >= 0 && trace_callsite_id_1 >= 0){
+        if(ensue[trace_callsite_id_0].find(trace_callsite_id_1) == ensue[trace_callsite_id_0].end()){
+            DEBRT_PRINTF("%s: invalid call sequence (%d, %d)\n", __FUNCTION__,
+              trace_callsite_id_0, trace_callsite_id_1);
+            // invalid call sequence
+            num_invalid_ensues++;
+            //exit(43);
+        }
+    }else{
+        num_ensues_w_neg1++;
+    }
 
     // Approach B: circular buffer of size DEBRT_TRACE_BUF_SZ
-    int i;
-    for(i = 0; i < DEBRT_TRACE_BUF_SZ; i++){
-        int prev_b = (ics_trace_buf_idx-1) & (DEBRT_TRACE_BUF_SZ-1);
-        int prev_a = (prev_b-1) & (DEBRT_TRACE_BUF_SZ-1);
-        if(prev_a >= 0 && prev_b >= 0){
-            if(ensue[prev_a].find(prev_b) == ensue[prev_a].end()){
-                DEBRT_PRINTF("%s: invalid call sequence (%d, %d)\n", __FUNCTION__,
-                  prev_a, prev_b);
-                // invalid call sequence
-                num_invalid_ensues++;
-                //exit(43);
-            }
-        }else{
-            // FIXME this is not totally correct b/c of initialization state,
-            // because we're iterating over all elements in the trace buffer,
-            // so it's going to catch more ensues w/ -1 than is actually
-            // the case. I don't think im relying or using this
-            // metric at the moment, though. To get this correct requires
-            // more logic, which is slower, and at a certain point just
-            // requires a metric-only run where i ignore performance.
-            num_ensues_w_neg1++;
-        }
-    }
+    //int i;
+    //for(i = 0; i < DEBRT_TRACE_BUF_SZ; i++){
+    //    int prev_b = (ics_trace_buf_idx-1) & (DEBRT_TRACE_BUF_SZ-1);
+    //    int prev_a = (prev_b-1) & (DEBRT_TRACE_BUF_SZ-1);
+    //    if(prev_a >= 0 && prev_b >= 0){
+    //        if(ensue[prev_a].find(prev_b) == ensue[prev_a].end()){
+    //            DEBRT_PRINTF("%s: invalid call sequence (%d, %d)\n", __FUNCTION__,
+    //              prev_a, prev_b);
+    //            // invalid call sequence
+    //            num_invalid_ensues++;
+    //            //exit(43);
+    //        }
+    //    }else{
+    //        // FIXME this is not totally correct b/c of initialization state,
+    //        // because we're iterating over all elements in the trace buffer,
+    //        // so it's going to catch more ensues w/ -1 than is actually
+    //        // the case. I don't think im relying or using this
+    //        // metric at the moment, though. To get this correct requires
+    //        // more logic, which is slower, and at a certain point just
+    //        // requires a metric-only run where i ignore performance.
+    //        num_ensues_w_neg1++;
+    //    }
+    //}
 }
 
 

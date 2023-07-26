@@ -570,12 +570,12 @@ __attribute__((always_inline))
 int ics_release_trace(int callsite_id)
 {
     // Approach A: maintain history in hard-coded variables; here we use 2.
-    //trace_callsite_id_0 = trace_callsite_id_1;
-    //trace_callsite_id_1 = callsite_id;
+    trace_callsite_id_0 = trace_callsite_id_1;
+    trace_callsite_id_1 = callsite_id;
 
     // Approach B: circular buffer of size TRACE_BUF_SZ
-    ics_trace_buf[ics_trace_buf_idx] = callsite_id;
-    ics_trace_buf_idx = (ics_trace_buf_idx+1) & (TRACE_BUF_SZ-1);
+    //ics_trace_buf[ics_trace_buf_idx] = callsite_id;
+    //ics_trace_buf_idx = (ics_trace_buf_idx+1) & (TRACE_BUF_SZ-1);
 
     return 0;
 }
