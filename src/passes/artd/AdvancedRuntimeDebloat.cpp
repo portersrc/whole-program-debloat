@@ -47,6 +47,7 @@ typedef enum{
     ARTD_BUILD_TEST_PREDICT_E,
     ARTD_BUILD_RELEASE_E,
     ARTD_BUILD_DATALOG_E,
+    ARTD_BUILD_MAYMUST_E,
 }artd_build_e;
 
 
@@ -167,6 +168,9 @@ namespace {
         set<int> leaf; // a set of func IDs
         map<int, int> belong; // a map from callsite ID to func ID
         map<BasicBlock *, vector<CallBase *> > block_to_callsites;
+        map<Function *, int> func_to_num_calls;
+        int total_num_calls;
+        int total_antic_calls;
 
         void getAnalysisUsage(AnalysisUsage &AU) const
         {
@@ -280,6 +284,10 @@ namespace {
 
         void capture_ensue(Module &M);
         void capture_ensue_aux(Function &F);
+
+        void capture_maymust(Module &M);
+        void capture_maymust_aux_callbase_notright(Function &F);
+        void capture_maymust_aux(Function &F);
 
 
     };
@@ -2195,6 +2203,8 @@ void AdvancedRuntimeDebloat::build_basic_structs(Module &M)
                             belong[callsite_counter] = func_to_id[callee];
                             block_to_callsites[&B].push_back(cb);
                             callsite_counter++;
+                            func_to_num_calls[&F]++;
+
                             // update adj_list
                             adj_list[&F].insert(callee);
                             if(li && li->getLoopFor(&B)){
@@ -2782,6 +2792,14 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
         dump_datalog_relations();
         return false;
     }
+    if(ARTD_BUILD == ARTD_BUILD_MAYMUST_E){
+        total_num_calls = 0;
+        total_antic_calls = 0;
+        capture_maymust(M);
+        errs() << "total-number-of-calls: " << total_num_calls << "\n";
+        errs() << "total-number-of-anticipated-calls: " << total_antic_calls << "\n";
+        return false;
+    }
 
     if(ENABLE_BASIC_INDIRECT_CALL_STATIC_ANALYSIS){
         // Build a map of func -> set of parents that can reach it.
@@ -2835,6 +2853,151 @@ bool AdvancedRuntimeDebloat::runOnModule_real(Module &M)
         build_RPs();
         instrument_RPs();
     }
+}
+
+
+void AdvancedRuntimeDebloat::capture_maymust_aux(Function &F)
+{
+    errs() << "Processing " << F.getName() << "\n";
+
+    map<BasicBlock *, set<Function *> > in_antic;
+    map<BasicBlock *, set<Function *> > out_antic;
+
+    int func_id = func_to_id[&F];
+
+    // anticipated  (backward):
+    // OUT_ANTIC[B] = INTERSECT_{S succ of B} IN_ANTIC[S]
+    // IN_ANTIC[B]  = OUT_ANTIC[B] U called_in[B]
+
+    bool changed = true;
+    while(changed){
+        changed = false;
+        for(BasicBlock &B : F){
+
+            set<Function *> old_in_antic = in_antic[&B];
+
+            //BasicBlock *single = B.getSingleSuccessor();
+
+            succ_iterator SI = succ_begin(&B);
+            succ_iterator SE = succ_end(&B);
+            if(SI == SE){
+                // no successors
+                // nothing to do
+            }else{
+                if((SI+1) == SE){
+                    // single successor at SI
+                    for(Function *f : in_antic[(*SI)]){
+                        out_antic[&B].insert(f);
+                    }
+                }else{
+                    // multiple successors
+                    succ_iterator SI = succ_begin(&B);
+                    while((SI+1) != SE){
+                        set_intersection(in_antic[(*SI)].begin(),
+                                         in_antic[(*SI)].end(),
+                                         in_antic[(*(SI+1))].begin(),
+                                         in_antic[(*(SI+1))].end(),
+                                         inserter(out_antic[&B], out_antic[&B].end()));
+                        SI++;
+                    }
+                }
+            }
+
+            for(CallBase *CB : block_to_callsites[&B]){
+                Function *callee = CB->getCalledFunction();
+                in_antic[&B].insert(callee);
+            }
+
+            if(in_antic[&B] != old_in_antic){
+                changed = true;
+            }
+        }
+    }
+
+    //errs() << "  number of calls:             " << func_to_num_calls[&F] << "\n";
+    //errs() << "  number of anticipated calls: " << in_antic[&(F.getEntryBlock())].size() << "\n";
+    //total_num_calls   += func_to_num_calls[&F];
+    //total_antic_calls += in_antic[&(F.getEntryBlock())].size();
+
+    total_num_calls   += adj_list[&F].size();
+    total_antic_calls += in_antic[&(F.getEntryBlock())].size();
+
+}
+
+
+// XXX this function can probably be deleted, but I'm leaving now for
+// posterity. I believe it was done incorrectly. It calculates the
+// anticipated function calls based on the CallBase, which is basically
+// just the callsite. And that's not what we want, I don't think. I think
+// the result for this was like 91% MAY cases. But if you're using callsites
+// like this, I think this just devolves into a postdom question. That's
+// not what we want. We want to know about which /functions/ are getting
+// called, not which callsites are getting hit. For example, if foo invokes
+// bar in two different places, we care if bar MAY or MUST get called, not
+// if callsite-1-bar MAY or MUST get called and callsite-2-bar MAY or MUST
+// get called.
+void AdvancedRuntimeDebloat::capture_maymust_aux_callbase_notright(Function &F)
+{
+    errs() << "Processing " << F.getName() << "\n";
+
+    map<BasicBlock *, set<CallBase *> > in_antic;
+    map<BasicBlock *, set<CallBase *> > out_antic;
+
+    int func_id = func_to_id[&F];
+
+    // anticipated  (backward):
+    // OUT_ANTIC[B] = INTERSECT_{S succ of B} IN_ANTIC[S]
+    // IN_ANTIC[B]  = OUT_ANTIC[B] U called_in[B]
+
+    bool changed = true;
+    while(changed){
+        changed = false;
+        for(BasicBlock &B : F){
+
+            set<CallBase *> old_in_antic = in_antic[&B];
+
+            //BasicBlock *single = B.getSingleSuccessor();
+
+            succ_iterator SI = succ_begin(&B);
+            succ_iterator SE = succ_end(&B);
+            if(SI == SE){
+                // no successors
+                // nothing to do
+            }else{
+                if((SI+1) == SE){
+                    // single successor at SI
+                    for(CallBase *n : in_antic[(*SI)]){
+                        out_antic[&B].insert(n);
+                    }
+                }else{
+                    // multiple successors
+                    succ_iterator SI = succ_begin(&B);
+                    while((SI+1) != SE){
+                        set_intersection(in_antic[(*SI)].begin(),
+                                         in_antic[(*SI)].end(),
+                                         in_antic[(*(SI+1))].begin(),
+                                         in_antic[(*(SI+1))].end(),
+                                         inserter(out_antic[&B], out_antic[&B].end()));
+                        SI++;
+                    }
+                }
+            }
+
+            for(CallBase *CB : block_to_callsites[&B]){
+                in_antic[&B].insert(CB);
+            }
+
+            if(in_antic[&B] != old_in_antic){
+                changed = true;
+            }
+        }
+    }
+
+    //errs() << "  number of calls:             " << func_to_num_calls[&F] << "\n";
+    //errs() << "  number of anticipated calls: " << in_antic[&(F.getEntryBlock())].size() << "\n";
+    total_num_calls   += func_to_num_calls[&F];
+    total_antic_calls += in_antic[&(F.getEntryBlock())].size();
+
 }
 
 
@@ -2947,13 +3110,23 @@ void AdvancedRuntimeDebloat::capture_ensue_aux(Function &F)
 }
 
 
-
 void AdvancedRuntimeDebloat::capture_ensue(Module &M)
 {
     errs() << "Capturing ensue relation\n";
     for(Function &F : M){
         if(F.hasName() && !F.isDeclaration()){
             capture_ensue_aux(F);
+        }
+    }
+}
+
+
+void AdvancedRuntimeDebloat::capture_maymust(Module &M)
+{
+    errs() << "Capturing maymust\n";
+    for(Function &F : M){
+        if(F.hasName() && !F.isDeclaration()){
+            capture_maymust_aux(F);
         }
     }
 }
@@ -3576,6 +3749,8 @@ artd_build_e AdvancedRuntimeDebloat::parseARTDBuildOpt(void)
         return ARTD_BUILD_RELEASE_E;
     }else if(ARTDBuild == "datalog"){
         return ARTD_BUILD_DATALOG_E;
+    }else if(ARTDBuild == "maymust"){
+        return ARTD_BUILD_MAYMUST_E;
     }else{
         assert(0 && "ERROR: invalid artd-build option");
     }
