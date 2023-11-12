@@ -26,6 +26,9 @@ src/size-increase/*-sizes.out
 test/04_test/ics.ll
 test/04_test/linker.py
 test/07_test
+test/08_test/linker.py
+test/09_test/linker.py
+test/10_test/linker.py
 .gdb_history
 ics.ll
 src/learning/static-reachability-files/*.txt
