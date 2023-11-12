@@ -60,3 +60,5 @@ src/learning/04/
 src/ensue/check-ensue-runtime-size/a.out
 src/ensue/check-ensue-runtime-size/artd-datalog-ensue.out
 src/gadget/ics_linker.csv
+src/learning/old-linker-disjoint-sets/
+src/learning/new-linker-disjoint-sets/
