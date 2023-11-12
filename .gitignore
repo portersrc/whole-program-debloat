@@ -69,3 +69,5 @@ src/gadget/resultsartd_release-05-18/
 src/gadget/resultsartd_release
 src/learning/*-hist*output/
 src/ensue/test-background-jobs/
+src/learning/backup-outputs.sh
+src/learning/grab-files.sh
