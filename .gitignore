@@ -63,3 +63,5 @@ src/gadget/ics_linker.csv
 src/learning/old-linker-disjoint-sets/
 src/learning/new-linker-disjoint-sets/
 src/debloat_rt/DTs/
+src/learning/decision_tree/some-dt-stats.txt
+src/learning/decision_tree/some-dt-stats-2.txt
