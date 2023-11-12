@@ -5,10 +5,10 @@
 #include <assert.h>
 
 
-// Set the buffer size here.
-// addresses are 8 bytes (long long)
-// the recorded flags are 8 bytes (long long)
-#define MAX_CACHED_FP_ADDRS_SZ (1<<20) // 1 * 16B = 16MB
+// Set the number of buffer elements here.
+// cached_fp_addrs is an array of fp_addr_recorded_t elements,
+// which are 16B each.
+#define MAX_CACHED_FP_ADDRS_SZ (1<<20) // Will result in cache size of 1MB * 16B = 16MB
 
 extern "C" {int debrt_protect_indirect(long long);}
 extern "C" {int debrt_protect_loop_end(int);}
