@@ -160,6 +160,7 @@ int rectification_happened = 0;
 unsigned long long num_rectifies = 0;
 unsigned long long num_predicts_skipped_bc_rectified = 0;
 unsigned long long num_predicts = 0;
+//unsigned long long num_indirect_predicts = 0;
 unsigned long long num_invalid_ensues = 0;
 unsigned long long num_ensues_w_neg1 = 0;
 long read_ensue_time_ns;
@@ -1527,6 +1528,7 @@ void _debrt_protect_destroy(void)
     fprintf(fp_out, "num_ensues_w_neg1:     %llu\n", num_ensues_w_neg1);
     fprintf(fp_out, "num_rectifies:         %llu\n", num_rectifies);
     fprintf(fp_out, "num_predicts:          %llu\n", num_predicts);
+    //fprintf(fp_out, "num_indirect_predicts: %llu\n", num_indirect_predicts);
     fprintf(fp_out, "num_predicts_skipped_bc_rectified: %llu\n", num_predicts_skipped_bc_rectified);
     fprintf(fp_out, "num_mispredictions:    %llu\n", num_mispredictions);
     fprintf(fp_out, "num_func_calls:        %llu\n", num_func_calls);
@@ -2699,6 +2701,9 @@ int _release_predict(int *feature_buf, int is_from_indirect_call)
     }else{
         // Get a new prediction
         num_predicts++;
+        //if(is_from_indirect_call){
+        //    num_indirect_predicts++;
+        //}
         func_set_id = debrt_decision_tree(feature_buf);
         if(func_set_id == -1){
             //_RELEASE_MAP_FULL_DECK();
