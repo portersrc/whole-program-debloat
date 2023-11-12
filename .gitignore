@@ -68,3 +68,4 @@ src/learning/decision_tree/some-dt-stats-2.txt
 src/gadget/resultsartd_release-05-18/
 src/gadget/resultsartd_release
 src/learning/*-hist*output/
+src/ensue/test-background-jobs/
