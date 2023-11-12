@@ -223,7 +223,11 @@ clean:
       $(NUMBER).$(NAME)_artd.o \
       $(NUMBER).$(NAME)_artd.ll \
       func-set-ids-to-funcs.out \
-      training-data.out
+      training-data.out \
+      08.flagboy_artd_static \
+      08.flagboy_artd_test_predict \
+      08.flagboy_base \
+      base.out
 .PHONY: clean
 
 
