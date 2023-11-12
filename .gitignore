@@ -29,3 +29,4 @@ test/07_test
 .gdb_history
 ics.ll
 src/learning/static-reachability-files/*.txt
+hack*.sh
