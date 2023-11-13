@@ -2612,18 +2612,6 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
             Function::ExternalLinkage,
             "debrt_protect_single_end",
             M);
-    //debrt_protect_reachable_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
-    //        Function::ExternalLinkage,
-    //        "debrt_protect_reachable",
-    //        M);
-    //debrt_protect_reachable_end_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
-    //        Function::ExternalLinkage,
-    //        "debrt_protect_reachable_end",
-    //        M);
-    //debrt_protect_reachable_func
-    //  = M.getFunction("debrt_protect_reachable");
-    //debrt_protect_reachable_end_func
-    //  = M.getFunction("debrt_protect_reachable_end");
     debrt_protect_reachable_func = (Function *) (M.getOrInsertFunction(
         "debrt_protect_reachable",
         FunctionType::get(int32Ty, ArgTypes, false)).getCallee());
@@ -2634,22 +2622,6 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
             Function::ExternalLinkage,
             "debrt_protect_loop",
             M);
-    //debrt_protect_loop_end_func = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
-    //        Function::ExternalLinkage,
-    //        "debrt_protect_loop_end",
-    //        M);
-    //debrt_protect_indirect_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
-    //        Function::ExternalLinkage,
-    //        "debrt_protect_indirect",
-    //        M);
-    //debrt_protect_indirect_end_func = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
-    //        Function::ExternalLinkage,
-    //        "debrt_protect_indirect_end",
-    //        M);
-    //debrt_protect_indirect_func
-    //  = M.getFunction("debrt_protect_indirect");
-    //debrt_protect_indirect_end_func
-    //  = M.getFunction("debrt_protect_indirect_end");
     debrt_protect_indirect_func = (Function *) (M.getOrInsertFunction(
         "debrt_protect_indirect",
         FunctionType::get(int32Ty, ArgTypes64, false)).getCallee());
@@ -2708,73 +2680,6 @@ void AdvancedRuntimeDebloat::artd_init(Module &M)
             "debrt_release_indirect_predict",
             M);
 
-
-    // FIXME ? not sure if external weak linkage is what i want here
-    //ics_static_map_indirect_call_func
-    //  = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
-    //        Function::ExternalWeakLinkage,
-    //        "ics_static_map_indirect_call",
-    //        M);
-    //ics_static_wrapper_debrt_protect_loop_end_func
-    //  = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
-    //        Function::ExternalWeakLinkage,
-    //        "ics_static_wrapper_debrt_protect_loop_end",
-    //        M);
-    //ics_profile_map_indirect_call_func
-    //  = Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
-    //        Function::ExternalWeakLinkage,
-    //        "ics_profile_map_indirect_call",
-    //        M);
-    //ics_profile_end_indirect_call_func
-    //  = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
-    //        Function::ExternalWeakLinkage,
-    //        "ics_profile_end_indirect_call",
-    //        M);
-    //ics_profile_wrapper_debrt_protect_loop_end_func
-    //  = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
-    //        Function::ExternalWeakLinkage,
-    //        "ics_profile_wrapper_debrt_protect_loop_end",
-    //        M);
-    //ics_test_predict_map_indirect_call_func
-    //  = Function::Create(FunctionType::get(int32Ty, ArgTypes64, true),
-    //        Function::ExternalWeakLinkage,
-    //        "ics_test_predict_map_indirect_call",
-    //        M);
-    //ics_test_predict_wrapper_debrt_protect_loop_end_func
-    //  = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
-    //        Function::ExternalWeakLinkage,
-    //        "ics_test_predict_wrapper_debrt_protect_loop_end",
-    //        M);
-    //ics_release_map_indirect_call_func
-    //  = Function::Create(FunctionType::get(int32Ty, ArgTypes2_64, true),
-    //        Function::ExternalWeakLinkage,
-    //        "ics_release_map_indirect_call",
-    //        M);
-    //ics_release_wrapper_debrt_protect_loop_end_func
-    //  = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
-    //        Function::ExternalWeakLinkage,
-    //        "ics_release_wrapper_debrt_protect_loop_end",
-    //        M);
-    //ics_release_wrapper_debrt_protect_reachable_end_func
-    //  = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
-    //        Function::ExternalWeakLinkage,
-    //        "ics_release_wrapper_debrt_protect_reachable_end",
-    //        M);
-    //ics_release_wrapper_debrt_protect_indirect_end_func
-    //  = Function::Create(FunctionType::get(int32Ty, ArgTypes64, false),
-    //        Function::ExternalWeakLinkage,
-    //        "ics_release_wrapper_debrt_protect_indirect_end",
-    //        M);
-    //ics_release_rectify_func
-    //  = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
-    //        Function::ExternalWeakLinkage,
-    //        "ics_release_rectify",
-    //        M);
-    //ics_release_trace_func
-    //  = Function::Create(FunctionType::get(int32Ty, ArgTypes, false),
-    //        Function::ExternalWeakLinkage,
-    //        "ics_release_trace",
-    //        M);
 
     ics_static_map_indirect_call_func
       = M.getFunction("ics_static_map_indirect_call");
