@@ -337,7 +337,7 @@ namespace {
                                      Function **funcs_to_instrument,
                                      int func_or_loop_id,
                                      bool insert_neg1_to_release_trace);
-        void push_arg(Value *argV, vector<Value *> &ArgsV, IRBuilder<> &builder, bool is_64);
+        int push_arg(Value *argV, vector<Value *> &ArgsV, IRBuilder<> &builder, bool is_64);
         void fix_up_argsv_for_indirect_deprecated(CallBase *CB,
                                        vector<Value *> &ArgsV,
                                        IRBuilder<> &builder);
@@ -1476,8 +1476,7 @@ int AdvancedRuntimeDebloat::fix_up_argsv_for_indirect(CallBase *CB,
 
     // remaining elements are arguments to the function pointer call
     for(auto it_arg = CB->arg_begin(); it_arg != CB->arg_end(); it_arg++){
-        push_arg((Value *) *it_arg, ArgsV, builder, true);
-        num_args_pushed++;
+        num_args_pushed += push_arg((Value *) *it_arg, ArgsV, builder, true);
         if(num_args_pushed == MAX_VARARGS_SUPPORTED){
             break;
         }
@@ -1688,7 +1687,8 @@ void AdvancedRuntimeDebloat::instrument(void)
     }
 }
 
-void AdvancedRuntimeDebloat::push_arg(Value *argV, vector<Value *> &ArgsV, IRBuilder<> &builder, bool is_64)
+// TODO support more arg types? should catch boolean at least, right?
+int AdvancedRuntimeDebloat::push_arg(Value *argV, vector<Value *> &ArgsV, IRBuilder<> &builder, bool is_64)
 {
     if((argV->getType()->isIntegerTy()
      || argV->getType()->isFloatTy()
@@ -1722,16 +1722,18 @@ void AdvancedRuntimeDebloat::push_arg(Value *argV, vector<Value *> &ArgsV, IRBui
                 //    castedArg = builder.CreatePtrToInt(funcArg, int32Ty);
                 //}
                 // Don't train on pointer values
-                return;
+                return 0;
             }
 
             if(castedArg == nullptr){
-                return;
+                return 0;
             }
             ArgsV.push_back(castedArg);
+            return 1; // arg was pushed, so return 1
             //errs() << "pushing: " << *castedArg << "\n";
         }
     }
+    return 0;
 }
 
 void AdvancedRuntimeDebloat::instrument_feature_pass_deprecated(CallBase *callsite,
@@ -1835,8 +1837,7 @@ void AdvancedRuntimeDebloat::instrument_feature_pass(CallBase *callsite,
     if(callsite){
         assert(func_or_loop_id >= 0);
         for(auto it_arg = callsite->arg_begin(); it_arg != callsite->arg_end(); it_arg++){
-            push_arg((Value *) *it_arg, ArgsV, builder, false);
-            num_args_pushed++;
+            num_args_pushed += push_arg((Value *) *it_arg, ArgsV, builder, false);
             if(num_args_pushed == MAX_VARARGS_SUPPORTED){
                 break;
             }
@@ -1847,8 +1848,7 @@ void AdvancedRuntimeDebloat::instrument_feature_pass(CallBase *callsite,
             // XXX I've tested this cast and it works. Reason, I think, is that
             // it_arg iterates over Argument types (no pointer). And Argument
             // is derived from Value. Hence, it_arg is a Value *.
-            push_arg((Value *) it_arg, ArgsV, builder, false);
-            num_args_pushed++;
+            num_args_pushed += push_arg((Value *) it_arg, ArgsV, builder, false);
             if(num_args_pushed == MAX_VARARGS_SUPPORTED){
                 break;
             }
