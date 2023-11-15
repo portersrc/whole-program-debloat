@@ -375,7 +375,12 @@ def write_output():
     fp_deck_root_out = open(DECK_ROOT_FILENAME, 'w')
 
     # Write the samples to file.
-    fp_train_out.write('func_set_id,feature0,feature1,feature2,feature3,feature4,feature5,feature6,feature7,feature8,feature9\n')
+    # As of this writing, the compiler pass has:
+    #   #define MAX_VARARGS_SUPPORTED 5
+    # So our header here should have:
+    #   the target func-set-id, the func-id/loop-id, and up to 5 args as features
+    # Thus, it has the func-set-id and 7 features (feature0-feature6).
+    fp_train_out.write('func_set_id,feature0,feature1,feature2,feature3,feature4,feature5,feature6\n')
     for sample in samples:
         fp_train_out.write(str(sample) + '\n')
 
