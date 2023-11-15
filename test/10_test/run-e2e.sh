@@ -11,6 +11,9 @@ RT_BASE_PATH=/home/rudy/wo/advanced-rtd/whole-program-debloat/src/debloat_rt
 PROJ_BASE_PATH=/home/rudy/wo/advanced-rtd/whole-program-debloat
 BMARK_NAME=10-test
 
+# Oddity with this test makefile. Just do this first...
+make obj
+
 # Build and run profile
 make artd_profile ; echo $?
 DEBRT_ENABLE_STATS=1 DEBRT_ENABLE_PROFILING=1 ./run.sh artd_profile; echo $?
