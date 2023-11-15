@@ -113,7 +113,8 @@ int lib_destroyed = 0;
 // XXX this could be read in? It varies based on the benchmark. we have
 // an assert in case this is violated. Could double size or fix properly
 // if that happens
-const int MAX_NUM_FEATURES = 64;
+//const int MAX_NUM_FEATURES = 64;
+const int MAX_NUM_FEATURES = 7;
 
 const int CALLSITE_ID_IDX    = 0;
 const int CALLED_FUNC_ID_IDX = 1;
@@ -2243,8 +2244,8 @@ int debrt_protect_sink_end(int sink_id)
 // if there are 0 arguments to the deck, then argc=2; if there is 1 argument to
 // the deck, then argc=3; and so on.
 //
-extern "C" {
-int debrt_profile_print_args(int argc, ...)
+static inline
+int _profile_print_args(int argc, ...)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
@@ -2264,7 +2265,58 @@ int debrt_profile_print_args(int argc, ...)
     }
     return 0;
 }
+extern "C" {
+int debrt_profile_print_args_0(int func_or_loop_id, int deck_id)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _profile_print_args(2, func_or_loop_id, deck_id);
 }
+}
+extern "C" {
+int debrt_profile_print_args_1(int func_or_loop_id, int deck_id,
+  int arg1)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _profile_print_args(2+1, func_or_loop_id, deck_id, arg1);
+}
+}
+extern "C" {
+int debrt_profile_print_args_2(int func_or_loop_id, int deck_id,
+  int arg1, int arg2)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _profile_print_args(2+2, func_or_loop_id, deck_id, arg1, arg2);
+}
+}
+extern "C" {
+int debrt_profile_print_args_3(int func_or_loop_id, int deck_id,
+  int arg1, int arg2, int arg3)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _profile_print_args(2+3, func_or_loop_id, deck_id, arg1, arg2, arg3);
+}
+}
+extern "C" {
+int debrt_profile_print_args_4(int func_or_loop_id, int deck_id,
+  int arg1, int arg2, int arg3, int arg4)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _profile_print_args(2+4, func_or_loop_id, deck_id, arg1, arg2, arg3,
+                                                              arg4);
+}
+}
+extern "C" {
+int debrt_profile_print_args_5(int func_or_loop_id, int deck_id,
+  int arg1, int arg2, int arg3, int arg4, int arg5)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _profile_print_args(2+5, func_or_loop_id, deck_id, arg1, arg2, arg3,
+                                                              arg4, arg5);
+}
+}
+
+
+
 extern "C" {
 int debrt_profile_trace(int func_id)
 {
@@ -2282,8 +2334,8 @@ int debrt_profile_trace(int func_id)
     return 0;
 }
 }
-extern "C" {
-int debrt_profile_indirect_print_args(long long argc, ...)
+static inline
+int _profile_indirect_print_args(long long argc, ...)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
@@ -2320,6 +2372,54 @@ int debrt_profile_indirect_print_args(long long argc, ...)
 
     }
     return 0;
+}
+extern "C" {
+int debrt_profile_indirect_print_args_0(long long fp_addr, long long deck_id)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _profile_indirect_print_args(2, fp_addr, deck_id);
+}
+}
+extern "C" {
+int debrt_profile_indirect_print_args_1(long long fp_addr, long long deck_id,
+  long long arg1)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _profile_indirect_print_args(2+1, fp_addr, deck_id, arg1);
+}
+}
+extern "C" {
+int debrt_profile_indirect_print_args_2(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _profile_indirect_print_args(2+2, fp_addr, deck_id, arg1, arg2);
+}
+}
+extern "C" {
+int debrt_profile_indirect_print_args_3(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _profile_indirect_print_args(2+3, fp_addr, deck_id, arg1, arg2, arg3);
+}
+}
+extern "C" {
+int debrt_profile_indirect_print_args_4(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _profile_indirect_print_args(2+4, fp_addr, deck_id, arg1, arg2, arg3,
+                                                              arg4);
+}
+}
+extern "C" {
+int debrt_profile_indirect_print_args_5(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4, long long arg5)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _profile_indirect_print_args(2+5, fp_addr, deck_id, arg1, arg2, arg3,
+                                                              arg4, arg5);
 }
 }
 //
@@ -2429,8 +2529,8 @@ int debrt_test_predict_trace(int func_id)
 }
 
 // Issue a prediction
-extern "C" {
-int debrt_test_predict_predict(int argc, ...)
+static inline
+int _test_predict_predict(int argc, ...)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
@@ -2466,11 +2566,60 @@ int debrt_test_predict_predict(int argc, ...)
 
     return 0;
 }
+extern "C" {
+int debrt_test_predict_predict_0(int func_or_loop_id, int deck_id)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _test_predict_predict(2, func_or_loop_id, deck_id);
+}
+}
+extern "C" {
+int debrt_test_predict_predict_1(int func_or_loop_id, int deck_id,
+  int arg1)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _test_predict_predict(2+1, func_or_loop_id, deck_id, arg1);
+}
+}
+extern "C" {
+int debrt_test_predict_predict_2(int func_or_loop_id, int deck_id,
+  int arg1, int arg2)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _test_predict_predict(2+2, func_or_loop_id, deck_id, arg1, arg2);
+}
+}
+extern "C" {
+int debrt_test_predict_predict_3(int func_or_loop_id, int deck_id,
+  int arg1, int arg2, int arg3)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _test_predict_predict(2+3, func_or_loop_id, deck_id, arg1, arg2,
+                                 arg3);
+}
+}
+extern "C" {
+int debrt_test_predict_predict_4(int func_or_loop_id, int deck_id,
+  int arg1, int arg2, int arg3, int arg4)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _test_predict_predict(2+4, func_or_loop_id, deck_id, arg1, arg2,
+                                 arg3, arg4);
+}
+}
+extern "C" {
+int debrt_test_predict_predict_5(int func_or_loop_id, int deck_id,
+  int arg1, int arg2, int arg3, int arg4, int arg5)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _test_predict_predict(2+5, func_or_loop_id, deck_id, arg1, arg2,
+                                 arg3, arg4, arg5);
+}
 }
 
 // Issue a prediction for an indirect call (which is not from ics).
-extern "C" {
-int debrt_test_predict_indirect_predict(long long argc, ...)
+static inline
+int _test_predict_indirect_predict(long long argc, ...)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
@@ -2513,6 +2662,55 @@ int debrt_test_predict_indirect_predict(long long argc, ...)
     pred_set_initialized = 1;
 
     return 0;
+}
+extern "C" {
+int debrt_test_predict_indirect_predict_0(long long fp_addr, long long deck_id)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _test_predict_indirect_predict(2, fp_addr, deck_id);
+}
+}
+extern "C" {
+int debrt_test_predict_indirect_predict_1(long long fp_addr, long long deck_id,
+  long long arg1)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _test_predict_indirect_predict(2+1, fp_addr, deck_id, arg1);
+}
+}
+extern "C" {
+int debrt_test_predict_indirect_predict_2(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _test_predict_indirect_predict(2+2, fp_addr, deck_id, arg1, arg2);
+}
+}
+extern "C" {
+int debrt_test_predict_indirect_predict_3(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _test_predict_indirect_predict(2+3, fp_addr, deck_id, arg1, arg2,
+                                          arg3);
+}
+}
+extern "C" {
+int debrt_test_predict_indirect_predict_4(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _test_predict_indirect_predict(2+4, fp_addr, deck_id, arg1, arg2,
+                                          arg3, arg4);
+}
+}
+extern "C" {
+int debrt_test_predict_indirect_predict_5(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4, long long arg5)
+{
+    DEBRT_PRINTF("%s\n", __FUNCTION__);
+    return _test_predict_indirect_predict(2+5, fp_addr, deck_id, arg1, arg2,
+                                          arg3, arg4, arg5);
 }
 }
 
@@ -2784,6 +2982,15 @@ int _release_predict(int *feature_buf, int is_from_indirect_call)
 }
 
 
+#define RELEASE_PREDICT_BEGIN \
+    DEBRT_PRINTF("======================%s\n", __FUNCTION__); \
+    _WARN_RETURN_IF_NOT_INITIALIZED(); \
+    int feature_buf[MAX_NUM_FEATURES];
+#define RELEASE_PREDICT_END \
+    int rv = _release_predict(feature_buf, 0 /* is-from-indirect-call */); \
+    _write_mapped_pages_to_file(rv, true, "predict"); \
+    DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__); \
+    return 0;
 // This function does the following:
 // 1. Extracts the args
 // 2. Makes the prediction
@@ -2792,80 +2999,206 @@ int _release_predict(int *feature_buf, int is_from_indirect_call)
 // 4. Maps the predicted set
 // 5. Marks the rectification flags
 extern "C" {
-int debrt_release_predict(int argc, ...)
+int debrt_release_predict_0(int func_or_loop_id, int deck_id)
 {
-    DEBRT_PRINTF("======================%s\n", __FUNCTION__);
-    _WARN_RETURN_IF_NOT_INITIALIZED();
-    int i;
-    va_list ap;
-    int feature_buf[MAX_NUM_FEATURES];
-
-    // XXX can we avoid this memset?
-    memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
-
-    // gather features into a buffer
-    va_start(ap, argc);
-    for(i = 0; i < argc; i++){
-        feature_buf[i] = va_arg(ap, int);
-    }
-    va_end(ap);
-
-    int rv = _release_predict(feature_buf, 0 /* is-from-indirect-call */);
-    _write_mapped_pages_to_file(rv, true, "predict");
-    DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__);
-    return 0;
+    RELEASE_PREDICT_BEGIN;
+    feature_buf[0] = func_or_loop_id;
+    feature_buf[1] = deck_id;
+    //memset(feature_buf+2, 0, (MAX_NUM_FEATURES-2) * sizeof(int)); // XXX can we avoid this memset?
+    feature_buf[2] = 0;
+    feature_buf[3] = 0;
+    feature_buf[4] = 0;
+    feature_buf[5] = 0;
+    feature_buf[6] = 0;
+    RELEASE_PREDICT_END;
 }
 }
-
-
 extern "C" {
-int debrt_release_indirect_predict(long long argc, ...)
+int debrt_release_predict_1(int func_or_loop_id, int deck_id,
+  int arg1)
 {
-    DEBRT_PRINTF("======================%s\n", __FUNCTION__);
-    _WARN_RETURN_IF_NOT_INITIALIZED();
+    RELEASE_PREDICT_BEGIN;
+    feature_buf[0] = func_or_loop_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = 0;
+    feature_buf[4] = 0;
+    feature_buf[5] = 0;
+    feature_buf[6] = 0;
+    RELEASE_PREDICT_END;
+}
+}
+extern "C" {
+int debrt_release_predict_2(int func_or_loop_id, int deck_id,
+  int arg1, int arg2)
+{
+    RELEASE_PREDICT_BEGIN;
+    feature_buf[0] = func_or_loop_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = arg2;
+    feature_buf[4] = 0;
+    feature_buf[5] = 0;
+    feature_buf[6] = 0;
+    RELEASE_PREDICT_END;
+}
+}
+extern "C" {
+int debrt_release_predict_3(int func_or_loop_id, int deck_id,
+  int arg1, int arg2, int arg3)
+{
+    RELEASE_PREDICT_BEGIN;
+    feature_buf[0] = func_or_loop_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = arg2;
+    feature_buf[4] = arg3;
+    feature_buf[5] = 0;
+    feature_buf[6] = 0;
+    RELEASE_PREDICT_END;
+}
+}
+extern "C" {
+int debrt_release_predict_4(int func_or_loop_id, int deck_id,
+  int arg1, int arg2, int arg3, int arg4)
+{
+    RELEASE_PREDICT_BEGIN;
+    feature_buf[0] = func_or_loop_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = arg2;
+    feature_buf[4] = arg3;
+    feature_buf[5] = arg4;
+    feature_buf[6] = 0;
+    RELEASE_PREDICT_END;
+}
+}
+extern "C" {
+int debrt_release_predict_5(int func_or_loop_id, int deck_id,
+  int arg1, int arg2, int arg3, int arg4, int arg5)
+{
+    RELEASE_PREDICT_BEGIN;
+    feature_buf[0] = func_or_loop_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = arg2;
+    feature_buf[4] = arg3;
+    feature_buf[5] = arg4;
+    feature_buf[6] = arg5;
+    RELEASE_PREDICT_END;
+}
+}
 
-    int i;
-    int feature_buf[MAX_NUM_FEATURES];
-    long long fp_addr;
-    va_list ap;
 
-    // XXX can we avoid this memset?
-    memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
-
-
-    // gather features into a buffer
-    va_start(ap, argc);
-    fp_addr = va_arg(ap, long long);
-
-    if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){
-        // See debrt_protect_indirect() for how this can happen.
-        // Should be fine to ignore
-        DEBRT_PRINTF("----------------------WARNING: release-indirect-predict fp_addr not found.\n");
-        return 0;
+#define RELEASE_INDIRECT_PREDICT_BEGIN \
+    DEBRT_PRINTF("======================%s\n", __FUNCTION__); \
+    _WARN_RETURN_IF_NOT_INITIALIZED(); \
+    int feature_buf[MAX_NUM_FEATURES]; \
+    if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){ \
+        DEBRT_PRINTF("----------------------WARNING: release-indirect-predict fp_addr not found.\n"); /* See debrt_protect_indirect() for how this can happen.  Should be fine to ignore */ \
+        return 0; \
+    } \
+    int func_id = func_addr_to_id[fp_addr]; \
+    if(_ics_short_circuit(func_id)){ /* not needed...but doing anyway */ \
+        DEBRT_PRINTF("----------------------%s short circuit\n", __FUNCTION__); \
+        return 0; \
     }
-    int func_id = func_addr_to_id[fp_addr];
-
-    if(_ics_short_circuit(func_id)){ // not needed...but doing anyway
-        DEBRT_PRINTF("----------------------%s short circuit\n", __FUNCTION__);
-        return 0;
-    }
-
-    feature_buf[0] = func_id;
-
-    for(i = 1; i < argc; i++){
-        feature_buf[i] = (int) va_arg(ap, long long);
-    }
-    va_end(ap);
-
+#define RELEASE_INDIRECT_PREDICT_END \
+    int rv = _release_predict(feature_buf, 1 /* is-from-indirect-call */); \
+    _write_mapped_pages_to_file(rv, true, "indirect-predict"); \
+    DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__); \
+    return 0;
+extern "C" {
+int debrt_release_indirect_predict_0(long long fp_addr, long long deck_id)
+{
+    RELEASE_INDIRECT_PREDICT_BEGIN;
     // TODO short-circuit if the func-id should be a single deck. Make sure
     // that I look at the test-predict stuff so we're not miscounting this
     // case, too. Profiling can maintain this case, i guess? It could drop
     // all training data where the func id is a single deck, actually.
-
-    int rv = _release_predict(feature_buf, 1 /* is-from-indirect-call */);
-    _write_mapped_pages_to_file(rv, true, "indirect-predict");
-    DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__);
-    return 0;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = 0;
+    feature_buf[3] = 0;
+    feature_buf[4] = 0;
+    feature_buf[5] = 0;
+    feature_buf[6] = 0;
+    RELEASE_INDIRECT_PREDICT_END;
+}
+}
+extern "C" {
+int debrt_release_indirect_predict_1(long long fp_addr, long long deck_id,
+  long long arg1)
+{
+    RELEASE_INDIRECT_PREDICT_BEGIN;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = 0;
+    feature_buf[4] = 0;
+    feature_buf[5] = 0;
+    feature_buf[6] = 0;
+    RELEASE_INDIRECT_PREDICT_END;
+}
+}
+extern "C" {
+int debrt_release_indirect_predict_2(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2)
+{
+    RELEASE_INDIRECT_PREDICT_BEGIN;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = arg2;
+    feature_buf[4] = 0;
+    feature_buf[5] = 0;
+    feature_buf[6] = 0;
+    RELEASE_INDIRECT_PREDICT_END;
+}
+}
+extern "C" {
+int debrt_release_indirect_predict_3(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3)
+{
+    RELEASE_INDIRECT_PREDICT_BEGIN;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = arg2;
+    feature_buf[4] = arg3;
+    feature_buf[5] = 0;
+    feature_buf[6] = 0;
+    RELEASE_INDIRECT_PREDICT_END;
+}
+}
+extern "C" {
+int debrt_release_indirect_predict_4(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4)
+{
+    RELEASE_INDIRECT_PREDICT_BEGIN;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = arg2;
+    feature_buf[4] = arg3;
+    feature_buf[5] = arg4;
+    feature_buf[6] = 0;
+    RELEASE_INDIRECT_PREDICT_END;
+}
+}
+extern "C" {
+int debrt_release_indirect_predict_5(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4, long long arg5)
+{
+    RELEASE_INDIRECT_PREDICT_BEGIN;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = arg2;
+    feature_buf[4] = arg3;
+    feature_buf[5] = arg4;
+    feature_buf[6] = arg5;
+    RELEASE_INDIRECT_PREDICT_END;
 }
 }
 
