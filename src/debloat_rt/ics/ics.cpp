@@ -14,11 +14,47 @@ extern "C" {int debrt_protect_indirect(long long);}
 extern "C" {int debrt_protect_loop_end(int);}
 extern "C" {int debrt_protect_reachable_end(int);}
 extern "C" {int debrt_protect_indirect_end(long long);}
-extern "C" {int debrt_profile_indirect_print_args_ics(long long *);}
+
+extern "C" {int debrt_profile_indirect_print_args_ics_0(long long, long long);}
+extern "C" {int debrt_profile_indirect_print_args_ics_1(long long, long long,
+  long long);}
+extern "C" {int debrt_profile_indirect_print_args_ics_2(long long, long long,
+  long long, long long);}
+extern "C" {int debrt_profile_indirect_print_args_ics_3(long long, long long,
+  long long, long long, long long);}
+extern "C" {int debrt_profile_indirect_print_args_ics_4(long long, long long,
+  long long, long long, long long, long long);}
+extern "C" {int debrt_profile_indirect_print_args_ics_5(long long, long long,
+  long long, long long, long long, long long, long long);}
+
 extern "C" {int debrt_profile_update_recorded_funcs(int);}
-extern "C" {int debrt_test_predict_indirect_predict_ics(long long *);}
+
+extern "C" {int debrt_test_predict_indirect_predict_ics_0(long long, long long);}
+extern "C" {int debrt_test_predict_indirect_predict_ics_1(long long, long long,
+  long long);}
+extern "C" {int debrt_test_predict_indirect_predict_ics_2(long long, long long,
+  long long, long long);}
+extern "C" {int debrt_test_predict_indirect_predict_ics_3(long long, long long,
+  long long, long long, long long);}
+extern "C" {int debrt_test_predict_indirect_predict_ics_4(long long, long long,
+  long long, long long, long long, long long);}
+extern "C" {int debrt_test_predict_indirect_predict_ics_5(long long, long long,
+  long long, long long, long long, long long, long long);}
+
 extern "C" {int debrt_release_rectify(int);}
-extern "C" {int debrt_release_indirect_predict_ics(long long, long long, va_list);}
+
+extern "C" {int debrt_release_indirect_predict_ics_0(long long, long long);}
+extern "C" {int debrt_release_indirect_predict_ics_1(long long, long long,
+  long long);}
+extern "C" {int debrt_release_indirect_predict_ics_2(long long, long long,
+  long long, long long);}
+extern "C" {int debrt_release_indirect_predict_ics_3(long long, long long,
+  long long, long long, long long);}
+extern "C" {int debrt_release_indirect_predict_ics_4(long long, long long,
+  long long, long long, long long, long long);}
+extern "C" {int debrt_release_indirect_predict_ics_5(long long, long long,
+  long long, long long, long long, long long, long long);}
+
 extern "C" {extern int *debrt_rectification_flags;}
 extern "C" {extern int debrt_initialized;}
 
@@ -53,8 +89,8 @@ long long cached_fp_addrs_idx = 0;
 // debrt_protect_indirect. We're just going to unpack the var args here inside
 // this wrapper and then push them into this static space.
 // XXX Element 0 of the stack is the number of args to follow it.
-#define INDIRECT_CALL_STATIC_VARARG_STATIC_SZ 512
-long long indirect_call_static_vararg_stack[INDIRECT_CALL_STATIC_VARARG_STATIC_SZ] = {0L};
+//#define INDIRECT_CALL_STATIC_VARARG_STATIC_SZ 512
+//long long indirect_call_static_vararg_stack[INDIRECT_CALL_STATIC_VARARG_STATIC_SZ] = {0L};
 
 
 
@@ -120,6 +156,11 @@ int ics_static_wrapper_debrt_protect_loop_end(int loop_id)
 
 
 
+/*
+//
+// DEPRECATED
+// Leaving for posterity
+//
 // Arguments that get passed:
 // Element 0: argc (number of args to follow, >=2)
 // Element 1: function pointer target address
@@ -158,7 +199,7 @@ int ics_profile_map_indirect_call(long long argc, ...)
             //printf("ics_map_indirect_call: found cached address\n");
             va_end(ap);
             //printf("ics_map_indirect_call: adding a new recorded_funcs set\n");
-            debrt_profile_update_recorded_funcs(0 /*new set*/);
+            debrt_profile_update_recorded_funcs(0); // 0 is the new set arg
             return 0;
         }
         x = (x+1) & MAX_CACHED_FP_ADDRS_SZ;
@@ -222,6 +263,103 @@ int ics_profile_map_indirect_call(long long argc, ...)
         cached_fp_addrs[x].recorded = 0;
     }
     return 0;
+}
+}*/
+#define LINEAR_SCAN \
+    long long x_start = x; \
+    while(cached_fp_addrs[x].fp_addr != 0){ \
+        if(cached_fp_addrs[x].fp_addr == fp_addr){ \
+            debrt_profile_update_recorded_funcs(0); /*0 is the new set arg*/ \
+            return 0; \
+        } \
+        x = (x+1) & MAX_CACHED_FP_ADDRS_SZ; \
+        if(x == x_start){ \
+            assert(0 && "TODO implement dynamic hashmap support"); \
+        } \
+    }
+#define ICS_PROFILE_BEGIN \
+    long long x; \
+    x = fp_addr;
+#define ICS_PROFILE_END \
+    if(debrt_protect_indirect(fp_addr) == 0){ \
+        cached_fp_addrs[x].fp_addr = fp_addr; \
+        cached_fp_addrs[x].recorded = 0; \
+    } \
+    return 0;
+extern "C" {
+__attribute__((always_inline))
+int ics_profile_map_indirect_call_0(long long fp_addr, long long deck_id)
+{
+    ICS_PROFILE_BEGIN;
+    HASH_ADDR(x);
+    LINEAR_SCAN;
+    debrt_profile_indirect_print_args_ics_0(fp_addr, deck_id);
+    ICS_PROFILE_END;
+}
+}
+extern "C" {
+__attribute__((always_inline))
+int ics_profile_map_indirect_call_1(long long fp_addr, long long deck_id,
+  long long arg1)
+{
+    ICS_PROFILE_BEGIN;
+    HASH_ADDR(x);
+    LINEAR_SCAN;
+    debrt_profile_indirect_print_args_ics_1(fp_addr, deck_id,
+      arg1);
+    ICS_PROFILE_END;
+}
+}
+extern "C" {
+__attribute__((always_inline))
+int ics_profile_map_indirect_call_2(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2)
+{
+    ICS_PROFILE_BEGIN;
+    HASH_ADDR(x);
+    LINEAR_SCAN;
+    debrt_profile_indirect_print_args_ics_2(fp_addr, deck_id,
+      arg1, arg2);
+    ICS_PROFILE_END;
+}
+}
+extern "C" {
+__attribute__((always_inline))
+int ics_profile_map_indirect_call_3(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3)
+{
+    ICS_PROFILE_BEGIN;
+    HASH_ADDR(x);
+    LINEAR_SCAN;
+    debrt_profile_indirect_print_args_ics_3(fp_addr, deck_id,
+      arg1, arg2, arg3);
+    ICS_PROFILE_END;
+}
+}
+extern "C" {
+__attribute__((always_inline))
+int ics_profile_map_indirect_call_4(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4)
+{
+    ICS_PROFILE_BEGIN;
+    HASH_ADDR(x);
+    LINEAR_SCAN;
+    debrt_profile_indirect_print_args_ics_4(fp_addr, deck_id,
+      arg1, arg2, arg3, arg4);
+    ICS_PROFILE_END;
+}
+}
+extern "C" {
+__attribute__((always_inline))
+int ics_profile_map_indirect_call_5(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4, long long arg5)
+{
+    ICS_PROFILE_BEGIN;
+    HASH_ADDR(x);
+    LINEAR_SCAN;
+    debrt_profile_indirect_print_args_ics_5(fp_addr, deck_id,
+      arg1, arg2, arg3, arg4, arg5);
+    ICS_PROFILE_END;
 }
 }
 
@@ -318,6 +456,11 @@ int ics_profile_wrapper_debrt_protect_loop_end(int loop_id)
 //
 //
 
+/*
+//
+// DEPRECATED
+// Leaving for posterity
+//
 // Arguments that get passed:
 // Element 0: argc (number of args to follow, >=2)
 // Element 1: function pointer target address
@@ -390,6 +533,118 @@ int ics_test_predict_map_indirect_call(long long argc, ...)
 
     return 0;
 }
+}*/
+extern "C" {
+__attribute__((always_inline))
+int ics_test_predict_map_indirect_call_0(long long fp_addr, long long deck_id)
+{
+    long long x;
+    x = fp_addr;
+    HASH_ADDR(x);
+    if(cached_fp_addrs[x].fp_addr == fp_addr){
+        return 0;
+    }
+    debrt_test_predict_indirect_predict_ics_0(fp_addr, deck_id);
+    if(debrt_protect_indirect(fp_addr) == 0){
+        cached_fp_addrs[x].fp_addr = fp_addr;
+    }
+    return 0;
+}
+}
+extern "C" {
+__attribute__((always_inline))
+int ics_test_predict_map_indirect_call_1(long long fp_addr, long long deck_id,
+  long long arg1)
+{
+    long long x;
+    x = fp_addr;
+    HASH_ADDR(x);
+    if(cached_fp_addrs[x].fp_addr == fp_addr){
+        return 0;
+    }
+    debrt_test_predict_indirect_predict_ics_1(fp_addr, deck_id,
+      arg1);
+    if(debrt_protect_indirect(fp_addr) == 0){
+        cached_fp_addrs[x].fp_addr = fp_addr;
+    }
+    return 0;
+}
+}
+extern "C" {
+__attribute__((always_inline))
+int ics_test_predict_map_indirect_call_2(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2)
+{
+    long long x;
+    x = fp_addr;
+    HASH_ADDR(x);
+    if(cached_fp_addrs[x].fp_addr == fp_addr){
+        return 0;
+    }
+    debrt_test_predict_indirect_predict_ics_2(fp_addr, deck_id,
+      arg1, arg2);
+    if(debrt_protect_indirect(fp_addr) == 0){
+        cached_fp_addrs[x].fp_addr = fp_addr;
+    }
+    return 0;
+}
+}
+extern "C" {
+__attribute__((always_inline))
+int ics_test_predict_map_indirect_call_3(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3)
+{
+    long long x;
+    x = fp_addr;
+    HASH_ADDR(x);
+    if(cached_fp_addrs[x].fp_addr == fp_addr){
+        return 0;
+    }
+    debrt_test_predict_indirect_predict_ics_3(fp_addr, deck_id,
+      arg1, arg2, arg3);
+    if(debrt_protect_indirect(fp_addr) == 0){
+        cached_fp_addrs[x].fp_addr = fp_addr;
+    }
+    return 0;
+}
+}
+extern "C" {
+__attribute__((always_inline))
+int ics_test_predict_map_indirect_call_4(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4)
+{
+    long long x;
+    x = fp_addr;
+    HASH_ADDR(x);
+    if(cached_fp_addrs[x].fp_addr == fp_addr){
+        return 0;
+    }
+    debrt_test_predict_indirect_predict_ics_4(fp_addr, deck_id,
+      arg1, arg2, arg3, arg4);
+    if(debrt_protect_indirect(fp_addr) == 0){
+        cached_fp_addrs[x].fp_addr = fp_addr;
+    }
+    return 0;
+}
+}
+extern "C" {
+__attribute__((always_inline))
+int ics_test_predict_map_indirect_call_5(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4, long long arg5)
+{
+    long long x;
+    x = fp_addr;
+    HASH_ADDR(x);
+    if(cached_fp_addrs[x].fp_addr == fp_addr){
+        return 0;
+    }
+    debrt_test_predict_indirect_predict_ics_5(fp_addr, deck_id,
+      arg1, arg2, arg3, arg4, arg5);
+    if(debrt_protect_indirect(fp_addr) == 0){
+        cached_fp_addrs[x].fp_addr = fp_addr;
+    }
+    return 0;
+}
 }
 
 extern "C" {
@@ -413,6 +668,11 @@ int ics_test_predict_wrapper_debrt_protect_loop_end(int loop_id)
 //
 //
 
+/*
+//
+// DEPRECATED
+// Leaving for posterity
+//
 // Arguments that get passed:
 // Element 0: argc (number of args to follow, >=2)
 // Element 1: function pointer target address
@@ -432,68 +692,68 @@ int ics_release_map_indirect_call(long long argc, long long fp_addr, ...)
 
     x = fp_addr;
     HASH_ADDR(x);
-    /*
 
-    // FIXME future work possibly. There's a "bug" here (in test-predict, too,
-    // presumably). It's not a correctness issue but could hurt prediction
-    // accuracy, security, maybe performance. The same func pointer/address
-    // that gets invoked inside of a loop but at 2 different callsites may
-    // necessitate 2 different predictions (because it would descend in two
-    // different directions down the callgraph, depending on the callsite). But
-    // our code is currently too stupid for this. We just see the function
-    // pointer is already mapped and return early. For the static approach in
-    // Decker, this problem doesn't exist, but for prediction, the nuance of
-    // mapping a subdeck complicates this. In fact, trying to "overlay" one
-    // prediction of an indirect deck on top of another (in terms of which
-    // pages need to be mapped for the same deck but based on two different
-    // active predictions) is non-trivial -- or at least not really thought out
-    // or supported in the current runtime. In terms of just the caching
-    // problem inside of ics (i.e. the code just below), maybe one idea here is
-    // to use the deck ID as the key to the cache rather than the function
-    // address. This way you don't return early here; rather, you still make
-    // a new prediction even for the same fp-addr, etc. But runtime would need
-    // to support all of this.
-    if(cached_fp_addrs[x].fp_addr == fp_addr){
-    //if(__builtin_expect(cached_fp_addrs[x].fp_addr == fp_addr, 1)){
-    //if(cached_fp_addrs[x].fp_addr == fp_addr) [[likely]] {
-        //printf("--ics_release_map_indirect_call returning early due to cache hit\n");
-        return 0;
-    }
-    // XXX move this after cache check. Don't want to pay the overhead for
-    // this every time.... doing it here means we only pay a little when
-    // we miss in the cache.
-    if(!debrt_initialized){
-        return 0;
-    }
 
-    //printf("ics_release_map_indirect_call: fp_addr is 0x%llx\n", fp_addr);
+    //// FIXME future work possibly. There's a "bug" here (in test-predict, too,
+    //// presumably). It's not a correctness issue but could hurt prediction
+    //// accuracy, security, maybe performance. The same func pointer/address
+    //// that gets invoked inside of a loop but at 2 different callsites may
+    //// necessitate 2 different predictions (because it would descend in two
+    //// different directions down the callgraph, depending on the callsite). But
+    //// our code is currently too stupid for this. We just see the function
+    //// pointer is already mapped and return early. For the static approach in
+    //// Decker, this problem doesn't exist, but for prediction, the nuance of
+    //// mapping a subdeck complicates this. In fact, trying to "overlay" one
+    //// prediction of an indirect deck on top of another (in terms of which
+    //// pages need to be mapped for the same deck but based on two different
+    //// active predictions) is non-trivial -- or at least not really thought out
+    //// or supported in the current runtime. In terms of just the caching
+    //// problem inside of ics (i.e. the code just below), maybe one idea here is
+    //// to use the deck ID as the key to the cache rather than the function
+    //// address. This way you don't return early here; rather, you still make
+    //// a new prediction even for the same fp-addr, etc. But runtime would need
+    //// to support all of this.
+    //if(cached_fp_addrs[x].fp_addr == fp_addr){
+    ////if(__builtin_expect(cached_fp_addrs[x].fp_addr == fp_addr, 1)){
+    ////if(cached_fp_addrs[x].fp_addr == fp_addr) [[likely]] {
+    //    //printf("--ics_release_map_indirect_call returning early due to cache hit\n");
+    //    return 0;
+    //}
+    //// XXX move this after cache check. Don't want to pay the overhead for
+    //// this every time.... doing it here means we only pay a little when
+    //// we miss in the cache.
+    //if(!debrt_initialized){
+    //    return 0;
+    //}
 
-    // We should always pass at least the func ptr target addr and
-    // the deck ID, so argc should always be >= 2.
-    // FIXME... dont assert in a real version of this.
-    //assert(argc >= 2);
+    ////printf("ics_release_map_indirect_call: fp_addr is 0x%llx\n", fp_addr);
 
-    // Make sure we have enough buffer space.
-    // We need enough space to hold all the arguments,
-    // which would be:
-    //   argc <= INDIRECT_CALL_STATIC_VARARG_STATIC_SZ
-    // FIXME... dont assert here in a real version of this.
-    //assert(argc <= INDIRECT_CALL_STATIC_VARARG_STATIC_SZ);
+    //// We should always pass at least the func ptr target addr and
+    //// the deck ID, so argc should always be >= 2.
+    //// FIXME... dont assert in a real version of this.
+    ////assert(argc >= 2);
 
-    va_start(ap, fp_addr);
-    debrt_release_indirect_predict_ics(argc, fp_addr, ap);
-    va_end(ap);
+    //// Make sure we have enough buffer space.
+    //// We need enough space to hold all the arguments,
+    //// which would be:
+    ////   argc <= INDIRECT_CALL_STATIC_VARARG_STATIC_SZ
+    //// FIXME... dont assert here in a real version of this.
+    ////assert(argc <= INDIRECT_CALL_STATIC_VARARG_STATIC_SZ);
 
-    // XXX no need to "reset" or do anything with vararg_stack between calls.
-    // Whenever we invoke ics_release_map_indirect_call() again with a non-cached
-    // function pointer, we will set element 0 to the proper count again and
-    // update its elements.
+    //va_start(ap, fp_addr);
+    //debrt_release_indirect_predict_ics(argc, fp_addr, ap);
+    //va_end(ap);
 
-    // XXX don't call debrt-protect-indirect() or anything here. runtime's
-    // release mode will carry out the page-protection stuff.
+    //// XXX no need to "reset" or do anything with vararg_stack between calls.
+    //// Whenever we invoke ics_release_map_indirect_call() again with a non-cached
+    //// function pointer, we will set element 0 to the proper count again and
+    //// update its elements.
 
-    cached_fp_addrs[x].fp_addr = fp_addr;
-    */
+    //// XXX don't call debrt-protect-indirect() or anything here. runtime's
+    //// release mode will carry out the page-protection stuff.
+
+    //cached_fp_addrs[x].fp_addr = fp_addr;
+    //
     if( (cached_fp_addrs[x].fp_addr != fp_addr) && debrt_initialized ){
         va_start(ap, fp_addr);
         debrt_release_indirect_predict_ics(argc, fp_addr, ap);
@@ -501,6 +761,100 @@ int ics_release_map_indirect_call(long long argc, long long fp_addr, ...)
         cached_fp_addrs[x].fp_addr = fp_addr;
     }
 
+    return 0;
+}
+}*/
+extern "C" {
+__attribute__((always_inline))
+int ics_release_map_indirect_call_0(long long fp_addr, long long deck_id)
+{
+    long long x;
+    x = fp_addr;
+    HASH_ADDR(x);
+    if( (cached_fp_addrs[x].fp_addr != fp_addr) && debrt_initialized ){
+        debrt_release_indirect_predict_ics_0(fp_addr, deck_id);
+        cached_fp_addrs[x].fp_addr = fp_addr;
+    }
+    return 0;
+}
+}
+extern "C" {
+__attribute__((always_inline))
+int ics_release_map_indirect_call_1(long long fp_addr, long long deck_id,
+  long long arg1)
+{
+    long long x;
+    x = fp_addr;
+    HASH_ADDR(x);
+    if( (cached_fp_addrs[x].fp_addr != fp_addr) && debrt_initialized ){
+        debrt_release_indirect_predict_ics_1(fp_addr, deck_id,
+          arg1);
+        cached_fp_addrs[x].fp_addr = fp_addr;
+    }
+    return 0;
+}
+}
+extern "C" {
+__attribute__((always_inline))
+int ics_release_map_indirect_call_2(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2)
+{
+    long long x;
+    x = fp_addr;
+    HASH_ADDR(x);
+    if( (cached_fp_addrs[x].fp_addr != fp_addr) && debrt_initialized ){
+        debrt_release_indirect_predict_ics_2(fp_addr, deck_id,
+          arg1, arg2);
+        cached_fp_addrs[x].fp_addr = fp_addr;
+    }
+    return 0;
+}
+}
+extern "C" {
+__attribute__((always_inline))
+int ics_release_map_indirect_call_3(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3)
+{
+    long long x;
+    x = fp_addr;
+    HASH_ADDR(x);
+    if( (cached_fp_addrs[x].fp_addr != fp_addr) && debrt_initialized ){
+        debrt_release_indirect_predict_ics_3(fp_addr, deck_id,
+          arg1, arg2, arg3);
+        cached_fp_addrs[x].fp_addr = fp_addr;
+    }
+    return 0;
+}
+}
+extern "C" {
+__attribute__((always_inline))
+int ics_release_map_indirect_call_4(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4)
+{
+    long long x;
+    x = fp_addr;
+    HASH_ADDR(x);
+    if( (cached_fp_addrs[x].fp_addr != fp_addr) && debrt_initialized ){
+        debrt_release_indirect_predict_ics_4(fp_addr, deck_id,
+          arg1, arg2, arg3, arg4);
+        cached_fp_addrs[x].fp_addr = fp_addr;
+    }
+    return 0;
+}
+}
+extern "C" {
+__attribute__((always_inline))
+int ics_release_map_indirect_call_5(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4, long long arg5)
+{
+    long long x;
+    x = fp_addr;
+    HASH_ADDR(x);
+    if( (cached_fp_addrs[x].fp_addr != fp_addr) && debrt_initialized ){
+        debrt_release_indirect_predict_ics_5(fp_addr, deck_id,
+          arg1, arg2, arg3, arg4, arg5);
+        cached_fp_addrs[x].fp_addr = fp_addr;
+    }
     return 0;
 }
 }

@@ -2436,8 +2436,8 @@ int debrt_profile_indirect_print_args_5(long long fp_addr, long long deck_id,
 // The output to the log is of the form:
 //   profile-indirect func_id deck_id arg1 arg2 ... argn
 //
-extern "C" {
-int debrt_profile_indirect_print_args_ics(long long *varargs)
+static inline
+int _profile_indirect_print_args_ics(long long *varargs)
 {
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
@@ -2477,6 +2477,57 @@ int debrt_profile_indirect_print_args_ics(long long *varargs)
         fprintf(fp_mapped_pages, "\n");
     }
     return 0;
+}
+extern "C" {
+int debrt_profile_indirect_print_args_ics_0(long long fp_addr, long long deck_id)
+{
+    long long varargs[MAX_NUM_FEATURES] = { 2, fp_addr, deck_id };
+    return _profile_indirect_print_args_ics(varargs);
+}
+}
+extern "C" {
+int debrt_profile_indirect_print_args_ics_1(long long fp_addr, long long deck_id,
+  long long arg1)
+{
+    long long varargs[MAX_NUM_FEATURES+1] = { 2+1, fp_addr, deck_id,
+      arg1 };
+    return _profile_indirect_print_args_ics(varargs);
+}
+}
+extern "C" {
+int debrt_profile_indirect_print_args_ics_2(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2)
+{
+    long long varargs[MAX_NUM_FEATURES+1] = { 2+2, fp_addr, deck_id,
+      arg1, arg2 };
+    return _profile_indirect_print_args_ics(varargs);
+}
+}
+extern "C" {
+int debrt_profile_indirect_print_args_ics_3(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3)
+{
+    long long varargs[MAX_NUM_FEATURES+1] = { 2+3, fp_addr, deck_id,
+      arg1, arg2, arg3, };
+    return _profile_indirect_print_args_ics(varargs);
+}
+}
+extern "C" {
+int debrt_profile_indirect_print_args_ics_4(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4)
+{
+    long long varargs[MAX_NUM_FEATURES+1] = { 2+4, fp_addr, deck_id,
+      arg1, arg2, arg3, arg4 };
+    return _profile_indirect_print_args_ics(varargs);
+}
+}
+extern "C" {
+int debrt_profile_indirect_print_args_ics_5(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4, long long arg5)
+{
+    long long varargs[MAX_NUM_FEATURES+1] = { 2+5, fp_addr, deck_id,
+      arg1, arg2, arg3, arg4, arg5 };
+    return _profile_indirect_print_args_ics(varargs);
 }
 }
 
@@ -2717,50 +2768,110 @@ int debrt_test_predict_indirect_predict_5(long long fp_addr, long long deck_id,
 // Issue a prediction from ics.
 // One critical point is that because it comes from ics, it needs to grow the
 // predicted set (not replace it).
-extern "C" {
-int debrt_test_predict_indirect_predict_ics(long long *varargs)
-{
-    DEBRT_PRINTF("%s\n", __FUNCTION__);
-    _WARN_RETURN_IF_NOT_INITIALIZED();
-
-    int feature_buf[MAX_NUM_FEATURES];
-    int i;
-    int func_set_id;
-    long long num_args;
-    long long fp_addr;
-    set<int> *pred_set_p;
-
-    // XXX can we avoid this memset?
-    memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
-
-    num_args = varargs[0];
-    fp_addr = varargs[1];
-
-    if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){
-        // See debrt_profile_indirect_print_args() for details on this case.
-        DEBRT_PRINTF("WARNING: test-predict-indirect-predict-ics fp_addr not found.\n");
-        return 0;
-    }
+#define TEST_PREDICT_INDIRECT_PREDICT_ICS_BEGIN \
+    DEBRT_PRINTF("%s\n", __FUNCTION__); \
+    _WARN_RETURN_IF_NOT_INITIALIZED(); \
+    int feature_buf[MAX_NUM_FEATURES]; \
+    int func_set_id; \
+    set<int> *pred_set_p; \
+    if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){ \
+        DEBRT_PRINTF("WARNING: test-predict-indirect-predict-ics fp_addr not found.\n"); /* See debrt_profile_indirect_print_args() for details on this case. */ \
+        return 0; \
+    } \
     int func_id = func_addr_to_id[fp_addr];
-
-    // gather features into a buffer
-    feature_buf[0] = func_id;
-    for(i = 1; i < num_args; i++){
-        // FIXME see profile print args functions (normal and ics) which
-        // also cast to int and drop info.
-        feature_buf[i] = (int) varargs[i+1];
-    }
-
-    // Get a new prediction
-    func_set_id = debrt_decision_tree(feature_buf);
-    //printf("pred_set_p before: %p\n", pred_set_p);
-    pred_set_p = &func_sets[func_set_id];
-    //printf("pred_set_p after:  %p\n", pred_set_p);
-    pred_sets.push_back(pred_set_p);
-    //DEBUG_predicted_func_set_ids.push_back(func_set_id);
-    pred_set_initialized = 1;
-
+#define TEST_PREDICT_INDIRECT_PREDICT_ICS_END \
+    func_set_id = debrt_decision_tree(feature_buf); \
+    pred_set_p = &func_sets[func_set_id]; \
+    pred_sets.push_back(pred_set_p); \
+    pred_set_initialized = 1; \
     return 0;
+extern "C" {
+int debrt_test_predict_indirect_predict_ics_0(long long fp_addr, long long deck_id)
+{
+    TEST_PREDICT_INDIRECT_PREDICT_ICS_BEGIN;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = 0;
+    feature_buf[3] = 0;
+    feature_buf[4] = 0;
+    feature_buf[5] = 0;
+    feature_buf[6] = 0;
+    TEST_PREDICT_INDIRECT_PREDICT_ICS_END;
+}
+}
+extern "C" {
+int debrt_test_predict_indirect_predict_ics_1(long long fp_addr, long long deck_id,
+  long long arg1)
+{
+    TEST_PREDICT_INDIRECT_PREDICT_ICS_BEGIN;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = 0;
+    feature_buf[4] = 0;
+    feature_buf[5] = 0;
+    feature_buf[6] = 0;
+    TEST_PREDICT_INDIRECT_PREDICT_ICS_END;
+}
+}
+extern "C" {
+int debrt_test_predict_indirect_predict_ics_2(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2)
+{
+    TEST_PREDICT_INDIRECT_PREDICT_ICS_BEGIN;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = arg2;
+    feature_buf[4] = 0;
+    feature_buf[5] = 0;
+    feature_buf[6] = 0;
+    TEST_PREDICT_INDIRECT_PREDICT_ICS_END;
+}
+}
+extern "C" {
+int debrt_test_predict_indirect_predict_ics_3(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3)
+{
+    TEST_PREDICT_INDIRECT_PREDICT_ICS_BEGIN;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = arg2;
+    feature_buf[4] = arg3;
+    feature_buf[5] = 0;
+    feature_buf[6] = 0;
+    TEST_PREDICT_INDIRECT_PREDICT_ICS_END;
+}
+}
+extern "C" {
+int debrt_test_predict_indirect_predict_ics_4(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4)
+{
+    TEST_PREDICT_INDIRECT_PREDICT_ICS_BEGIN;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = arg2;
+    feature_buf[4] = arg3;
+    feature_buf[5] = arg4;
+    feature_buf[6] = 0;
+    TEST_PREDICT_INDIRECT_PREDICT_ICS_END;
+}
+}
+extern "C" {
+int debrt_test_predict_indirect_predict_ics_5(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4, long long arg5)
+{
+    TEST_PREDICT_INDIRECT_PREDICT_ICS_BEGIN;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = arg2;
+    feature_buf[4] = arg3;
+    feature_buf[5] = arg4;
+    feature_buf[6] = arg5;
+    TEST_PREDICT_INDIRECT_PREDICT_ICS_END;
 }
 }
 
@@ -3204,48 +3315,114 @@ int debrt_release_indirect_predict_5(long long fp_addr, long long deck_id,
 
 
 
+#define RELEASE_INDIRECT_PREDICT_ICS_BEGIN \
+    DEBRT_PRINTF("======================%s\n", __FUNCTION__); \
+    /* _WARN_RETURN_IF_NOT_INITIALIZED(); XXX ics already checks for initialization */ \
+    int feature_buf[MAX_NUM_FEATURES]; \
+    int func_id; \
+    if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){ \
+        DEBRT_PRINTF("----------------------WARNING: release-indirect-predict-ics fp_addr not found.\n"); /* See debrt_profile_indirect_print_args() for details on this case. */ \
+        return 0; \
+    } \
+    func_id = func_addr_to_id[fp_addr]; \
+    if(_ics_short_circuit(func_id)){ \
+        DEBRT_PRINTF("----------------------%s short circuit\n", __FUNCTION__); \
+        return 0; \
+    }
+#define RELEASE_INDIRECT_PREDICT_ICS_END \
+    int rv = _release_predict(feature_buf, 1 /* is-from-indirect-call */); \
+    _write_mapped_pages_to_file(rv, true, "indirect-predict-ics"); \
+    DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__); \
+    return 0;
 // Issue a prediction from ics.
 // One critical point is that because it comes from ics, it needs to grow the
 // predicted set (not replace it).
 extern "C" {
-int debrt_release_indirect_predict_ics(long long num_args, long long fp_addr, va_list args)
+int debrt_release_indirect_predict_ics_0(long long fp_addr, long long deck_id)
 {
-    DEBRT_PRINTF("======================%s\n", __FUNCTION__);
-    //_WARN_RETURN_IF_NOT_INITIALIZED(); // XXX ics already checks for initialization
-
-    int feature_buf[MAX_NUM_FEATURES];
-    int i;
-    int func_set_id;
-    int func_id;
-
-
-    if(func_addr_to_id.find(fp_addr) == func_addr_to_id.end()){
-        // See debrt_profile_indirect_print_args() for details on this case.
-        DEBRT_PRINTF("----------------------WARNING: release-indirect-predict-ics fp_addr not found.\n");
-        return 0;
-    }
-
-    func_id = func_addr_to_id[fp_addr];
-
-    if(_ics_short_circuit(func_id)){
-        DEBRT_PRINTF("----------------------%s short circuit\n", __FUNCTION__);
-        return 0;
-    }
-
-    // XXX can we avoid this memset?
-    memset(feature_buf, 0, MAX_NUM_FEATURES * sizeof(int));
-
-    // gather features into a buffer
+    RELEASE_INDIRECT_PREDICT_ICS_BEGIN;
     feature_buf[0] = func_id;
-    for(i = 1; i < num_args; i++){
-        // FIXME see profile print args functions (normal and ics) which
-        // also cast to int and drop info.
-        feature_buf[i] = (int) va_arg(args, long long);
-    }
-
-    int rv = _release_predict(feature_buf, 1 /* is-from-indirect-call */);
-    _write_mapped_pages_to_file(rv, true, "indirect-predict-ics");
-    DEBRT_PRINTF("----------------------%s returning\n", __FUNCTION__);
-    return 0;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = 0;
+    feature_buf[3] = 0;
+    feature_buf[4] = 0;
+    feature_buf[5] = 0;
+    feature_buf[6] = 0;
+    RELEASE_INDIRECT_PREDICT_ICS_END;
+}
+}
+extern "C" {
+int debrt_release_indirect_predict_ics_1(long long fp_addr, long long deck_id,
+  long long arg1)
+{
+    RELEASE_INDIRECT_PREDICT_ICS_BEGIN;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = 0;
+    feature_buf[4] = 0;
+    feature_buf[5] = 0;
+    feature_buf[6] = 0;
+    RELEASE_INDIRECT_PREDICT_ICS_END;
+}
+}
+extern "C" {
+int debrt_release_indirect_predict_ics_2(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2)
+{
+    RELEASE_INDIRECT_PREDICT_ICS_BEGIN;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = arg2;
+    feature_buf[4] = 0;
+    feature_buf[5] = 0;
+    feature_buf[6] = 0;
+    RELEASE_INDIRECT_PREDICT_ICS_END;
+}
+}
+extern "C" {
+int debrt_release_indirect_predict_ics_3(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3)
+{
+    RELEASE_INDIRECT_PREDICT_ICS_BEGIN;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = arg2;
+    feature_buf[4] = arg3;
+    feature_buf[5] = 0;
+    feature_buf[6] = 0;
+    RELEASE_INDIRECT_PREDICT_ICS_END;
+}
+}
+extern "C" {
+int debrt_release_indirect_predict_ics_4(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4)
+{
+    RELEASE_INDIRECT_PREDICT_ICS_BEGIN;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = arg2;
+    feature_buf[4] = arg3;
+    feature_buf[5] = arg4;
+    feature_buf[6] = 0;
+    RELEASE_INDIRECT_PREDICT_ICS_END;
+}
+}
+extern "C" {
+int debrt_release_indirect_predict_ics_5(long long fp_addr, long long deck_id,
+  long long arg1, long long arg2, long long arg3, long long arg4, long long arg5)
+{
+    RELEASE_INDIRECT_PREDICT_ICS_BEGIN;
+    feature_buf[0] = func_id;
+    feature_buf[1] = deck_id;
+    feature_buf[2] = arg1;
+    feature_buf[3] = arg2;
+    feature_buf[4] = arg3;
+    feature_buf[5] = arg4;
+    feature_buf[6] = arg5;
+    RELEASE_INDIRECT_PREDICT_ICS_END;
 }
 }
