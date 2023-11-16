@@ -5,13 +5,13 @@ import sys
 import re
 
 
-RESULTS_BASE = '/home/rudy/wo/advanced-rtd/whole-program-debloat/src/learning'
+RESULTS_BASE = '/home/rudy/wo/advanced-rtd/whole-program-debloat/results'
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 
 BMARKS_SPEC = [
     '500.perlbench',
-    '502.gcc',
+    #'502.gcc',
     '505.mcf',
     '508.namd',
     '510.parest',
@@ -58,7 +58,7 @@ def parse_runtime(filename):
 def spec_performance():
     times = []
     for bmark in BMARKS_SPEC:
-        filename = RESULTS_BASE + '/04/' + bmark + '_r-' + 'large-artd_release.out'
+        filename = RESULTS_BASE + '/2023-11-16/' + bmark + '_r-' + 'large-artd_release.out'
         t = parse_runtime(filename) 
         times.append((bmark, t))
 
