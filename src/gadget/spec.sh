@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euxo pipefail
 
 THE_LOG=spec.log
 #THE_LOG=/dev/stdout
@@ -6,10 +7,11 @@ THE_LOG=spec.log
 SPEC_PATH=/home/rudy/wo/spec/spec2017
 
 a=( 505.mcf_r 519.lbm_r  531.deepsjeng_r 541.leela_r 544.nab_r 557.xz_r )
-b=( 500.perlbench_r 508.namd_r 511.povray_r 520.omnetpp_r 523.xalancbmk_r 525.x264_r )
+#b=( 500.perlbench_r 508.namd_r 511.povray_r 520.omnetpp_r 523.xalancbmk_r 525.x264_r )
+b=( 500.perlbench_r 508.namd_r 511.povray_r 523.xalancbmk_r 525.x264_r )
 c=( 510.parest_r 538.imagick_r 526.blender_r )
 d=( 502.gcc_r )
-BMARKS=( ${a[@]} ${b[@]} ${c[@]} ${d[@]} )
+BMARKS=( ${a[@]} ${b[@]} ${c[@]} )
 #z=( 500.perlbench_r )
 #BMARKS=( ${z[@]} )
 
@@ -27,7 +29,8 @@ for i in "${!BMARKS[@]}"; do
     echo $SIZE  &>> ${THE_LOG}
 
     rm -rf resultsartd_release/$BMARK
-    python3 GSA.py --text_only --binary_version artd_release --result_folder_name ${BMARK} ${SPEC_PATH}/benchspec/CPU/$BMARK/build/build_peak_mytest-m64.0000/$BMARK"_artd_release" ${SPEC_PATH}/benchspec/CPU/$BMARK/build/build_peak_mytest-m64.0000/debrt-mapped-rx-pages-artd_release.out $START $SIZE &>> ${THE_LOG}
+    #python3 GSA.py --text_only --binary_version artd_release --result_folder_name ${BMARK} ${SPEC_PATH}/benchspec/CPU/$BMARK/build/build_peak_mytest-m64.0000/$BMARK"_artd_release" ${SPEC_PATH}/benchspec/CPU/$BMARK/build/build_peak_mytest-m64.0000/debrt-mapped-rx-pages-artd_release.out $START $SIZE &>> ${THE_LOG}
+    python3 GSA.py --text_only --binary_version artd_release --result_folder_name ${BMARK} ${SPEC_PATH}/benchspec/CPU/$BMARK/build/build_peak_mytest-m64.0000/$BMARK"_artd_release" /home/rudy/wo/advanced-rtd/whole-program-debloat/results/2023-11-16-security/"else"/${BMARK}/debrt-mapped-rx-pages.out $START $SIZE &>> ${THE_LOG}
 
 done
 

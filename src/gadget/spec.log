@@ -1,0 +1,102 @@
+Gathering gadget results for spec
+505.mcf_r
+0000000000002000
+00000000000160cc
+Starting Gadget Set Analyzer
+Analyzing original package [Original] located at: /home/rudy/wo/spec/spec2017/benchspec/CPU/505.mcf_r/build/build_peak_mytest-m64.0000/505.mcf_r_artd_release
+Writing metrics files to resultsartd_release/505.mcf_r
+519.lbm_r
+0000000000002000
+000000000000f00c
+Starting Gadget Set Analyzer
+Analyzing original package [Original] located at: /home/rudy/wo/spec/spec2017/benchspec/CPU/519.lbm_r/build/build_peak_mytest-m64.0000/519.lbm_r_artd_release
+Writing metrics files to resultsartd_release/519.lbm_r
+531.deepsjeng_r
+0000000000002000
+000000000002cadc
+Starting Gadget Set Analyzer
+Analyzing original package [Original] located at: /home/rudy/wo/spec/spec2017/benchspec/CPU/531.deepsjeng_r/build/build_peak_mytest-m64.0000/531.deepsjeng_r_artd_release
+Writing metrics files to resultsartd_release/531.deepsjeng_r
+541.leela_r
+0000000000004000
+000000000007149c
+Starting Gadget Set Analyzer
+Analyzing original package [Original] located at: /home/rudy/wo/spec/spec2017/benchspec/CPU/541.leela_r/build/build_peak_mytest-m64.0000/541.leela_r_artd_release
+Writing metrics files to resultsartd_release/541.leela_r
+544.nab_r
+0000000000004000
+000000000005d2ec
+Starting Gadget Set Analyzer
+Analyzing original package [Original] located at: /home/rudy/wo/spec/spec2017/benchspec/CPU/544.nab_r/build/build_peak_mytest-m64.0000/544.nab_r_artd_release
+Writing metrics files to resultsartd_release/544.nab_r
+557.xz_r
+0000000000003000
+00000000000d37ec
+Starting Gadget Set Analyzer
+Analyzing original package [Original] located at: /home/rudy/wo/spec/spec2017/benchspec/CPU/557.xz_r/build/build_peak_mytest-m64.0000/557.xz_r_artd_release
+Writing metrics files to resultsartd_release/557.xz_r
+500.perlbench_r
+0000000000014000
+00000000006b80cc
+Starting Gadget Set Analyzer
+Analyzing original package [Original] located at: /home/rudy/wo/spec/spec2017/benchspec/CPU/500.perlbench_r/build/build_peak_mytest-m64.0000/500.perlbench_r_artd_release
+Writing metrics files to resultsartd_release/500.perlbench_r
+508.namd_r
+0000000000002000
+000000000011c20c
+Starting Gadget Set Analyzer
+Analyzing original package [Original] located at: /home/rudy/wo/spec/spec2017/benchspec/CPU/508.namd_r/build/build_peak_mytest-m64.0000/508.namd_r_artd_release
+Writing metrics files to resultsartd_release/508.namd_r
+511.povray_r
+000000000000d000
+00000000003ec6ac
+Starting Gadget Set Analyzer
+Analyzing original package [Original] located at: /home/rudy/wo/spec/spec2017/benchspec/CPU/511.povray_r/build/build_peak_mytest-m64.0000/511.povray_r_artd_release
+Writing metrics files to resultsartd_release/511.povray_r
+523.xalancbmk_r
+000000000006b000
+0000000002c821ec
+Starting Gadget Set Analyzer
+Analyzing original package [Original] located at: /home/rudy/wo/spec/spec2017/benchspec/CPU/523.xalancbmk_r/build/build_peak_mytest-m64.0000/523.xalancbmk_r_artd_release
+Writing metrics files to resultsartd_release/523.xalancbmk_r
+525.x264_r
+0000000000005000
+00000000001d7b0c
+Starting Gadget Set Analyzer
+Analyzing original package [Original] located at: /home/rudy/wo/spec/spec2017/benchspec/CPU/525.x264_r/build/build_peak_mytest-m64.0000/525.x264_r_artd_release
+Writing metrics files to resultsartd_release/525.x264_r
+510.parest_r
+000000000006f000
+0000000002bf686c
+Starting Gadget Set Analyzer
+Analyzing original package [Original] located at: /home/rudy/wo/spec/spec2017/benchspec/CPU/510.parest_r/build/build_peak_mytest-m64.0000/510.parest_r_artd_release
+Writing metrics files to resultsartd_release/510.parest_r
+538.imagick_r
+0000000000019000
+0000000000553f6c
+Starting Gadget Set Analyzer
+Analyzing original package [Original] located at: /home/rudy/wo/spec/spec2017/benchspec/CPU/538.imagick_r/build/build_peak_mytest-m64.0000/538.imagick_r_artd_release
+Writing metrics files to resultsartd_release/538.imagick_r
+526.blender_r
+0000000000397000
+00000000073876dc
+Starting Gadget Set Analyzer
+Analyzing original package [Original] located at: /home/rudy/wo/spec/spec2017/benchspec/CPU/526.blender_r/build/build_peak_mytest-m64.0000/526.blender_r_artd_release
+Writing metrics files to resultsartd_release/526.blender_r
+Running calculate.py
+502.gcc_r - ics_linker
+505.mcf_r - ics_linker
+519.lbm_r - ics_linker
+531.deepsjeng_r - ics_linker
+541.leela_r - ics_linker
+544.nab_r - ics_linker
+557.xz_r - ics_linker
+500.perlbench_r - ics_linker
+508.namd_r - ics_linker
+511.povray_r - ics_linker
+520.omnetpp_r - ics_linker
+523.xalancbmk_r - ics_linker
+525.x264_r - ics_linker
+510.parest_r - ics_linker
+526.blender_r - ics_linker
+538.imagick_r - ics_linker

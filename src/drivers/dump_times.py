@@ -18,7 +18,7 @@ BMARKS_SPEC = [
     '511.povray',
     '519.lbm',
     #'520.omnetpp',
-    #'523.xalancbmk',
+    '523.xalancbmk',
     '525.x264',
     '526.blender',
     '531.deepsjeng',

@@ -35,7 +35,7 @@ BMARKS=(
 	511.povray_r
 	519.lbm_r
 	#520.omnetpp_r
-	#523.xalancbmk_r
+	523.xalancbmk_r
 	525.x264_r
 	526.blender_r
 	531.deepsjeng_r
@@ -96,7 +96,8 @@ for BMARK in "${BMARKS[@]}"; do
     #cp ${BMARK_PATH}/readelf*.out 04/else/${BMARK}
 
     # 2023-11-16
-    pushd ${DEST_RESULTS_BASE}/2023-11-16
+    #pushd ${DEST_RESULTS_BASE}/2023-11-16
+    pushd ${DEST_RESULTS_BASE}/2023-11-16-security
     cp ${BMARK_PATH}/large-artd_release.out ${BMARK}-large-artd_release.out
     mkdir -p else/${BMARK}
     cp ${BMARK_PATH}/debrt* else/${BMARK}
