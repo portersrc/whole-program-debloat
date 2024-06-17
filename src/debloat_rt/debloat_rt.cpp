@@ -1734,22 +1734,20 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     //    debrt_profile_trace(main_func_id);
     //}
 
-    // FIXME
-    // FIXME
-    // FIXME
-    // FIXME
-    // if this is a test build for gcc, we need to make sure the xmalloc
-    // is still executable.
-    // FIXME
-    // FIXME
-    // FIXME
-    // FIXME
-    //int xmalloc_func_id = 11270;
-    //DEBRT_PRINTF("ensuring xmalloc is still RX\n");
-    //DEBRT_PRINTF("xmalloc func id: %d\n", xmalloc_func_id);
-    //assert(xmalloc_func_id == func_name_to_id["xmalloc"]);
-    //rv = update_page_counts(xmalloc_func_id, 1);
-    //_write_mapped_pages_to_file(rv, true, "init-xmalloc");
+    // FIXME Edge case: if this is a test build for gcc, we need to make sure
+    // the xmalloc is still executable.
+    // FIXME ? This if-check is probably fragile, and if I change the way
+    // I run things, it's possible it could fail.
+    // The real solution should be in the compiler.
+    // `man program_invocation_name`
+    if(strncmp("502.gcc", program_invocation_short_name, 7) == 0){
+        int xmalloc_func_id = 11270;
+        DEBRT_PRINTF("ensuring xmalloc is still RX\n");
+        DEBRT_PRINTF("xmalloc func id: %d\n", xmalloc_func_id);
+        assert(xmalloc_func_id == func_name_to_id["xmalloc"]);
+        rv = update_page_counts(xmalloc_func_id, 1);
+        _write_mapped_pages_to_file(rv, true, "init-xmalloc");
+    }
 
     if(ENV_DEBRT_ENABLE_PROFILING){
         _profile_init();
