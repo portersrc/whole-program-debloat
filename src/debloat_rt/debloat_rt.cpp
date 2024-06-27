@@ -555,8 +555,12 @@ void _write_mapped_pages_to_file(int yes_stats_got_updated,
         }
         if(is_grow){
             fprintf(fp_mapped_pages, "page-grow-%s ", deck_type.c_str());
+            // FIXME? may need this for nginx multiprocessing
+            //fprintf(fp_mapped_pages, "getpid-%d page-grow-%s ", getpid(), deck_type.c_str());
         }else{
             fprintf(fp_mapped_pages, "page-shrink-%s ", deck_type.c_str());
+            // FIXME? may need this for nginx multiprocessing
+            //fprintf(fp_mapped_pages, "getpid-%d page-shrink-%s ", getpid(), deck_type.c_str());
         }
         if(yes_stats_got_updated){
             _stats_update_hist();
@@ -1740,6 +1744,14 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     // I run things, it's possible it could fail.
     // The real solution should be in the compiler.
     // `man program_invocation_name`
+    // FIXME
+    // FIXME
+    // FIXME
+    //   My latest understanding of this is that I may need to revert back
+    //   to something similar to what it was before. The reason is that I think
+    //   that for profiling, this may ahve broken things.... and yeah, maybe
+    //   this behavior is only wanted for gcc AND test.
+    // FIXME
     if(strncmp("502.gcc", program_invocation_short_name, 7) == 0){
         int xmalloc_func_id = 11270;
         DEBRT_PRINTF("ensuring xmalloc is still RX\n");
@@ -1854,6 +1866,8 @@ int debrt_profile_update_recorded_funcs(int new_pop_popanddump)
                 DEBRT_PRINTF("recorded_funcs_stack back element is being written to file\n");
                 DEBRT_PRINTF2("recorded-funcs-stack size: %lu\n", recorded_funcs_stack.size());
                 fprintf(fp_mapped_pages, "recorded-func-ids ");
+                // FIXME? may need this for nginx multiprocessing
+                //fprintf(fp_mapped_pages, "getpid-%d recorded-func-ids ", getpid());
                 for(int func_id : (*recorded_funcs)){
                     fprintf(fp_mapped_pages, "%d ", func_id);
                 }
@@ -2254,6 +2268,8 @@ int _profile_print_args(int argc, ...)
         va_start(ap, argc);
 
         fprintf(fp_mapped_pages, "profile %d", va_arg(ap, int));
+        // FIXME? may need this for nginx multiprocessing
+        //fprintf(fp_mapped_pages, "getpid-%d profile %d", getpid(), va_arg(ap, int));
         for(i = 1; i < argc; i++){
             fprintf(fp_mapped_pages, " %d", va_arg(ap, int));
         }
@@ -2359,6 +2375,8 @@ int _profile_indirect_print_args(long long argc, ...)
         int func_id = func_addr_to_id[fp_addr];
 
         fprintf(fp_mapped_pages, "profile-indirect");
+        // FIXME? may need this for nginx multiprocessing
+        //fprintf(fp_mapped_pages, "getpid-%d profile-indirect", getpid());
         fprintf(fp_mapped_pages, " %d", func_id);
         for(i = 1; i < argc; i++){
             fprintf(fp_mapped_pages, " %lld", va_arg(ap, long long));
@@ -2466,6 +2484,8 @@ int _profile_indirect_print_args_ics(long long *varargs)
         }
         int func_id = func_addr_to_id[fp_addr];
         fprintf(fp_mapped_pages, "profile-indirect");
+        // FIXME? may need this for nginx multiprocessing
+        //fprintf(fp_mapped_pages, "getpid-%d profile-indirect", getpid());
         fprintf(fp_mapped_pages, " %d", func_id);
         for(i = 1; i < num_args; i++){
             // FIXME this print and the normal print-args function are using
