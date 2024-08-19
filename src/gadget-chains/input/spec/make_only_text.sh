@@ -2,28 +2,30 @@
 set -euxo pipefail
 
 
-INPUT_PATH=/home/rudy/wo/whole-program-debloat/src/gadget-chains/input
+#INPUT_PATH=/home/rudy/wo/whole-program-debloat/src/gadget-chains/input
+INPUT_PATH=/home/rudy/wo/whole-program-debloat/src/gadget-chains/input/spec
 OUTPUT_PATH=/home/rudy/wo/rop-benchmark/binaries/x86/reallife/orig/debian-10-cloud
 VULN_OUTPUT_PATH=/home/rudy/wo/rop-benchmark/binaries/x86/reallife/vuln/debian-10-cloud
 #BMARK_SUFFIX=r_wpd_custlink_ics
 BMARK_SUFFIX=r_baseline_ls
 
 BMARKS=(
-    500.perlbench
-    510.parest
-    538.imagick
-    541.leela
-    519.lbm
-    505.mcf
-    520.omnetpp
-    523.xalancbmk
-    508.namd
-    511.povray
-    526.blender
-    531.deepsjeng
-    544.nab
-    557.xz
-    525.x264
+    #500.perlbench
+    502.gcc
+    #510.parest
+    #538.imagick
+    #541.leela
+    #519.lbm
+    #505.mcf
+    #520.omnetpp
+    #523.xalancbmk
+    #508.namd
+    #511.povray
+    #526.blender
+    #531.deepsjeng
+    #544.nab
+    #557.xz
+    #525.x264
 )
 
 for BMARK in "${BMARKS[@]}"; do

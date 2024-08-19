@@ -28,28 +28,29 @@ if len(sys.argv) == 2:
     ]
 else:
     benchmarks = [
-        '500.perlbench',
-        '510.parest',
-        '538.imagick',
-        '541.leela',
-        '519.lbm',
-        '505.mcf',
-        '520.omnetpp',
-        '523.xalancbmk',
-        '508.namd',
-        '511.povray',
-        '526.blender',
-        '531.deepsjeng',
-        '544.nab',
-        '557.xz',
-        '525.x264',
+        #'500.perlbench',
+        '502.gcc',
+        #'510.parest',
+        #'538.imagick',
+        #'541.leela',
+        #'519.lbm',
+        #'505.mcf',
+        #'520.omnetpp',
+        #'523.xalancbmk',
+        #'508.namd',
+        #'511.povray',
+        #'526.blender',
+        #'531.deepsjeng',
+        #'544.nab',
+        #'557.xz',
+        #'525.x264',
     ]
 
 
 
 BASE_FOLDER = '/home/rudy/wo/whole-program-debloat/src/gadget-chains'
-INPUT_PATH = BASE_FOLDER + '/input'
-OUTPUT_PATH = BASE_FOLDER + '/output'
+INPUT_PATH = BASE_FOLDER + '/input/spec'
+OUTPUT_PATH = BASE_FOLDER + '/output/spec'
 MAPPED_PAGES_FILE_PREFIX = 'debrt-mapped-rx-pages'
 BMARK_SUFFIX = 'r_wpd_custlink_ics'
 

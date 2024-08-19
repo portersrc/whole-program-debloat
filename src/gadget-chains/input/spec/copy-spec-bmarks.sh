@@ -3,6 +3,16 @@ set -euxo pipefail
 
 BUILD_HOME=/home/rudy/wo/spec/spec2017/benchspec/CPU
 
+# 2022.10.22 cporter gcc result hack
+GCC_HOME=502.gcc_r/build/build_peak_mytest-m64.0000
+#GCC_BIN=502.gcc_r_baseline_ls
+#GCC_BIN=502.gcc_r_wpd_custlink_ics
+GCC_BIN=debrt-mapped-rx-pages.out
+cp \
+  $BUILD_HOME/$GCC_HOME/$GCC_BIN \
+  502.gcc/
+exit 1
+
 PERLBENCH_HOME=500.perlbench_r/build/build_peak_mytest-m64.0000
 PERLBENCH_BIN=500.perlbench_r_baseline_ls
 PAREST_HOME=510.parest_r/build/build_peak_mytest-m64.0000

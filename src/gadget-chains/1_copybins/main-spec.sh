@@ -18,21 +18,22 @@ if [ $# == 1 ]; then
     )
 else
     BMARKS=(
-        500.perlbench
-        510.parest
-        538.imagick
-        541.leela
-        519.lbm
-        505.mcf
-        520.omnetpp
-        523.xalancbmk
-        508.namd
-        511.povray
-        #526.blender
-        531.deepsjeng
-        544.nab
-        557.xz
-        525.x264
+        #500.perlbench
+        502.gcc
+        #510.parest
+        #538.imagick
+        #541.leela
+        #519.lbm
+        #505.mcf
+        #520.omnetpp
+        #523.xalancbmk
+        #508.namd
+        #511.povray
+        ##526.blender
+        #531.deepsjeng
+        #544.nab
+        #557.xz
+        #525.x264
     )
 fi
 
@@ -42,7 +43,7 @@ fi
 for BMARK in "${BMARKS[@]}"; do
 
     pushd /home/rudy/wo/rop-benchmark/binaries/x86/reallife/orig/debian-10-cloud
-    for F in `ls /home/rudy/wo/whole-program-debloat/src/gadget-chains/output/${BMARK}/*_pg_*.bin`; do
+    for F in `ls /home/rudy/wo/whole-program-debloat/src/gadget-chains/output/spec/${BMARK}/*_pg_*.bin`; do
         ln -s $F
     done
 
