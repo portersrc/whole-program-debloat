@@ -35,6 +35,8 @@ using namespace std;
 // FIXME DEBUG ONLY
 //#define DEBUG_WITH_RX_PAGES
 
+//#define CLEAR_AFTER_LOOP
+
 //#define DEBRT_DEBUG
 // Adding DEBUG2 as a quick debug hack that doens't flood stdout
 //#define DEBRT_DEBUG2
@@ -263,6 +265,9 @@ int *stats_hist;
 
 
 
+
+
+
 static inline
 long timestamp_ns(void)
 {
@@ -467,6 +472,20 @@ void _remap_permissions(long long addr, long long size, int perm)
         assert(0 && "mprotect error");
     }
     //DEBRT_PRINTF("  mprotect succeeded\n");
+}
+
+#include <signal.h>
+set<long long> touched_pages;
+void page_fault_handler(int sig, siginfo_t *si, void *unused)
+{
+    long long addr;
+    addr = (long long) si->si_addr;
+    //printf("Got SIGSEGV at address: 0x%llx\n", addr);
+    _remap_permissions(addr, 1, RX_PERM);
+#ifdef CLEAR_AFTER_LOOP
+    touched_pages.insert(addr);
+#endif
+    //exit(42);
 }
 
 
@@ -1768,6 +1787,15 @@ int debrt_init(int main_func_id, int sink_is_enabled)
     // memset -1 still works in 2's complement...
     memset(ics_trace_buf, -1, sizeof(int) * DEBRT_TRACE_BUF_SZ);
 
+    struct sigaction sa;
+    sa.sa_flags = SA_SIGINFO;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_sigaction = page_fault_handler;
+    if(sigaction(SIGSEGV, &sa, NULL) == -1){
+        printf("sigaction failed... fixme. exiting\n");
+        exit(1);
+    }
+
     debrt_initialized = 1;
 
     debrt_init_time_ns = timestamp_ns() - start_time_ns;
@@ -2049,42 +2077,51 @@ int debrt_protect_loop_end(int loop_id)
     DEBRT_PRINTF("%s\n", __FUNCTION__);
     _WARN_RETURN_IF_NOT_INITIALIZED();
 
+    rv = 0;
+
+#ifdef CLEAR_AFTER_LOOP
+    for(set<long long>::iterator it = touched_pages.begin(); it != touched_pages.end(); it++){
+        _remap_permissions((*it), 1, RO_PERM);
+    }
+    touched_pages.clear();
+#endif
+
     // Note: For artd release builds, this ics code isn't applicable. The "ics" stuff
     // that's happening for release builds relates to predictions inside of
     // loops (and growing those prediction sets). See pred_sets as a starting
     // point for how this is handled.
-    if(ENV_DEBRT_ENABLE_RELEASE){
-        rv = _release_end();
-        _write_mapped_pages_to_file(rv, false, "loop-end");
-        rv = 0;
-    }else{
-        // Hijack the loop-end call to turn off any functions that were enabled
-        // inside of a loop due to ICS. Note that ics-set will always have a size
-        // of 0 when ICS is disabled, so checking that it's enabled doesn't really
-        // matter here.
-        for(int func_id : ics_set){
-            if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
-                // Don't use _protect_reachable. We don't want its logging.
-                // Just call update_page_counts as needed here.
-                // _protect_reachable now does this pop/dump stuff, which we don't
-                // want when fixing up ics-related pages. It also writes the
-                // updated pages to the log. But all of this will be done (as
-                // desired) at the end of this function when it calls
-                // _protect_loop_reachable().
-                DEBRT_PRINTF("ics_set func_id: %d\n", func_id);
-                update_page_counts(func_id, -1); // dropping return value
-                for(int reachable_func : func_id_to_reachable_funcs[func_id]){
-                    update_page_counts(reachable_func, -1); // dropping return value
-                }
-            }else{
-                _protect_single_end(func_id, "single-loop"); // ignoring return value
-            }
-        }
-        ics_set.clear();
-        pred_sets.clear(); // need to clear pred sets for TEST_PREDICTION
-        //DEBUG_predicted_func_set_ids.clear();
-        rv = _protect_loop_reachable(loop_id, -1);
-    }
+    //if(ENV_DEBRT_ENABLE_RELEASE){
+    //    rv = _release_end();
+    //    _write_mapped_pages_to_file(rv, false, "loop-end");
+    //    rv = 0;
+    //}else{
+    //    // Hijack the loop-end call to turn off any functions that were enabled
+    //    // inside of a loop due to ICS. Note that ics-set will always have a size
+    //    // of 0 when ICS is disabled, so checking that it's enabled doesn't really
+    //    // matter here.
+    //    for(int func_id : ics_set){
+    //        if(encompassed_funcs.find(func_id) != encompassed_funcs.end()){
+    //            // Don't use _protect_reachable. We don't want its logging.
+    //            // Just call update_page_counts as needed here.
+    //            // _protect_reachable now does this pop/dump stuff, which we don't
+    //            // want when fixing up ics-related pages. It also writes the
+    //            // updated pages to the log. But all of this will be done (as
+    //            // desired) at the end of this function when it calls
+    //            // _protect_loop_reachable().
+    //            DEBRT_PRINTF("ics_set func_id: %d\n", func_id);
+    //            update_page_counts(func_id, -1); // dropping return value
+    //            for(int reachable_func : func_id_to_reachable_funcs[func_id]){
+    //                update_page_counts(reachable_func, -1); // dropping return value
+    //            }
+    //        }else{
+    //            _protect_single_end(func_id, "single-loop"); // ignoring return value
+    //        }
+    //    }
+    //    ics_set.clear();
+    //    pred_sets.clear(); // need to clear pred sets for TEST_PREDICTION
+    //    //DEBUG_predicted_func_set_ids.clear();
+    //    rv = _protect_loop_reachable(loop_id, -1);
+    //}
 
     return rv;
 }

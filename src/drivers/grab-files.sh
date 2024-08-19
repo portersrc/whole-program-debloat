@@ -7,7 +7,11 @@ set -euxo pipefail
 
 
 BASE_PATH=/home/rudy/wo/spec/spec2017/benchspec/CPU
-DEST_RESULTS_BASE=/home/rudy/wo/advanced-rtd/whole-program-debloat/results
+#DEST_RESULTS_BASE=/home/rudy/wo/advanced-rtd/whole-program-debloat/results/asplos25-summer/2024-06-19/yes-tracing-yes-path-checking
+#DEST_RESULTS_BASE=/home/rudy/wo/advanced-rtd/whole-program-debloat/results/2024-06-27/page-fault-no-clean
+#DEST_RESULTS_BASE=/home/rudy/wo/advanced-rtd/whole-program-debloat/results/2024-06-27/page-fault-clean-after-loops
+#DEST_RESULTS_BASE=/home/rudy/wo/advanced-rtd/whole-program-debloat/results/2024-06-27/medhard-page-fault-clean-after-loops
+DEST_RESULTS_BASE=/home/rudy/wo/advanced-rtd/whole-program-debloat/results/2024-06-27/medhard-page-fault-no-clean
 
 #DEST_FOLDER=/home/rudy/wo/advanced-rtd/whole-program-debloat/src/learning/old-linker-disjoint-sets
 #DEST_FOLDER=/home/rudy/wo/advanced-rtd/whole-program-debloat/src/learning/new-linker-disjoint-sets
@@ -28,13 +32,13 @@ DEST_RESULTS_BASE=/home/rudy/wo/advanced-rtd/whole-program-debloat/results
 
 BMARKS=(
 	500.perlbench_r
-	#502.gcc_r
+	502.gcc_r
 	505.mcf_r
 	508.namd_r
     510.parest_r
 	511.povray_r
 	519.lbm_r
-	#520.omnetpp_r
+	520.omnetpp_r
 	523.xalancbmk_r
 	525.x264_r
 	526.blender_r
@@ -96,18 +100,37 @@ for BMARK in "${BMARKS[@]}"; do
     #cp ${BMARK_PATH}/readelf*.out 04/else/${BMARK}
 
     # 2023-11-16
-    #pushd ${DEST_RESULTS_BASE}/2023-11-16
-    pushd ${DEST_RESULTS_BASE}/2023-11-16-security
+    ##pushd ${DEST_RESULTS_BASE}/2023-11-16
+    #pushd ${DEST_RESULTS_BASE}/2023-11-16-security
+    #cp ${BMARK_PATH}/large-artd_release.out ${BMARK}-large-artd_release.out
+    #mkdir -p else/${BMARK}
+    #cp ${BMARK_PATH}/debrt* else/${BMARK}
+    #cp ${BMARK_PATH}/artd* else/${BMARK}
+    #cp ${BMARK_PATH}/func-set*.out else/${BMARK}
+    #cp ${BMARK_PATH}/training-data.out else/${BMARK}
+    #cp ${BMARK_PATH}/readelf*.out else/${BMARK}
+    ## gcc is too big, but just deleting all of these files. We aren't saving
+    ## the models (i.e. header files) either, and this is not much different
+    #rm $(find -name "artd-datalog*.out") 
+    #popd
+
+    # 2024-06-19
+    #pushd ${DEST_RESULTS_BASE}
+    #cp ${BMARK_PATH}/large-artd_release.out ${BMARK}-large-artd_release.out
+    #mkdir -p else/${BMARK}
+    #cp ${BMARK_PATH}/debrt* else/${BMARK}
+    #cp ${BMARK_PATH}/artd* else/${BMARK}
+    #cp ${BMARK_PATH}/func-set*.out else/${BMARK}
+    #cp ${BMARK_PATH}/training-data.out else/${BMARK}
+    #cp ${BMARK_PATH}/readelf*.out else/${BMARK}
+    ## gcc is too big, but just deleting all of these files. We aren't saving
+    ## the models (i.e. header files) either, and this is not much different
+    #rm $(find -name "artd-datalog*.out") 
+    #popd
+
+    # 2024-06-27
+    pushd ${DEST_RESULTS_BASE}
     cp ${BMARK_PATH}/large-artd_release.out ${BMARK}-large-artd_release.out
-    mkdir -p else/${BMARK}
-    cp ${BMARK_PATH}/debrt* else/${BMARK}
-    cp ${BMARK_PATH}/artd* else/${BMARK}
-    cp ${BMARK_PATH}/func-set*.out else/${BMARK}
-    cp ${BMARK_PATH}/training-data.out else/${BMARK}
-    cp ${BMARK_PATH}/readelf*.out else/${BMARK}
-    # gcc is too big, but just deleting all of these files. We aren't saving
-    # the models (i.e. header files) either, and this is not much different
-    rm $(find -name "artd-datalog*.out") 
     popd
 
 done
