@@ -38,6 +38,23 @@ using namespace std;
 #define MAX_VARARGS_SUPPORTED 5
 
 
+static inline
+long timestamp_ns(void)
+{
+    struct timespec tv = {0};
+    if(clock_gettime(CLOCK_MONOTONIC, &tv) != 0){
+        fprintf(stderr, "ERROR timestamp_ns(): clock_gettime returned non-0\n");
+        exit(1); // FIXME
+        return -1;
+    }
+    return tv.tv_sec * 1000000000 + tv.tv_nsec;
+
+    //struct timeval tv;
+    //gettimeofday(&tv, NULL);
+    //return (tv.tv_sec * 1000000000) + (tv.tv_usec * 1000);
+}
+
+
 typedef struct{
     long id;
     set<Function *> *s;
@@ -3371,7 +3388,7 @@ void AdvancedRuntimeDebloat::capture_maymust_aux_callbase_notright(Function &F)
 
 void AdvancedRuntimeDebloat::capture_ensue_aux(Function &F)
 {
-    errs() << "Processing " << F.getName() << "\n";
+    //errs() << "Processing " << F.getName() << "\n";
 
     map<BasicBlock *, set<CallBase *> > in_prev;
     map<BasicBlock *, set<CallBase *> > in_next;
@@ -3480,12 +3497,16 @@ void AdvancedRuntimeDebloat::capture_ensue_aux(Function &F)
 
 void AdvancedRuntimeDebloat::capture_ensue(Module &M)
 {
-    errs() << "Capturing ensue relation\n";
+    long start_time_ns;
+    long capture_ensue_time_ns;
+    start_time_ns = timestamp_ns();
     for(Function &F : M){
         if(F.hasName() && !F.isDeclaration()){
             capture_ensue_aux(F);
         }
     }
+    capture_ensue_time_ns = timestamp_ns() - start_time_ns;
+    errs() << "capture-ensue-time-ns: " << capture_ensue_time_ns << "\n";
 }
 
 
@@ -3831,6 +3852,10 @@ void AdvancedRuntimeDebloat::dump_callsite_to_id(void)
 }
 void AdvancedRuntimeDebloat::dump_datalog_relations(void)
 {
+    //errs() << "Dumping datalog relations\n";
+    long start_time_ns;
+    long dump_datalog_relations_time_ns;
+    start_time_ns = timestamp_ns();
     FILE *fp = fopen("artd-datalog.out", "w");
     dump_head(fp);
     dump_tail(fp);
@@ -3840,6 +3865,8 @@ void AdvancedRuntimeDebloat::dump_datalog_relations(void)
     dump_last(fp);
     dump_ensue(fp);
     fclose(fp);
+    dump_datalog_relations_time_ns = timestamp_ns() - start_time_ns;
+    errs() << "dump-datalog-relations-time-ns: " << dump_datalog_relations_time_ns << "\n";
 }
 void AdvancedRuntimeDebloat::dump_head(FILE *fp)
 {
