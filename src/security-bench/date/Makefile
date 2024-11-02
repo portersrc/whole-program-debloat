@@ -369,246 +369,264 @@ src/version.bc
 .SUFFIXES:
 .SUFFIXES: .c .o .bc
 
-all: base_ls_nostatic wpd_nostatic wpd_custlink_nostatic
-#base_ls_static wpd_static wpd_custlink_static
-# base_ls_static: lib/libcoreutils.a $(BITCODES)
-# 	llvm-link $(BITCODES) -o date_linked_static.bc
-# 	opt \
-# 	  --function-sections \
-#       -O3 \
-#       -loop-simplify \
-#       < date_linked_static.bc \
-#       > date_baseline_ls_opt_static.bc
-# 	llc  \
-# 	  --function-sections \
-#       date_baseline_ls_opt_static.bc \
-#       -relocation-model=pic \
-#       -o date_opt_static.s
-# 	g++ \
-# 	  -no-pie \
-# 	  -ffunction-sections \
-# 	  -Wl,--verbose \
-#       date_opt_static.s \
-#       -o date_static \
-#       -lm -lrt -Llib -lgreputils > linker.lds
-# 	readelf -s --wide date_static > readelf-static.out
-# 	readelf --sections date_static > readelf-sections-static.out
-# 	cp linker.lds linker_static.lds
+all: base_ls wpd wpd_custlink
 
-# wpd_static: lib/libcoreutils.a $(BITCODES)
-# 	llvm-link $(BITCODES) -o date_linked_static.bc
-# 	opt \
-# 	  --function-sections \
-#       -O3 \
-#       -loop-simplify \
-#       < date_linked_static.bc \
-#       > date_baseline_ls_opt_static.bc
-# 	opt \
-# 	  --function-sections \
-#       -load libWholeProgramDebloat.so \
-#       -WholeProgramDebloat \
-#       < date_baseline_ls_opt_static.bc \
-#       > date_wpd_opt_static.bc
-# 	llc  \
-# 	  --function-sections \
-#       date_wpd_opt_static.bc \
-#       -relocation-model=pic \
-#       -o date_wpd_opt_static.s
-# 	g++ \
-# 	  -no-pie \
-# 	  -ffunction-sections \
-# 	  -Wl,--verbose \
-#       date_wpd_opt_static.s \
-#       -o date_wpd_static \
-#       -ldebloat_rt -lm -lrt -Llib -lgreputil > linker.lds
-# 	readelf -s --wide date_wpd_static > readelf-wpd-static.out
-# 	readelf --sections date_wpd_static > readelf-sections-wpd-static.out
-# 	cp wpd_disjoint_sets.txt wpd_disjoint_sets_static.txt
-# 	cp wpd_encompassed_funcs.txt wpd_encompassed_funcs_static.txt
-# 	cp wpd_static_reachability.txt wpd_static_reachability_static.txt
-# 	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_static.txt
-# 	cp wpd_loop_to_func.txt wpd_loop_to_func_static.txt
-# 	cp wpd_static_reachability.txt wpd_static_reachability_static.txt
-# 	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_static.txt
-# 	cp wpd_stats.txt wpd_stats_static.txt
-# 	cp wpd_func_name_to_id.txt wpd_func_name_to_id_static.txt
-# 	cp wpd_func_name_has_addr_taken.txt wpd_func_name_has_addr_taken_static.txt
-# 	python3 linker.py .
-
-# wpd_custlink_static: lib/libcoreutils.a date_wpd_opt_static.s
-# 	g++ \
-# 	  -no-pie \
-#       -ffunction-sections \
-#       -c date_wpd_opt_static.s \
-#       -o date_wpd_custlink_opt_static.o
-# 	g++ \
-# 	  -no-pie \
-# 	  -ffunction-sections \
-#       -T wpd-linker-script.lds \
-#       date_wpd_custlink_opt_static.o \
-#       -o date_wpd_custlink_static \
-#       -ldebloat_rt -lm -lrt -Llib -lgreputil
-# 	readelf -s --wide date_wpd_custlink_static > readelf-wpd-custlink-static.out
-# 	readelf --sections date_wpd_custlink_static > readelf-sections-wpd-custlink-static.out
-
-base_ls_nostatic: $(LIBBITCODES) $(BITCODES)
-	llvm-link $(LIBBITCODES) $(BITCODES) -o date_linked_nostatic.bc
+base_ls: $(LIBBITCODES) $(BITCODES)
+	llvm-link $(LIBBITCODES) $(BITCODES) -o date_linked.bc
 	opt \
 	  --function-sections \
       -O3 \
       -loop-simplify \
-      < date_linked_nostatic.bc \
-      > date_baseline_ls_opt_nostatic.bc
+      < date_linked.bc \
+      > date_baseline_ls_opt.bc
 	llc  \
 	  --function-sections \
-      date_baseline_ls_opt_nostatic.bc \
+      date_baseline_ls_opt.bc \
       -relocation-model=pic \
-      -o date_opt_nostatic.s
+      -o date_opt.s
 	g++ \
 	  -no-pie \
 	  -ffunction-sections \
 	  -Wl,--verbose \
-      date_opt_nostatic.s \
-      -o date_nostatic \
+      date_opt.s \
+      -o date \
       -lm -lrt -lpcre
 
-wpd_nostatic: $(LIBBITCODES) $(BITCODES)
-	# llvm-link $(LIBBITCODES) $(BITCODES) -o date_linked_nostatic.bc
-	# opt \
-	#   --function-sections \
-  #     -O3 \
-  #     -loop-simplify \
-  #     < date_linked_nostatic.bc \
-  #     > date_baseline_ls_opt_nostatic.bc
+wpd: $(LIBBITCODES) $(BITCODES)
+	llvm-link $(LIBBITCODES) $(BITCODES) -o date_linked.bc
+	opt \
+	  --function-sections \
+      -O3 \
+      -loop-simplify \
+      < date_linked.bc \
+      > date_baseline_ls_opt.bc
 	opt \
 	  --function-sections \
       -load libWholeProgramDebloat.so \
       -WholeProgramDebloat \
-      < date_baseline_ls_opt_nostatic.bc \
-      > date_wpd_opt_nostatic.bc
+      < date_baseline_ls_opt.bc \
+      > date_wpd_opt.bc
 	llc  \
 	  --function-sections \
-      date_wpd_opt_nostatic.bc \
+      date_wpd_opt.bc \
       -relocation-model=pic \
-      -o date_wpd_opt_nostatic.s
+      -o date_wpd_opt.s
 	g++ \
 	  -no-pie \
 	  -ffunction-sections \
 	  -Wl,--verbose \
-      date_wpd_opt_nostatic.s \
-      -o date_wpd_nostatic \
+      date_wpd_opt.s \
+      -o date_wpd \
       -ldebloat_rt -lm -lrt -lpcre > linker.lds
-	readelf -s --wide date_wpd_nostatic > readelf-wpd-nostatic.out
-	readelf --sections date_wpd_nostatic > readelf-sections-wpd-nostatic.out
-	cp wpd_disjoint_sets.txt wpd_disjoint_sets_nostatic.txt
-	cp wpd_encompassed_funcs.txt wpd_encompassed_funcs_nostatic.txt
-	cp wpd_static_reachability.txt wpd_static_reachability_nostatic.txt
-	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_nostatic.txt
-	cp wpd_loop_to_func.txt wpd_loop_to_func_nostatic.txt
-	cp wpd_static_reachability.txt wpd_static_reachability_nostatic.txt
-	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_nostatic.txt
-	cp wpd_stats.txt wpd_stats_nostatic.txt
-	cp wpd_func_name_to_id.txt wpd_func_name_to_id_nostatic.txt
-	cp wpd_func_name_has_addr_taken.txt wpd_func_name_has_addr_taken_nostatic.txt
+	readelf -s --wide date_wpd > readelf-wpd.out
+	readelf --sections date_wpd > readelf-sections-wpd.out
+	cp wpd_disjoint_sets.txt wpd_disjoint_sets.txt
+	cp wpd_encompassed_funcs.txt wpd_encompassed_funcs.txt
+	cp wpd_static_reachability.txt wpd_static_reachability.txt
+	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability.txt
+	cp wpd_loop_to_func.txt wpd_loop_to_func.txt
+	cp wpd_static_reachability.txt wpd_static_reachability.txt
+	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability.txt
+	cp wpd_stats.txt wpd_stats.txt
+	cp wpd_func_name_to_id.txt wpd_func_name_to_id.txt
+	cp wpd_func_name_has_addr_taken.txt wpd_func_name_has_addr_taken.txt
 	python3 linker.py .
 
-wpd_custlink_nostatic: date_wpd_opt_nostatic.s
+wpd_custlink: date_wpd_opt.s
 	g++ \
 	  -no-pie \
       -ffunction-sections \
-      -c date_wpd_opt_nostatic.s \
-      -o date_wpd_custlink_opt_nostatic.o
+      -c date_wpd_opt.s \
+      -o date_wpd_custlink_opt.o
 	g++ \
 	  -no-pie \
 	  -ffunction-sections \
       -T wpd-linker-script.lds \
-      date_wpd_custlink_opt_nostatic.o \
-      -o date_wpd_custlink_nostatic \
+      date_wpd_custlink_opt.o \
+      -o date_wpd_custlink \
       -ldebloat_rt -lm -lrt -lpcre
-	readelf -s --wide date_wpd_custlink_nostatic > readelf-wpd-custlink-nostatic.out
-	readelf --sections date_wpd_custlink_nostatic > readelf-sections-wpd-custlink-nostatic.out
+	readelf -s --wide date_wpd_custlink > readelf-wpd-custlink.out
+	readelf --sections date_wpd_custlink > readelf-sections-wpd-custlink.out
 
-wpd_ics_nostatic: $(LIBBITCODES) $(BITCODES)
-	llvm-link $(LIBBITCODES) $(BITCODES) ics.ll -o date_linked_nostatic.bc
+wpd_ics: $(LIBBITCODES) $(BITCODES)
+	llvm-link $(LIBBITCODES) $(BITCODES) ics.ll -o date_linked.bc
 	opt \
 	  --function-sections \
 	    -O3 \
 	    -loop-simplify \
-	    < date_linked_nostatic.bc \
-	    > date_baseline_ls_opt_nostatic.bc
+	    < date_linked.bc \
+	    > date_baseline_ls_opt.bc
 	opt \
 	  --function-sections \
       -load libWholeProgramDebloat.so \
       -WholeProgramDebloat \
       --enable-indirect-call-sinking=true \
-      < date_baseline_ls_opt_nostatic.bc \
-      > date_wpd_ics_opt_nostatic.bc
+      < date_baseline_ls_opt.bc \
+      > date_wpd_ics_opt.bc
 	# disassemble so we can do a hacky fix to the ics symbols
-	llvm-dis date_wpd_ics_opt_nostatic.bc
+	llvm-dis date_wpd_ics_opt.bc
 	sed -i \
       's/declare extern_weak i32 @ics_map_indirect_call.2(i64)//w sed_changes_0.txt' \
-      date_wpd_ics_opt_nostatic.ll
+      date_wpd_ics_opt.ll
 	sed -i \
       's/declare extern_weak i32 @ics_wrapper_debrt_protect_loop_end.3(i32)//w sed_changes_1.txt' \
-      date_wpd_ics_opt_nostatic.ll
+      date_wpd_ics_opt.ll
 	sed -i \
       's/ics_map_indirect_call.2/ics_map_indirect_call/w sed_changes_2.txt' \
-      date_wpd_ics_opt_nostatic.ll
+      date_wpd_ics_opt.ll
 	sed -i \
       's/ics_wrapper_debrt_protect_loop_end.3/ics_wrapper_debrt_protect_loop_end/w sed_changes_3.txt' \
-      date_wpd_ics_opt_nostatic.ll
+      date_wpd_ics_opt.ll
 	sed -i \
       's/debrt_protect_indirect.1/debrt_protect_indirect/w sed_changes_5.txt' \
-      date_wpd_ics_opt_nostatic.ll
+      date_wpd_ics_opt.ll
 	sed -i \
       's/declare i32 @debrt_protect_indirect(i64)$$//w sed_changes_4.txt' \
-      date_wpd_ics_opt_nostatic.ll
+      date_wpd_ics_opt.ll
 	# now ingest the modified .ll file and run always-inline on it.
 	opt \
 	 --function-sections \
      -always-inline \
-     < date_wpd_ics_opt_nostatic.ll \
-     > date_wpd_ics_opt_nostatic.bc
+     < date_wpd_ics_opt.ll \
+     > date_wpd_ics_opt.bc
 	llc  \
 	  --function-sections \
-      date_wpd_ics_opt_nostatic.bc \
+      date_wpd_ics_opt.bc \
       -relocation-model=pic \
-      -o date_wpd_ics_opt_nostatic.s
+      -o date_wpd_ics_opt.s
 	g++ \
 	  -ffunction-sections \
 	  -Wl,--verbose \
-      date_wpd_ics_opt_nostatic.s \
-      -o date_wpd_ics_nostatic \
+      date_wpd_ics_opt.s \
+      -o date_wpd_ics \
       -ldebloat_rt -lm -lrt > linker.lds
-	readelf -s --wide date_wpd_ics_nostatic > readelf.out
-	readelf --sections date_wpd_ics_nostatic > readelf-sections.out
-	cp readelf.out readelf-ics-nostatic.out
-	cp readelf-sections.out readelf-sections-ics-nostatic.out
-	cp wpd_disjoint_sets.txt wpd_disjoint_sets_ics_nostatic.txt
-	cp wpd_encompassed_funcs.txt wpd_encompassed_funcs_ics_nostatic.txt
-	cp wpd_static_reachability.txt wpd_static_reachability_ics_nostatic.txt
-	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_ics_nostatic.txt
-	cp wpd_loop_to_func.txt wpd_loop_to_func_ics_nostatic.txt
-	cp wpd_static_reachability.txt wpd_static_reachability_ics_nostatic.txt
-	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_ics_nostatic.txt
-	cp wpd_stats.txt wpd_stats_ics_nostatic.txt
+	readelf -s --wide date_wpd_ics > readelf.out
+	readelf --sections date_wpd_ics > readelf-sections.out
+	cp readelf.out readelf-ics.out
+	cp readelf-sections.out readelf-sections-ics.out
+	cp wpd_disjoint_sets.txt wpd_disjoint_sets_ics.txt
+	cp wpd_encompassed_funcs.txt wpd_encompassed_funcs_ics.txt
+	cp wpd_static_reachability.txt wpd_static_reachability_ics.txt
+	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_ics.txt
+	cp wpd_loop_to_func.txt wpd_loop_to_func_ics.txt
+	cp wpd_static_reachability.txt wpd_static_reachability_ics.txt
+	cp wpd_loop_static_reachability.txt wpd_loop_static_reachability_ics.txt
+	cp wpd_stats.txt wpd_stats_ics.txt
 
-wpd_custlink_ics_nostatic: date_wpd_ics_opt_nostatic.s
+wpd_custlink_ics: date_wpd_ics_opt.s
 	g++ \
       -ffunction-sections \
-      -c date_wpd_ics_opt_nostatic.s \
-      -o date_wpd_custlink_ics_opt_nostatic.o
+      -c date_wpd_ics_opt.s \
+      -o date_wpd_custlink_ics_opt.o
 	g++ \
 	  -ffunction-sections \
       -T wpd-linker-script.lds \
-      date_wpd_custlink_ics_opt_nostatic.o \
-      -o date_wpd_custlink_ics_nostatic \
+      date_wpd_custlink_ics_opt.o \
+      -o date_wpd_custlink_ics \
       -ldebloat_rt -lm -lrt
-	readelf -s --wide date_wpd_custlink_ics_nostatic > readelf.out
-	readelf --sections date_wpd_custlink_ics_nostatic > readelf-sections.out
-	cp readelf.out readelf-custlink-ics-nostatic.out
-	cp readelf-sections.out readelf-sections-custlink-ics-nostatic.out
+	readelf -s --wide date_wpd_custlink_ics > readelf.out
+	readelf --sections date_wpd_custlink_ics > readelf-sections.out
+	cp readelf.out readelf-custlink-ics.out
+	cp readelf-sections.out readelf-sections-custlink-ics.out
 
+artd_opt: $(LIBBITCODES) $(BITCODES)
+	llvm-link $(LIBBITCODES) $(BITCODES) ics.ll -o date_ics_linked.bc
+	opt \
+      --function-sections \
+      -O3 \
+      -loop-simplify \
+      < date_ics_linked.bc \
+      > date_ics_opt.bc
+artd_pass_profile:
+	opt \
+      --function-sections \
+      -load libAdvancedRuntimeDebloat.so \
+      -AdvancedRuntimeDebloat \
+      --artd-build=profile \
+      < date_ics_opt.bc \
+      > date_artd.bc
+artd_pass_test_predict:
+	opt \
+      --function-sections \
+      -load libAdvancedRuntimeDebloat.so \
+      -AdvancedRuntimeDebloat \
+      --artd-build=test_predict \
+      < date_ics_opt.bc \
+      > date_artd.bc
+artd_pass_release:
+	opt \
+      --function-sections \
+      -load libAdvancedRuntimeDebloat.so \
+      -AdvancedRuntimeDebloat \
+      --artd-build=release \
+      < date_ics_opt.bc \
+      > date_artd.bc
+artd_ics_inline:
+	# disassemble before inlining
+	llvm-dis date_artd.bc -o date_artd-preinline.ll
+	# inline
+	opt \
+      --function-sections \
+      -always-inline \
+      < date_artd-preinline.ll \
+      > date_artd.bc
+	# disassemble after inlining
+	llvm-dis date_artd.bc -o date_artd-postinline.ll
+artd_assemble:
+	llc  \
+      --function-sections \
+      date_artd.bc \
+      -relocation-model=pic \
+      -o date_artd.s
+	# Produce a default linker script.
+	# FIXME Is there an easier way to do this than building the entire binary here?
+	g++ \
+      -ffunction-sections \
+      -Wl,--verbose \
+      date_artd.s \
+      -o date_artd_tmp \
+      -ldebloat_rt -lm -lrt > linker.lds
+	rm date_artd_tmp
+	# Create a custom linker script
+	python3 linker.py .
+	g++ \
+      -ffunction-sections \
+      -c date_artd.s \
+      -o date_artd.o
+artd_bin_profile:
+	g++ \
+      -ffunction-sections \
+      -T artd-linker-script.lds \
+      date_artd.o \
+      -o date_artd_profile \
+      -ldebloat_rt -lm -lrt
+artd_bin_test_predict:
+	g++ \
+      -ffunction-sections \
+      -T artd-linker-script.lds \
+      date_artd.o \
+      -o date_artd_test_predict \
+      -ldebloat_rt -lm -lrt
+artd_bin_release:
+	g++ \
+      -ffunction-sections \
+      -T artd-linker-script.lds \
+      date_artd.o \
+      -o date_artd_release \
+      -ldebloat_rt -lm -lrt
+# Note: these aren't complete, but it's fine for now.
+artd_profile: artd_pass_profile artd_ics_inline artd_assemble artd_bin_profile
+artd_test_predict: artd_pass_test_predict artd_ics_inline artd_assemble artd_bin_test_predict
+artd_release: artd_pass_release artd_ics_inline artd_assemble artd_bin_release
+artd_pass_datalog:
+	opt \
+      --function-sections \
+      -load libAdvancedRuntimeDebloat.so \
+      -AdvancedRuntimeDebloat \
+      --artd-build=datalog \
+      < date_ics_opt.bc \
+      > date_datalog.bc
+	  
 %.o: %.c 
 	$(CC) $(HEADERS) $(CFLAGS) -c $< -o $@
 

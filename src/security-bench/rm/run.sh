@@ -13,144 +13,81 @@ if [ $# != 2 ]; then
 fi
 
 if [ "$1" == "base_ls" ]; then
-    BIN=rm_nostatic
+    BIN=rm
     WHICH=base_ls
-    cp rm_nostatic rm
-elif [ "$1" == "base_ls_static" ]; then
-    BIN=rm_static
-    WHICH=base_ls_static
-    cp rm_static rm
 elif [ "$1" == "wpd" ]; then
-    BIN=rm_wpd_nostatic
+    BIN=rm_wpd
     WHICH=wpd
-    cp readelf-wpd-nostatic.out readelf.out
-    cp readelf-sections-wpd-nostatic.out readelf-sections.out
-    cp wpd_disjoint_sets_nostatic.txt wpd_disjoint_sets.txt 
-    cp wpd_encompassed_funcs_nostatic.txt wpd_encompassed_funcs.txt
-    cp wpd_static_reachability_nostatic.txt wpd_static_reachability.txt
-    cp wpd_loop_static_reachability_nostatic.txt wpd_loop_static_reachability.txt
-    cp wpd_loop_to_func_nostatic.txt wpd_loop_to_func.txt
-    cp wpd_static_reachability_nostatic.txt wpd_static_reachability.txt
-    cp wpd_loop_static_reachability_nostatic.txt wpd_loop_static_reachability.txt
-    cp wpd_stats_nostatic.txt wpd_stats.txt
-    cp wpd_func_name_to_id_nostatic.txt wpd_func_name_to_id.txt
-    cp wpd_func_name_has_addr_taken_nostatic.txt wpd_func_name_has_addr_taken.txt
-    cp rm_wpd_nostatic rm_wpd
-elif [ "$1" == "wpd_static" ]; then
-    BIN=rm_wpd_static
-    WHICH=wpd_static
-    cp readelf-wpd-static.out readelf.out
-    cp readelf-sections-wpd-static.out readelf-sections.out
-    cp wpd_disjoint_sets_static.txt wpd_disjoint_sets.txt 
-    cp wpd_encompassed_funcs_static.txt wpd_encompassed_funcs.txt
-    cp wpd_static_reachability_static.txt wpd_static_reachability.txt
-    cp wpd_loop_static_reachability_static.txt wpd_loop_static_reachability.txt
-    cp wpd_loop_to_func_static.txt wpd_loop_to_func.txt
-    cp wpd_static_reachability_static.txt wpd_static_reachability.txt
-    cp wpd_loop_static_reachability_static.txt wpd_loop_static_reachability.txt
-    cp wpd_stats_static.txt wpd_stats.txt
-    cp wpd_func_name_to_id_static.txt wpd_func_name_to_id.txt
-    cp wpd_func_name_has_addr_taken_static.txt wpd_func_name_has_addr_taken.txt
-    cp rm_wpd_static rm_wpd
+    cp readelf-wpd.out readelf.out
+    cp readelf-sections-wpd.out readelf-sections.out
+    cp wpd_disjoint_sets.txt wpd_disjoint_sets.txt 
+    cp wpd_encompassed_funcs.txt wpd_encompassed_funcs.txt
+    cp wpd_static_reachability.txt wpd_static_reachability.txt
+    cp wpd_loop_static_reachability.txt wpd_loop_static_reachability.txt
+    cp wpd_loop_to_func.txt wpd_loop_to_func.txt
+    cp wpd_static_reachability.txt wpd_static_reachability.txt
+    cp wpd_loop_static_reachability.txt wpd_loop_static_reachability.txt
+    cp wpd_stats.txt wpd_stats.txt
+    cp wpd_func_name_to_id.txt wpd_func_name_to_id.txt
+    cp wpd_func_name_has_addr_taken.txt wpd_func_name_has_addr_taken.txt
 elif [ "$1" == "wpd_cl" ]; then
-    BIN=rm_wpd_custlink_nostatic
+    BIN=rm_wpd_custlink
     WHICH=wpd_cl
-    cp readelf-wpd-custlink-nostatic.out readelf.out
-    cp readelf-sections-wpd-custlink-nostatic.out readelf-sections.out
-    cp wpd_disjoint_sets_nostatic.txt wpd_disjoint_sets.txt 
-    cp wpd_encompassed_funcs_nostatic.txt wpd_encompassed_funcs.txt
-    cp wpd_static_reachability_nostatic.txt wpd_static_reachability.txt
-    cp wpd_loop_static_reachability_nostatic.txt wpd_loop_static_reachability.txt
-    cp wpd_loop_to_func_nostatic.txt wpd_loop_to_func.txt
-    cp wpd_static_reachability_nostatic.txt wpd_static_reachability.txt
-    cp wpd_loop_static_reachability_nostatic.txt wpd_loop_static_reachability.txt
-    cp wpd_stats_nostatic.txt wpd_stats.txt
-    cp wpd_func_name_to_id_nostatic.txt wpd_func_name_to_id.txt
-    cp wpd_func_name_has_addr_taken_nostatic.txt wpd_func_name_has_addr_taken.txt
-    cp rm_wpd_custlink_nostatic rm_wpd_custlink
-elif [ "$1" == "wpd_cl_static" ]; then
-    BIN=rm_wpd_custlink_static
-    WHICH=wpd_cl_static
-    cp readelf-wpd-custlink-static.out readelf.out
-    cp readelf-sections-wpd-custlink-static.out readelf-sections.out
-    cp wpd_disjoint_sets_static.txt wpd_disjoint_sets.txt 
-    cp wpd_encompassed_funcs_static.txt wpd_encompassed_funcs.txt
-    cp wpd_static_reachability_static.txt wpd_static_reachability.txt
-    cp wpd_loop_static_reachability_static.txt wpd_loop_static_reachability.txt
-    cp wpd_loop_to_func_static.txt wpd_loop_to_func.txt
-    cp wpd_static_reachability_static.txt wpd_static_reachability.txt
-    cp wpd_loop_static_reachability_static.txt wpd_loop_static_reachability.txt
-    cp wpd_stats_static.txt wpd_stats.txt
-    cp wpd_func_name_to_id_static.txt wpd_func_name_to_id.txt
-    cp wpd_func_name_has_addr_taken_static.txt wpd_func_name_has_addr_taken.txt
-    cp rm_wpd_custlink_static rm_wpd_custlink
+    cp readelf-wpd-custlink.out readelf.out
+    cp readelf-sections-wpd-custlink.out readelf-sections.out
+    cp wpd_disjoint_sets.txt wpd_disjoint_sets.txt 
+    cp wpd_encompassed_funcs.txt wpd_encompassed_funcs.txt
+    cp wpd_static_reachability.txt wpd_static_reachability.txt
+    cp wpd_loop_static_reachability.txt wpd_loop_static_reachability.txt
+    cp wpd_loop_to_func.txt wpd_loop_to_func.txt
+    cp wpd_static_reachability.txt wpd_static_reachability.txt
+    cp wpd_loop_static_reachability.txt wpd_loop_static_reachability.txt
+    cp wpd_stats.txt wpd_stats.txt
+    cp wpd_func_name_to_id.txt wpd_func_name_to_id.txt
+    cp wpd_func_name_has_addr_taken.txt wpd_func_name_has_addr_taken.txt
 elif [ "$1" == "wpd_ics" ]; then
-    BIN=rm_wpd_ics_nostatic
+    BIN=rm_wpd_ics
     WHICH=wpd_ics
-    cp readelf-ics-nostatic.out readelf.out
-    cp readelf-sections-ics-nostatic.out readelf-sections.out
-    #cp wpd_disjoint_sets_ics_nostatic.txt wpd_disjoint_sets.txt 
-    #cp wpd_encompassed_funcs_ics_nostatic.txt wpd_encompassed_funcs.txt
-    #cp wpd_static_reachability_ics_nostatic.txt wpd_static_reachability.txt
-    #cp wpd_loop_static_reachability_ics_nostatic.txt wpd_loop_static_reachability.txt
-    #cp wpd_loop_to_func_ics_nostatic.txt wpd_loop_to_func.txt
-    #cp wpd_loop_static_reachability_ics_nostatic.txt wpd_loop_static_reachability.txt
-    #cp wpd_stats_ics_nostatic.txt wpd_stats.txt
-    #cp wpd_func_name_to_id_nostatic.txt wpd_func_name_to_id.txt
-    #cp wpd_func_name_has_addr_taken_nostatic.txt wpd_func_name_has_addr_taken.txt
-    #cp rm_wpd_ics_nostatic rm_wpd
-# elif [ "$1" == "wpd_ics_static" ]; then
-#     BIN=rm_wpd_static
-#     WHICH=wpd_static
-#     cp readelf-wpd-static.out readelf.out
-#     cp readelf-sections-wpd-static.out readelf-sections.out
-#     cp wpd_disjoint_sets_static.txt wpd_disjoint_sets.txt 
-#     cp wpd_encompassed_funcs_static.txt wpd_encompassed_funcs.txt
-#     cp wpd_static_reachability_static.txt wpd_static_reachability.txt
-#     cp wpd_loop_static_reachability_static.txt wpd_loop_static_reachability.txt
-#     cp wpd_loop_to_func_static.txt wpd_loop_to_func.txt
-#     cp wpd_static_reachability_static.txt wpd_static_reachability.txt
-#     cp wpd_loop_static_reachability_static.txt wpd_loop_static_reachability.txt
-#     cp wpd_stats_static.txt wpd_stats.txt
-#     cp wpd_func_name_to_id_static.txt wpd_func_name_to_id.txt
-#     cp wpd_func_name_has_addr_taken_static.txt wpd_func_name_has_addr_taken.txt
-#     cp rm_wpd_static rm_wpd
+    cp readelf-ics.out readelf.out
+    cp readelf-sections-ics.out readelf-sections.out
+    cp wpd_disjoint_sets_ics.txt wpd_disjoint_sets.txt 
+    cp wpd_encompassed_funcs_ics.txt wpd_encompassed_funcs.txt
+    cp wpd_static_reachability_ics.txt wpd_static_reachability.txt
+    cp wpd_loop_static_reachability_ics.txt wpd_loop_static_reachability.txt
+    cp wpd_loop_to_func_ics.txt wpd_loop_to_func.txt
+    cp wpd_loop_static_reachability_ics.txt wpd_loop_static_reachability.txt
+    cp wpd_stats_ics.txt wpd_stats.txt
+    cp wpd_func_name_to_id.txt wpd_func_name_to_id.txt
+    cp wpd_func_name_has_addr_taken.txt wpd_func_name_has_addr_taken.txt
 elif [ "$1" == "wpd_cl_ics" ]; then
-    BIN=rm_wpd_custlink_ics_nostatic
+    BIN=rm_wpd_custlink_ics
     WHICH=wpd_cl_ics
-    cp readelf-custlink-ics-nostatic.out readelf.out
-    cp readelf-sections-custlink-ics-nostatic.out readelf-sections.out
-    #cp wpd_disjoint_sets_ics_nostatic.txt wpd_disjoint_sets.txt 
-    #cp wpd_encompassed_funcs_ics_nostatic.txt wpd_encompassed_funcs.txt
-    #cp wpd_static_reachability_ics_nostatic.txt wpd_static_reachability.txt
-    #cp wpd_loop_static_reachability_ics_nostatic.txt wpd_loop_static_reachability.txt
-    #cp wpd_loop_to_func_ics_nostatic.txt wpd_loop_to_func.txt
-    #cp wpd_loop_static_reachability_ics_nostatic.txt wpd_loop_static_reachability.txt
-    #cp wpd_stats_ics_nostatic.txt wpd_stats.txt
-    #cp wpd_func_name_to_id_nostatic.txt wpd_func_name_to_id.txt
-    #cp wpd_func_name_has_addr_taken_nostatic.txt wpd_func_name_has_addr_taken.txt
-    #cp rm_wpd_custlink_ics_nostatic rm_wpd_custlink
-# elif [ "$1" == "wpd_static" ]; then
-#     BIN=rm_wpd_static
-#     WHICH=wpd_static
-#     cp readelf-wpd-static.out readelf.out
-#     cp readelf-sections-wpd-static.out readelf-sections.out
-#     cp wpd_disjoint_sets_static.txt wpd_disjoint_sets.txt 
-#     cp wpd_encompassed_funcs_static.txt wpd_encompassed_funcs.txt
-#     cp wpd_static_reachability_static.txt wpd_static_reachability.txt
-#     cp wpd_loop_static_reachability_static.txt wpd_loop_static_reachability.txt
-#     cp wpd_loop_to_func_static.txt wpd_loop_to_func.txt
-#     cp wpd_static_reachability_static.txt wpd_static_reachability.txt
-#     cp wpd_loop_static_reachability_static.txt wpd_loop_static_reachability.txt
-#     cp wpd_stats_static.txt wpd_stats.txt
-#     cp wpd_func_name_to_id_static.txt wpd_func_name_to_id.txt
-#     cp wpd_func_name_has_addr_taken_static.txt wpd_func_name_has_addr_taken.txt
-#     cp rm_wpd_static rm_wpd
+    cp readelf-custlink-ics.out readelf.out
+    cp readelf-sections-custlink-ics.out readelf-sections.out
+    cp wpd_disjoint_sets_ics.txt wpd_disjoint_sets.txt 
+    cp wpd_encompassed_funcs_ics.txt wpd_encompassed_funcs.txt
+    cp wpd_static_reachability_ics.txt wpd_static_reachability.txt
+    cp wpd_loop_static_reachability_ics.txt wpd_loop_static_reachability.txt
+    cp wpd_loop_to_func_ics.txt wpd_loop_to_func.txt
+    cp wpd_loop_static_reachability_ics.txt wpd_loop_static_reachability.txt
+    cp wpd_stats_ics.txt wpd_stats.txt
+    cp wpd_func_name_to_id.txt wpd_func_name_to_id.txt
+    cp wpd_func_name_has_addr_taken.txt wpd_func_name_has_addr_taken.txt
+elif [ "$1" == "artd_profile" ]; then
+    BIN=rm_artd_profile
+    WHICH=artd_profile
+elif [ "$1" == "artd_test_predict" ]; then
+    BIN=rm_artd_test_predict
+    WHICH=artd_test_predict
+elif [ "$1" == "artd_release" ]; then
+    BIN=rm_artd_release
+    WHICH=artd_release
 else
     usage_exit
 fi
 
 
+source ${PROJ_DIR}/src/spec/2017/run_aux_preprocess.sh
 #touch file1
 #{ time ./${BIN} file*; } &> 1-${WHICH}.out
 #rm -rf file*
@@ -264,3 +201,5 @@ fi
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_20_$1.out
 #cp debrt.out debrt_20_$1.out
 #rm -rf d1
+
+source ${PROJ_DIR}/src/spec/2017/run_aux_postprocess.sh
