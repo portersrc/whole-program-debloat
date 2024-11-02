@@ -38,6 +38,8 @@ using namespace std;
 //#define DEBRT_DEBUG
 // Adding DEBUG2 as a quick debug hack that doens't flood stdout
 //#define DEBRT_DEBUG2
+
+// this must be set for nmap and pdftohtml
 //#define DEBRT_ABSOLUTE_ELF_ADDRS
 
 
@@ -463,7 +465,7 @@ void _remap_permissions(long long addr, long long size, int perm)
 #endif
     if(mprotect(aligned_addr_base, size_to_remap, perm) == -1){
         int e = errno;
-        DEBRT_PRINTF("mprotect error (%d): %s\n", e, strerror(e));
+        printf("mprotect error (%d): %s\n", e, strerror(e));
         assert(0 && "mprotect error");
     }
     //DEBRT_PRINTF("  mprotect succeeded\n");
@@ -997,7 +999,7 @@ void _read_readelf_sections(void)
         elems = split_nonempty(line, ' ');
         int text_offset_idx = 0;
         if(elems.size() >= 2 && elems[1].compare(".text") == 0){
-            text_offset_idx = 3;
+            text_offset_idx = 4;
         }else if(elems.size() >= 3 && elems[2].compare(".text") == 0){
             text_offset_idx = 5;
         }
