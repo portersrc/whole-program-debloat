@@ -28,8 +28,8 @@ if len(sys.argv) == 2:
     ]
 else:
     benchmarks = [
-        'decker',
-        #'pasture',
+        #'decker',
+        'pasture',
     ]
  
 
@@ -38,9 +38,11 @@ BASE_FOLDER = '/home/rudy/wo/advanced-rtd/whole-program-debloat/src/gadget-chain
 INPUT_PATH = BASE_FOLDER + '/input'
 OUTPUT_PATH = BASE_FOLDER + '/output'
 MAPPED_PAGES_FILE_PREFIX = 'debrt-mapped-rx-pages'
+#MAPPED_PAGES_FILE_PREFIX = 'debrt-mapped-rx-pages-security-result'
 BMARK_TO_BINNAME = {
-    'decker': 'chrome_wpd_ics_static',
-    'pasture': 'chrome_artd_test_static',
+    #'decker': 'chrome_wpd_ics_static',
+    #'pasture': 'chrome_artd_test_static',
+    'pasture': 'nginx_artd_release',
 }
 
 def get_text_offset(benchmark):
