@@ -20,7 +20,7 @@ elif [ "$1" == "wpd" ]; then
     WHICH=wpd
     cp readelf-wpd.out readelf.out
     cp readelf-sections-wpd.out readelf-sections.out
-    cp wpd_disjoint_sets.txt wpd_disjoint_sets.txt 
+    cp wpd_disjoint_sets.txt wpd_disjoint_sets.txt
     cp wpd_encompassed_funcs.txt wpd_encompassed_funcs.txt
     cp wpd_static_reachability.txt wpd_static_reachability.txt
     cp wpd_loop_static_reachability.txt wpd_loop_static_reachability.txt
@@ -35,7 +35,7 @@ elif [ "$1" == "wpd_cl" ]; then
     WHICH=wpd_cl
     cp readelf-wpd-custlink.out readelf.out
     cp readelf-sections-wpd-custlink.out readelf-sections.out
-    cp wpd_disjoint_sets.txt wpd_disjoint_sets.txt 
+    cp wpd_disjoint_sets.txt wpd_disjoint_sets.txt
     cp wpd_encompassed_funcs.txt wpd_encompassed_funcs.txt
     cp wpd_static_reachability.txt wpd_static_reachability.txt
     cp wpd_loop_static_reachability.txt wpd_loop_static_reachability.txt
@@ -50,7 +50,7 @@ elif [ "$1" == "wpd_ics" ]; then
     WHICH=wpd_ics
     cp readelf-ics.out readelf.out
     cp readelf-sections-ics.out readelf-sections.out
-    cp wpd_disjoint_sets_ics.txt wpd_disjoint_sets.txt 
+    cp wpd_disjoint_sets_ics.txt wpd_disjoint_sets.txt
     cp wpd_encompassed_funcs_ics.txt wpd_encompassed_funcs.txt
     cp wpd_static_reachability_ics.txt wpd_static_reachability.txt
     cp wpd_loop_static_reachability_ics.txt wpd_loop_static_reachability.txt
@@ -64,7 +64,7 @@ elif [ "$1" == "wpd_cl_ics" ]; then
     WHICH=wpd_cl_ics
     cp readelf-custlink-ics.out readelf.out
     cp readelf-sections-custlink-ics.out readelf-sections.out
-    cp wpd_disjoint_sets_ics.txt wpd_disjoint_sets.txt 
+    cp wpd_disjoint_sets_ics.txt wpd_disjoint_sets.txt
     cp wpd_encompassed_funcs_ics.txt wpd_encompassed_funcs.txt
     cp wpd_static_reachability_ics.txt wpd_static_reachability.txt
     cp wpd_loop_static_reachability_ics.txt wpd_loop_static_reachability.txt
@@ -89,12 +89,77 @@ fi
 
 source ${PROJ_DIR}/src/spec/2017/run_aux_preprocess.sh
 
+
+
+# 2024.11.02 porter
+# adjusting this to match the experiments michael brown used in his usenix
+# paper.
+# note that his training inputs aren't enumerated in the paper, nor is it
+# clear in the repo what to use. I'll choose one input from razor (the first)
+# and report that in writing. (can also refer to my 2024.11.01 notes about
+# what i saw when tried looking for all this).
+
+if [ "$2" == "small" ]; then
+
+    { time ./${BIN}; } &> small-${WHICH}.out
+
+elif [ "$2" == "large" ]; then
+    rm -f large-${WHICH}.out
+    rm -f large-${WHICH}.debrt
+    # BIN isn't working correclty inside /bin/bash -c i guess... hack this for now
+    if [ "$1" == "base_ls" ]; then
+        for run in {1..10}; do
+            { /usr/bin/time -v /bin/bash -c './date -d "1997-01-19 08:17:48 +0 now" "+%Y-%m-%d %T" && \
+	./date -d "1997-01-19 08:17:48 +0 yesterday" "+%Y-%m-%d %T" && \
+	./date -d "1997-01-19 08:17:48 +0 tomorrow" "+%Y-%m-%d %T" && \
+	./date -d "1997-01-19 08:17:48 +0 6 years ago" "+%Y-%m-%d %T" && \
+	./date -d "1997-01-19 08:17:48 +0 7 months ago" "+%Y-%m-%d %T" && \
+	./date -d "1997-01-19 08:17:48 +0 8 weeks ago" "+%Y-%m-%d %T" && \
+	./date -d "1997-01-19 08:17:48 +0 next second" "+%Y-%m-%d %T" && \
+	./date -d "1997-01-19 08:17:48 +0 next minute" "+%Y-%m-%d %T" && \
+	./date -d "1997-01-19 08:17:48 +0 next hour" "+%Y-%m-%d %T" && \
+	./date -d "1997-01-19 08:17:48 +0 next day" "+%Y-%m-%d %T" && \
+	./date -d "1997-01-19 08:17:48 +0 next week" "+%Y-%m-%d %T" && \
+	./date -d "1997-01-19 08:17:48 +0 next month" "+%Y-%m-%d %T" && \
+	./date -d "1997-01-19 08:17:48 +0 next year" "+%Y-%m-%d %T"'; } &>> large-${WHICH}.out
+
+            cat debrt.out &>> large-${WHICH}.debrt
+        done
+    elif  [ "$1" == "artd_release" ]; then
+        #for run in {1..10}; do
+            { /usr/bin/time -v /bin/bash -c './date_artd_release -d "1997-01-19 08:17:48 +0 now" "+%Y-%m-%d %T" && \
+	./date_artd_release -d "1997-01-19 08:17:48 +0 yesterday" "+%Y-%m-%d %T" && \
+	./date_artd_release -d "1997-01-19 08:17:48 +0 tomorrow" "+%Y-%m-%d %T" && \
+	./date_artd_release -d "1997-01-19 08:17:48 +0 6 years ago" "+%Y-%m-%d %T" && \
+	./date_artd_release -d "1997-01-19 08:17:48 +0 7 months ago" "+%Y-%m-%d %T" && \
+	./date_artd_release -d "1997-01-19 08:17:48 +0 8 weeks ago" "+%Y-%m-%d %T" && \
+	./date_artd_release -d "1997-01-19 08:17:48 +0 next second" "+%Y-%m-%d %T" && \
+	./date_artd_release -d "1997-01-19 08:17:48 +0 next minute" "+%Y-%m-%d %T" && \
+	./date_artd_release -d "1997-01-19 08:17:48 +0 next hour" "+%Y-%m-%d %T" && \
+	./date_artd_release -d "1997-01-19 08:17:48 +0 next day" "+%Y-%m-%d %T" && \
+	./date_artd_release -d "1997-01-19 08:17:48 +0 next week" "+%Y-%m-%d %T" && \
+	./date_artd_release -d "1997-01-19 08:17:48 +0 next month" "+%Y-%m-%d %T" && \
+	./date_artd_release -d "1997-01-19 08:17:48 +0 next year" "+%Y-%m-%d %T"'; } &>> large-${WHICH}.out
+            cat debrt.out &>> large-${WHICH}.debrt
+        #done
+    else
+        echo "Error: should be base_ls or artd_release"
+        exit 1
+    fi
+
+else
+    usage_exit
+fi
+
+
+
+
 # 2021.09.23 cporter:
 # This first test case returns 1 for the baseline.
 # The others are fine.
-{ time ./${BIN} --date '02/29/1997 1 year' "+%Y-%m-%d"; } &> 1-${WHICH}.out
-cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_1_$1.out
-cp debrt.out debrt_1_$1.out
+#{ time ./${BIN} --date '02/29/1997 1 year' "+%Y-%m-%d"; } &> 1-${WHICH}.out
+#cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_1_$1.out
+#cp debrt.out debrt_1_$1.out
 #
 #{ time ./${BIN} --date '1995-1-7' +%U; } &> 2-${WHICH}.out
 #cp debrt-mapped-rx-pages.out debrt-mapped-rx-pages_2_$1.out

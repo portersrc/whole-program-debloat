@@ -20,7 +20,7 @@ elif [ "$1" == "wpd" ]; then
     WHICH=wpd
     cp readelf-wpd.out readelf.out
     cp readelf-sections-wpd.out readelf-sections.out
-    cp wpd_disjoint_sets.txt wpd_disjoint_sets.txt 
+    cp wpd_disjoint_sets.txt wpd_disjoint_sets.txt
     cp wpd_encompassed_funcs.txt wpd_encompassed_funcs.txt
     cp wpd_static_reachability.txt wpd_static_reachability.txt
     cp wpd_loop_static_reachability.txt wpd_loop_static_reachability.txt
@@ -35,7 +35,7 @@ elif [ "$1" == "wpd_cl" ]; then
     WHICH=wpd_cl
     cp readelf-wpd-custlink.out readelf.out
     cp readelf-sections-wpd-custlink.out readelf-sections.out
-    cp wpd_disjoint_sets.txt wpd_disjoint_sets.txt 
+    cp wpd_disjoint_sets.txt wpd_disjoint_sets.txt
     cp wpd_encompassed_funcs.txt wpd_encompassed_funcs.txt
     cp wpd_static_reachability.txt wpd_static_reachability.txt
     cp wpd_loop_static_reachability.txt wpd_loop_static_reachability.txt
@@ -50,7 +50,7 @@ elif [ "$1" == "wpd_ics" ]; then
     WHICH=wpd_ics
     cp readelf-ics.out readelf.out
     cp readelf-sections-ics.out readelf-sections.out
-    cp wpd_disjoint_sets_ics.txt wpd_disjoint_sets.txt 
+    cp wpd_disjoint_sets_ics.txt wpd_disjoint_sets.txt
     cp wpd_encompassed_funcs_ics.txt wpd_encompassed_funcs.txt
     cp wpd_static_reachability_ics.txt wpd_static_reachability.txt
     cp wpd_loop_static_reachability_ics.txt wpd_loop_static_reachability.txt
@@ -64,7 +64,7 @@ elif [ "$1" == "wpd_cl_ics" ]; then
     WHICH=wpd_cl_ics
     cp readelf-custlink-ics.out readelf.out
     cp readelf-sections-custlink-ics.out readelf-sections.out
-    cp wpd_disjoint_sets_ics.txt wpd_disjoint_sets.txt 
+    cp wpd_disjoint_sets_ics.txt wpd_disjoint_sets.txt
     cp wpd_encompassed_funcs_ics.txt wpd_encompassed_funcs.txt
     cp wpd_static_reachability_ics.txt wpd_static_reachability.txt
     cp wpd_loop_static_reachability_ics.txt wpd_loop_static_reachability.txt
@@ -88,6 +88,73 @@ fi
 
 
 source ${PROJ_DIR}/src/spec/2017/run_aux_preprocess.sh
+
+
+
+
+
+# 2024.11.02 porter
+# adjusting this to match the experiments michael brown used in his usenix
+# paper.
+# note that his training inputs aren't enumerated in the paper, nor is it
+# clear in the repo what to use. I'll choose one input from razor (the first)
+# and report that in writing. (can also refer to my 2024.11.01 notes about
+# what i saw when tried looking for all this).
+
+
+if [ "$2" == "small" ]; then
+
+    { time ./${BIN} d1; } &> small-${WHICH}.out
+
+
+elif [ "$2" == "large" ]; then
+    rm -f large-${WHICH}.out
+    rm -f large-${WHICH}.debrt
+    rm -rf /tmp/mkdir_benchmark
+    rm -rf d1
+    # BIN isn't working correclty inside /bin/bash -c i guess... hack this for now
+    if [ "$1" == "base_ls" ]; then
+        for run in {1..10}; do
+            { /usr/bin/time -v /bin/bash -c './mkdir -p /tmp/mkdir_benchmark && \
+    cd /tmp/mkdir_benchmark && \
+    /home/rudy/wo/security-bench/artd/mkdir/mkdir -p d1 && \
+    /home/rudy/wo/security-bench/artd/mkdir/mkdir -p d1/d2 && \
+    /home/rudy/wo/security-bench/artd/mkdir/mkdir -p d1/d2/d3/d4 && \
+    /home/rudy/wo/security-bench/artd/mkdir/mkdir -p d1 && \
+    /home/rudy/wo/security-bench/artd/mkdir/mkdir -p d1/d2'; } &>> large-${WHICH}.out
+            cat debrt.out &>> large-${WHICH}.debrt
+        done
+    elif  [ "$1" == "artd_release" ]; then
+        # NOTE porter: I moved the cd /tmp/mkdir_benchmark to be the last
+        # command b/c all of the ad-hoc files that the runtime needs (artd*.txt
+        # files, etc.) are not available there. But keeping it as the last
+        # command is at least truer to the (very very fast) execution time.
+        # I also put `rm -rf d1` abovebecause otherwise this mkdir folder
+        # would get polluted with it.
+        #for run in {1..10}; do
+            { /usr/bin/time -v /bin/bash -c './mkdir_artd_release -p /tmp/mkdir_benchmark && \
+    /home/rudy/wo/security-bench/artd/mkdir/mkdir_artd_release -p d1 && \
+    /home/rudy/wo/security-bench/artd/mkdir/mkdir_artd_release -p d1/d2 && \
+    /home/rudy/wo/security-bench/artd/mkdir/mkdir_artd_release -p d1/d2/d3/d4 && \
+    /home/rudy/wo/security-bench/artd/mkdir/mkdir_artd_release -p d1 && \
+    /home/rudy/wo/security-bench/artd/mkdir/mkdir_artd_release -p d1/d2 && \
+    cd /tmp/mkdir_benchmark'; } &>> large-${WHICH}.out
+            cat debrt.out &>> large-${WHICH}.debrt
+        #done
+        rm -rf d1
+    else
+        echo "Error: should be base_ls or artd_release"
+        exit 1
+    fi
+
+else
+    usage_exit
+fi
+
+
+
+
+
 
 # 2021.09.24 cporter: razor paper reports 24 tests, but the run-razor.py
 # script has 25 tests. We replicate all 25 tests.

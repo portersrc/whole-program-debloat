@@ -98,10 +98,10 @@ for BMARK in "${BMARKS[@]}"; do
 
     # performance
     #./run.sh base large; echo $?
-    #DEBRT_ENABLE_RELEASE=1 ./run.sh artd_release large; echo $?
+    DEBRT_ENABLE_RELEASE=1 ./run.sh artd_release large; echo $?
 
     # security
-    DEBRT_ENABLE_STATS=1 DEBRT_ENABLE_RELEASE=1 ./run.sh artd_release large; echo $?
+    #DEBRT_ENABLE_STATS=1 DEBRT_ENABLE_RELEASE=1 ./run.sh artd_release large; echo $?
     popd &> /dev/null
 
 done
